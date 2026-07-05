@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinguaBridge — 生徒用</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main>
+      <div id="status-banner" class="status-banner hidden"></div>
+
+      <section id="join" class="panel hidden">
+        <h1>ルームに参加</h1>
+        <p>先生の画面に表示されているルームコードを入力してください。</p>
+        <div class="compose-row">
+          <input type="text" id="room-input" placeholder="例: ABC123" autocomplete="off" autocapitalize="characters" />
+          <button id="join-btn">参加</button>
+        </div>
+      </section>
+
+      <section id="feed" class="feed hidden"></section>
+    </main>
+    <script type="module" src="./src/student/main.ts"></script>
+  </body>
+</html>
