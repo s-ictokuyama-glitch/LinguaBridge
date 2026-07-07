@@ -206,27 +206,13 @@ def create_app(
         await ws.send_json(
             proto.Joined(
                 seq_head=session.seq_head,
+                history_from=session.history_from,
                 languages=config.languages,
                 session_state=session.state,
             ).model_dump()
         )
-        if msg.role == "student" and msg.last_seq is not None and client.lang is not None:
-            # 差分復元（F-11）: 訳文があれば即時再送、無ければオンデマンド翻訳を依頼
-            # （切断中はアクティブ言語から外れて翻訳されていないことがある）
-            for utt in session.history_entries_since(msg.last_seq):
-                translation = utt.translations.get(client.lang)
-                if translation is not None:
-                    await ws.send_json(
-                        proto.Caption(
-                            seq=utt.seq,
-                            ja=utt.text_ja,
-                            text=translation.text,
-                            lang=translation.lang,
-                            delay_ms=0,
-                        ).model_dump()
-                    )
-                else:
-                    await pipeline.request_replay(utt, client.lang, client.id)
+        if msg.role == "student" and msg.last_seq is not None:
+            await pipeline.replay_history(client, msg.last_seq)
         if msg.role == "teacher" and session.auto_paused:
             # 先生切断による自動一時停止（E-07）は、先生の再接続で自動再開する
             session.auto_paused = False

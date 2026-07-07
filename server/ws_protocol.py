@@ -68,6 +68,9 @@ def parse_client_message(raw: str | bytes) -> ClientMessage:
 class Joined(BaseModel):
     type: Literal["joined"] = "joined"
     seq_head: int
+    # 履歴で復元可能な最古のseq。これより前は再送されない（履歴上限で切れた分）。
+    # クライアントは last_seq の下限をこの値-1に引き上げて恒久欠落を確定させる
+    history_from: int
     languages: list[Language]
     session_state: SessionState
 

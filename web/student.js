@@ -8,13 +8,26 @@ const state = {
   code: "",
   lang: null,
   prevLang: null,
+  // 連続確定watermark: 「ここまでは1つも欠けずに受信済み」のseq。
+  // 再接続時の last_seq に使う（表示済みの最大seqではない — 復元とライブの
+  // 交錯で歯抜けのまま最大値を申告すると、間のseqが恒久欠落するため）
   lastSeq: 0,
+  pendingSeqs: new Set(), // watermarkより先に届いたseq（連続がつながるまで保持）
   ws: null,
   joined: false,
   ended: false,
   languages: [],
   retryDelayMs: RETRY_BASE_MS,
 };
+
+function advanceWatermark(seq) {
+  if (seq <= state.lastSeq) return;
+  state.pendingSeqs.add(seq);
+  while (state.pendingSeqs.has(state.lastSeq + 1)) {
+    state.pendingSeqs.delete(state.lastSeq + 1);
+    state.lastSeq += 1;
+  }
+}
 
 const el = {
   joinScreen: document.getElementById("join-screen"),
@@ -101,8 +114,10 @@ function connect(lastSeq) {
   ws.addEventListener("close", () => {
     if (!state.joined || state.ended) return;
     setBanner("disconnected");
-    // 指数バックオフで自動再接続し、last_seq で欠落分を差分復元する（E-06）
-    setTimeout(() => connect(state.lastSeq), state.retryDelayMs);
+    // 指数バックオフ＋ジッタで自動再接続し、last_seq で欠落分を差分復元する（E-06）。
+    // ジッタはAP瞬断復帰時に全端末が同時再接続するのを避けるため
+    const jitter = 0.7 + Math.random() * 0.6;
+    setTimeout(() => connect(state.lastSeq), state.retryDelayMs * jitter);
     state.retryDelayMs = Math.min(state.retryDelayMs * 2, RETRY_MAX_MS);
   });
 }
@@ -112,12 +127,28 @@ function handleMessage(msg) {
     case "joined":
       state.joined = true;
       state.retryDelayMs = RETRY_BASE_MS; // 再接続成功でバックオフをリセット
+      // 履歴上限で復元不能になった分は欠落確定として watermark を進める
+      if (msg.history_from - 1 > state.lastSeq) {
+        state.lastSeq = msg.history_from - 1;
+        state.pendingSeqs.clear();
+      }
       el.joinScreen.hidden = true;
       el.captionScreen.hidden = false;
       el.langSelect.value = state.lang;
       setBanner(msg.session_state);
       break;
-    case "join_rejected":
+    case "join_rejected": {
+      if (state.joined && msg.reason === "rate_limited") {
+        // 再接続中の一時ブロック: 接続を切ってバックオフ再試行に任せる
+        state.ws.close();
+        break;
+      }
+      if (state.joined) {
+        // 再接続中にコードが無効化された（サーバー再起動等）: 参加画面へ戻す
+        state.joined = false;
+        el.captionScreen.hidden = true;
+        el.joinScreen.hidden = false;
+      }
       el.joinError.textContent =
         msg.reason === "bad_code"
           ? "参加コードが違います / Wrong code / 参加码错误"
@@ -126,9 +157,10 @@ function handleMessage(msg) {
             : "この言語には対応していません / Unsupported language";
       el.joinError.hidden = false;
       break;
+    }
     case "caption":
       addCard(msg);
-      if (msg.seq > state.lastSeq) state.lastSeq = msg.seq;
+      advanceWatermark(msg.seq);
       break;
     case "session":
       if (msg.state === "ended") state.ended = true;

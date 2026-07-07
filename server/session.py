@@ -54,6 +54,11 @@ class Session:
     def seq_head(self) -> int:
         return self._seq
 
+    @property
+    def history_from(self) -> int:
+        """履歴で復元可能な最古のseq（履歴が空なら次に発行されるseq）。"""
+        return self.history[0].seq if self.history else self._seq + 1
+
     def next_seq(self) -> int:
         self._seq += 1
         return self._seq

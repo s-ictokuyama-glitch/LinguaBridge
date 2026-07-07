@@ -18,6 +18,7 @@ from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.integration.test_ws_boundary import (
     PHRASE_1000,
     PHRASE_2000,
+    PHRASE_3000,
     join_student,
     join_teacher,
     send_utterance,
@@ -48,15 +49,44 @@ class TestStudentReconnect:
                 msg = join_student(rejoined, "en", last_seq=1)
                 assert msg["type"] == "joined"
                 assert msg["seq_head"] == 3
+                assert msg["history_from"] == 1
                 replay = [rejoined.receive_json() for _ in range(2)]
-                assert [(c["seq"], c["ja"]) for c in replay] == [
-                    (2, PHRASE_2000),
-                    (3, "今日は天気がいいですね。"),
+                # 切断中に翻訳されていなかった分もオンデマンド翻訳で復元される
+                assert [(c["seq"], c["ja"], c["text"]) for c in replay] == [
+                    (2, PHRASE_2000, f"[en] {PHRASE_2000}"),
+                    (3, PHRASE_3000, f"[en] {PHRASE_3000}"),
                 ]
                 # 復元後はライブ配信が継続する
                 send_utterance(teacher, key=1000)
                 live = rejoined.receive_json()
                 assert live["seq"] == 4 and live["ja"] == PHRASE_1000
+
+    def test_mixed_cached_and_ondemand_replay_keeps_order(self, client):
+        """翻訳キャッシュ済みと未翻訳が混在する履歴の復元が seq 順で届く。"""
+        with client.websocket_connect("/ws") as teacher:
+            join_teacher(teacher)
+            start_session(teacher)
+            with client.websocket_connect("/ws") as observer:  # seq1-2の間だけ在席するen生徒
+                join_student(observer, "en")
+                with client.websocket_connect("/ws") as target:
+                    join_student(target, "en")
+                    send_utterance(teacher, key=1000)
+                    assert target.receive_json()["seq"] == 1
+                    assert observer.receive_json()["seq"] == 1
+                # target切断中の seq2 は observer 在席のため翻訳キャッシュあり
+                send_utterance(teacher, key=2000)
+                assert observer.receive_json()["seq"] == 2
+            # 全員切断後の seq3 は未翻訳のまま履歴に残る
+            send_utterance(teacher, key=3000)
+            assert [teacher.receive_json()["seq"] for _ in range(3)] == [1, 2, 3]
+
+            with client.websocket_connect("/ws") as rejoined:
+                assert join_student(rejoined, "en", last_seq=1)["type"] == "joined"
+                replay = [rejoined.receive_json() for _ in range(2)]
+                assert [(c["seq"], c["text"]) for c in replay] == [
+                    (2, f"[en] {PHRASE_2000}"),
+                    (3, f"[en] {PHRASE_3000}"),
+                ]
 
     def test_long_disconnect_restores_up_to_history_limit(self, asr_engine, mt_engine):
         # 履歴上限3の構成で5発話 → last_seq=0 で再接続 → 直近3件だけ復元される

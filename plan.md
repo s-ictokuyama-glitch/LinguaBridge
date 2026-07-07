@@ -279,7 +279,8 @@ history_resend: 50
 **サーバー → 生徒**
 
 ```jsonc
-{ "type": "joined",  "seq_head": 12, "languages": [...], "session_state": "live" }
+{ "type": "joined",  "seq_head": 12, "history_from": 3,   // 履歴で復元可能な最古seq
+  "languages": [...], "session_state": "live" }
 { "type": "caption", "seq": 13, "ja": "光合成には日光が必要です。",
   "text": "光合作用需要阳光。", "lang": "zh", "delay_ms": 4200 }
 { "type": "session", "state": "paused" | "live" | "ended" }   // バナー表示用
@@ -294,7 +295,7 @@ history_resend: 50
 { "type": "error", "code": "mic_silent" | "queue_overload", "message": "..." }
 ```
 
-エラー応答: 参加コード不一致は `{"type":"join_rejected", "reason":"bad_code"}` → クライアントは再入力UI。5回連続失敗で当該IPを60秒拒否（総当たり対策）。
+エラー応答: 参加拒否は `{"type":"join_rejected", "reason":"bad_code" | "bad_lang" | "rate_limited"}` → クライアントは再入力UI。5回連続失敗で当該IPを60秒拒否（`rate_limited`、総当たり対策）。
 
 ### 6.3 サーバー内部パイプライン（pipeline.py）
 

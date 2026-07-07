@@ -12,6 +12,7 @@ ASR・MTは各1スレッドの ThreadPoolExecutor で直列実行する
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -56,6 +57,12 @@ class MTJob:
     target_client_id: str | None = None
 
 
+# MTキューの優先度: ライブ字幕（N-01の遅延基準の対象）が
+# 再接続復元ジョブ（最大K=50件）に停滞させられないようにする
+_LIVE_PRIORITY = 0
+_REPLAY_PRIORITY = 1
+
+
 class Pipeline:
     def __init__(
         self,
@@ -77,7 +84,9 @@ class Pipeline:
             pre_roll_ms=config.vad.pre_roll_ms,
         )
         self._asr_queue: asyncio.Queue[Segment] = asyncio.Queue(maxsize=4)
-        self._mt_queue: asyncio.Queue[MTJob] = asyncio.Queue()
+        # (優先度, 連番, ジョブ)。連番は同一優先度内のFIFOを保証する
+        self._mt_queue: asyncio.PriorityQueue[tuple[int, int, MTJob]] = asyncio.PriorityQueue()
+        self._mt_counter = itertools.count()
         self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
         self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
         self._tasks: list[asyncio.Task[None]] = []
@@ -151,12 +160,15 @@ class Pipeline:
                 proto.AsrFinal(seq=utterance.seq, ja=utterance.text_ja, asr_ms=asr_ms)
             )
             for lang in sorted(self._session.active_langs()):
-                await self._mt_queue.put(MTJob(utterance, lang, segment.closed_at))
+                await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, segment.closed_at))
+
+    async def _enqueue_mt(self, priority: int, job: MTJob) -> None:
+        await self._mt_queue.put((priority, next(self._mt_counter), job))
 
     async def _mt_worker(self) -> None:
         loop = asyncio.get_running_loop()
         while True:
-            job = await self._mt_queue.get()
+            _, _, job = await self._mt_queue.get()
             translation = job.utterance.translations.get(job.lang)
             if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
                 started = time.monotonic()
@@ -186,16 +198,39 @@ class Pipeline:
             )
             if job.target_client_id is not None:
                 client = self._session.clients.get(job.target_client_id)
-                if client is not None and client.lang == job.lang:
+                if client is None:
+                    continue  # 復元待ちの間に再切断。次回rejoinのlast_seqで再復元される
+                if client.lang == job.lang:
                     await self._safe_send(client, caption.model_dump())
+                elif client.lang is not None:
+                    # 復元待ちの間に言語変更: 新しい言語で翻訳し直して届ける
+                    await self._enqueue_mt(
+                        _REPLAY_PRIORITY,
+                        MTJob(
+                            job.utterance,
+                            client.lang,
+                            job.closed_at,
+                            target_client_id=client.id,
+                        ),
+                    )
             else:
                 await self.broadcast_caption(caption)
 
-    async def request_replay(self, utterance: Utterance, lang: str, client_id: str) -> None:
-        """再接続した生徒への差分復元。訳文が無ければMTワーカーが翻訳してから届ける。"""
-        await self._mt_queue.put(
-            MTJob(utterance, lang, time.monotonic(), target_client_id=client_id)
-        )
+    async def replay_history(self, client: Client, last_seq: int) -> None:
+        """再接続した生徒への差分復元（F-11）。
+
+        訳文の有無を問わず全件をターゲット配信ジョブとして seq 順に積む
+        （訳文済みはワーカーがエンジンを呼ばずキャッシュ配信）。低優先度なので
+        ライブ字幕を停滞させない。ライブ配信との交錯による表示順・重複は
+        クライアント側（seq順挿入・重複排除・連続確定watermark）が吸収する。
+        """
+        if client.lang is None:
+            return
+        for utterance in self._session.history_entries_since(last_seq):
+            await self._enqueue_mt(
+                _REPLAY_PRIORITY,
+                MTJob(utterance, client.lang, time.monotonic(), target_client_id=client.id),
+            )
 
     # ---- 配信 ----
 

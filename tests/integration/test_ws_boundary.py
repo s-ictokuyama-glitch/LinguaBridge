@@ -12,6 +12,7 @@ from tests.helpers import utterance_bytes
 
 PHRASE_1000 = "おはようございます。"
 PHRASE_2000 = "光合成には日光が必要です。"
+PHRASE_3000 = "今日は天気がいいですね。"
 
 
 def join_student(ws, lang: str, code: str = JOIN_CODE, last_seq: int | None = None) -> dict:
@@ -44,6 +45,7 @@ class TestJoin:
             msg = join_student(student, "en")
             assert msg["type"] == "joined"
             assert msg["seq_head"] == 0
+            assert msg["history_from"] == 1  # 履歴なし＝次に発行されるseq
             assert msg["session_state"] == "idle"
             assert [lang["code"] for lang in msg["languages"]] == ["en", "zh"]
 

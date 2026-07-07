@@ -70,7 +70,8 @@ def test_invalid_messages_raise(raw: str):
 
 
 def test_server_messages_serialize_with_type_tag():
-    assert Joined(seq_head=0, languages=[], session_state="idle").model_dump()["type"] == "joined"
+    joined = Joined(seq_head=0, history_from=1, languages=[], session_state="idle")
+    assert joined.model_dump()["type"] == "joined"
     cap = Caption(seq=1, ja="こんにちは", text="[en] こんにちは", lang="en", delay_ms=42)
     assert cap.model_dump() == {
         "type": "caption",
