@@ -46,8 +46,13 @@ ASR_MODELS = {
     "kotoba": "kotoba-whisper-v2.0-faster",
     "small": "faster-whisper-small",
 }
+ASR_LABELS = {"kotoba": "kotoba-whisper-v2.0", "small": "whisper small"}
 NLLB_TARGETS = {"en": "eng_Latn", "zh": "zho_Hans"}
 HYMT_TARGETS = {"en": "English", "zh": "Simplified Chinese"}
+
+# 遅延バジェット（PRD N-01: 発話終了→生徒表示）
+BUDGET_MEDIAN_S = 5.0
+BUDGET_MAX_S = 8.0
 
 
 def rss_mb() -> float:
@@ -58,7 +63,11 @@ def load_wavs() -> list[dict]:
     wavs = []
     for path in sorted(FIXTURE_DIR.glob("*.wav")):
         with wave.open(str(path), "rb") as w:
-            assert w.getframerate() == 16000 and w.getnchannels() == 1
+            if w.getframerate() != 16000 or w.getnchannels() != 1:
+                sys.exit(
+                    f"{path.name}: 16kHz mono ではない（{w.getframerate()}Hz/{w.getnchannels()}ch）。"
+                    "scripts/make_fixture_audio.ps1 で再生成のこと"
+                )
             pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
         wavs.append(
             {"name": path.name, "audio": pcm.astype(np.float32) / 32768.0, "seconds": pcm.size / 16000}
@@ -75,6 +84,13 @@ def load_sentences() -> list[str]:
 # ---- フェーズ実装（サブプロセス内で実行される） ----
 
 
+def timed_transcribe(model, audio: np.ndarray) -> tuple[str, float]:
+    t = time.perf_counter()
+    segments, _ = model.transcribe(audio, language="ja", beam_size=1, vad_filter=False)
+    text = "".join(seg.text for seg in segments)  # ジェネレータ消費でデコード完了
+    return text, time.perf_counter() - t
+
+
 def phase_asr(model_key: str, models_dir: Path) -> dict:
     from faster_whisper import WhisperModel
 
@@ -85,16 +101,10 @@ def phase_asr(model_key: str, models_dir: Path) -> dict:
     model = WhisperModel(str(model_path), device="cpu", compute_type="int8")
     load_s = time.perf_counter() - t0
 
-    def transcribe(audio: np.ndarray) -> tuple[str, float]:
-        t = time.perf_counter()
-        segments, _ = model.transcribe(audio, language="ja", beam_size=1, vad_filter=False)
-        text = "".join(seg.text for seg in segments)  # ジェネレータ消費でデコード完了
-        return text, time.perf_counter() - t
-
-    transcribe(wavs[0]["audio"])  # ウォームアップ（計測外）
+    timed_transcribe(model, wavs[0]["audio"])  # ウォームアップ（計測外）
     items = []
     for w in wavs:
-        text, dt = transcribe(w["audio"])
+        text, dt = timed_transcribe(model, w["audio"])
         items.append(
             {"file": w["name"], "audio_s": round(w["seconds"], 2), "decode_s": round(dt, 3),
              "rtf": round(dt / w["seconds"], 3), "text": text.strip()}
@@ -111,15 +121,15 @@ def phase_asr(model_key: str, models_dir: Path) -> dict:
     }
 
 
-def make_nllb(models_dir: Path):
+def make_nllb(models_dir: Path, config):
     import ctranslate2
     from transformers import AutoTokenizer
 
     translator = ctranslate2.Translator(
-        str(models_dir / "nllb-200-distilled-600M-ct2"), device="cpu"
+        str(models_dir / config.mt.nllb.model_dir), device="cpu"
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        str(models_dir / "nllb-tokenizer"), src_lang="jpn_Jpan"
+        str(models_dir / config.mt.nllb.tokenizer_dir), src_lang="jpn_Jpan"
     )
 
     def translate(text: str, lang: str) -> str:
@@ -133,14 +143,14 @@ def make_nllb(models_dir: Path):
     return translate
 
 
-def make_hymt(models_dir: Path):
+def make_hymt(models_dir: Path, config):
     from llama_cpp import Llama
 
-    ggufs = list((models_dir / "hy-mt2").glob("*.gguf"))
-    if not ggufs:
-        raise FileNotFoundError(f"GGUFが無い: {models_dir / 'hy-mt2'}")
+    gguf = models_dir / config.mt.hy_mt2.gguf_path
+    if not gguf.exists():
+        raise FileNotFoundError(f"GGUFが無い: {gguf}（scripts/download_models.py を実行のこと）")
     llm = Llama(
-        model_path=str(ggufs[0]),
+        model_path=str(gguf),
         n_ctx=2048,
         n_threads=psutil.cpu_count(logical=False) or 4,
         verbose=False,
@@ -161,11 +171,13 @@ def make_hymt(models_dir: Path):
     return translate
 
 
-def phase_mt(engine: str, models_dir: Path) -> dict:
+def phase_mt(engine: str, models_dir: Path, config) -> dict:
     sentences = load_sentences()
     before = rss_mb()
     t0 = time.perf_counter()
-    translate = make_nllb(models_dir) if engine == "nllb" else make_hymt(models_dir)
+    translate = (
+        make_nllb(models_dir, config) if engine == "nllb" else make_hymt(models_dir, config)
+    )
     load_s = time.perf_counter() - t0
     translate(sentences[0], "en")  # ウォームアップ（計測外）
 
@@ -194,17 +206,19 @@ def phase_mt(engine: str, models_dir: Path) -> dict:
     }
 
 
-def phase_concurrent(engine: str, models_dir: Path) -> dict:
-    """ASR(kotoba)と翻訳を別スレッドで同時実行し、競合下の遅延とピークRSSを見る。"""
+def phase_concurrent(asr_key: str, engine: str, models_dir: Path, config) -> dict:
+    """ASRと翻訳を別スレッドで同時実行し、競合下の遅延とピークRSSを見る。"""
     from faster_whisper import WhisperModel
 
     wavs = load_wavs()
     sentences = load_sentences()
-    asr = WhisperModel(str(models_dir / ASR_MODELS["kotoba"]), device="cpu", compute_type="int8")
-    translate = make_nllb(models_dir) if engine == "nllb" else make_hymt(models_dir)
+    asr = WhisperModel(str(models_dir / ASR_MODELS[asr_key]), device="cpu", compute_type="int8")
+    translate = (
+        make_nllb(models_dir, config) if engine == "nllb" else make_hymt(models_dir, config)
+    )
 
     # ウォームアップ
-    list(asr.transcribe(wavs[0]["audio"], language="ja", beam_size=1)[0])
+    timed_transcribe(asr, wavs[0]["audio"])
     translate(sentences[0], "en")
 
     peak = {"rss": rss_mb()}
@@ -220,10 +234,8 @@ def phase_concurrent(engine: str, models_dir: Path) -> dict:
 
     def asr_worker() -> None:
         for w in wavs:
-            t = time.perf_counter()
-            segments, _ = asr.transcribe(w["audio"], language="ja", beam_size=1, vad_filter=False)
-            _ = "".join(s.text for s in segments)
-            asr_times.append({"audio_s": w["seconds"], "decode_s": time.perf_counter() - t})
+            _, dt = timed_transcribe(asr, w["audio"])
+            asr_times.append({"audio_s": w["seconds"], "decode_s": dt})
 
     def mt_worker() -> None:
         for text in sentences:
@@ -246,9 +258,11 @@ def phase_concurrent(engine: str, models_dir: Path) -> dict:
     rtfs = [x["decode_s"] / x["audio_s"] for x in asr_times]
     ms = [x["ms"] for x in mt_times]
     return {
+        "asr": asr_key,
         "engine": engine,
         "wall_s": round(wall, 1),
         "peak_rss_mb": round(peak["rss"]),
+        "asr_decode_s_median": round(statistics.median(x["decode_s"] for x in asr_times), 2),
         "asr_rtf_median": round(statistics.median(rtfs), 3),
         "asr_rtf_max": round(max(rtfs), 3),
         "mt_ms_median": round(statistics.median(ms)),
@@ -257,12 +271,15 @@ def phase_concurrent(engine: str, models_dir: Path) -> dict:
 
 
 PHASES = {
-    "asr:kotoba": lambda d: phase_asr("kotoba", d),
-    "asr:small": lambda d: phase_asr("small", d),
-    "mt:nllb": lambda d: phase_mt("nllb", d),
-    "mt:hy-mt2": lambda d: phase_mt("hy-mt2", d),
-    "concurrent:nllb": lambda d: phase_concurrent("nllb", d),
-    "concurrent:hy-mt2": lambda d: phase_concurrent("hy-mt2", d),
+    "asr:kotoba": lambda d, c: phase_asr("kotoba", d),
+    "asr:small": lambda d, c: phase_asr("small", d),
+    "mt:nllb": lambda d, c: phase_mt("nllb", d, c),
+    "mt:hy-mt2": lambda d, c: phase_mt("hy-mt2", d, c),
+    # 同時実行は全組合せ計測（既定構成の競合下の数値も判断材料にする）
+    "concurrent:kotoba:nllb": lambda d, c: phase_concurrent("kotoba", "nllb", d, c),
+    "concurrent:kotoba:hy-mt2": lambda d, c: phase_concurrent("kotoba", "hy-mt2", d, c),
+    "concurrent:small:nllb": lambda d, c: phase_concurrent("small", "nllb", d, c),
+    "concurrent:small:hy-mt2": lambda d, c: phase_concurrent("small", "hy-mt2", d, c),
 }
 
 
@@ -317,20 +334,30 @@ def system_info() -> dict:
 
 
 def build_report(info: dict, results: dict, models_dir: Path) -> str:
-    wavs_meta = [(w["name"], w["seconds"]) for w in load_wavs()]
-    median_utt = statistics.median(s for _, s in wavs_meta)
+    # 発話長はASRフェーズの実測メタから取る（--report-from をフィクスチャ非依存にするため）
+    asr_any = next((results[k] for k in ("asr:small", "asr:kotoba") if results.get(k)), None)
+    if asr_any is None:
+        sys.exit("ASRフェーズの結果が無いため、レポートを構成できない")
+    median_utt = statistics.median(i["audio_s"] for i in asr_any["items"])
 
-    def estimate(asr: dict | None, mt: dict | None) -> dict | None:
+    def estimate(asr: dict | None, mt: dict | None, conc: dict | None) -> dict | None:
         """発話終了→2言語目のcaption送出までの見積り（ASR→en→zh直列、plan.md §6.3の構成）。"""
         if not asr or not mt:
             return None
         med = asr["rtf_median"] * median_utt + (mt["ms_median"]["en"] + mt["ms_median"]["zh"]) / 1000
         worst = asr["rtf_max"] * median_utt + (mt["ms_max"]["en"] + mt["ms_max"]["zh"]) / 1000
-        return {"median_s": round(med, 1), "worst_s": round(worst, 1),
-                "pass_median": med <= 5.0, "pass_max": worst <= 8.0}
+        out = {"median_s": round(med, 1), "worst_s": round(worst, 1),
+               "pass_median": med <= BUDGET_MEDIAN_S, "pass_max": worst <= BUDGET_MAX_S}
+        if conc:  # 競合下（ASR・MTが同時に飽和した瞬間）の参考値
+            out["contended_s"] = round(
+                conc["asr_decode_s_median"] + 2 * conc["mt_ms_median"] / 1000, 1
+            )
+        return out
 
     est = {
-        (a, m): estimate(results.get(f"asr:{a}"), results.get(f"mt:{m}"))
+        (a, m): estimate(
+            results.get(f"asr:{a}"), results.get(f"mt:{m}"), results.get(f"concurrent:{a}:{m}")
+        )
         for a in ("kotoba", "small") for m in ("nllb", "hy-mt2")
     }
 
@@ -374,28 +401,31 @@ def build_report(info: dict, results: dict, models_dir: Path) -> str:
         else:
             add(f"| {key} | 計測失敗 | - | - | - | - | - | - |")
     add("")
-    add("## (c) ASR＋翻訳 同時実行（kotoba + 各エンジン）")
+    add("## (c) ASR＋翻訳 同時実行（全組合せ）")
     add("")
-    add("| 翻訳エンジン | 完走 | ピークRSS | ASR RTF中央値(競合下) | 翻訳中央値(競合下) | 翻訳最大(競合下) |")
-    add("|-------------|------|----------|---------------------|------------------|----------------|")
-    for key in ("nllb", "hy-mt2"):
-        r = results.get(f"concurrent:{key}")
-        if r:
-            add(f"| {key} | {r['wall_s']}s | {r['peak_rss_mb']}MB | {r['asr_rtf_median']} | {r['mt_ms_median']}ms | {r['mt_ms_max']}ms |")
-        else:
-            add(f"| {key} | 計測失敗 | - | - | - | - |")
+    add("| ASR | 翻訳 | 完走 | ピークRSS | ASRデコード中央値(競合下) | 翻訳中央値(競合下) | 翻訳最大(競合下) |")
+    add("|-----|------|------|----------|-------------------------|------------------|----------------|")
+    for a in ("kotoba", "small"):
+        for m in ("nllb", "hy-mt2"):
+            r = results.get(f"concurrent:{a}:{m}")
+            if r:
+                add(f"| {a} | {m} | {r['wall_s']}s | {r['peak_rss_mb']}MB | {r['asr_decode_s_median']}s | {r['mt_ms_median']}ms | {r['mt_ms_max']}ms |")
+            else:
+                add(f"| {a} | {m} | 計測失敗 | - | - | - | - |")
     add("")
-    add("## 遅延バジェット判定（発話終了→2言語目caption、中央値≤5s / 最大≤8s）")
+    add(f"## 遅延バジェット判定（発話終了→2言語目caption、中央値≤{BUDGET_MEDIAN_S:.0f}s / 最大≤{BUDGET_MAX_S:.0f}s）")
     add("")
-    add(f"発話 {median_utt:.1f}s（fixture中央値）を ASR→en→zh 直列処理した場合の見積り:")
+    add(f"発話 {median_utt:.1f}s（fixture中央値）を ASR→en→zh 直列処理した場合の見積り。")
+    add("合否は非競合値（a)(b)で判定し、競合下（ASRとMTが同時飽和した瞬間）の参考値を併記する:")
     add("")
-    add("| 構成 | 中央値見積り | 最悪見積り | 中央値≤5s | 最大≤8s |")
-    add("|------|------------|-----------|----------|--------|")
+    add("| 構成 | 中央値見積り | 競合下参考値 | 最悪見積り | 中央値≤5s | 最大≤8s |")
+    add("|------|------------|------------|-----------|----------|--------|")
     for (a, m), e in est.items():
         if e:
-            add(f"| {a} + {m} | {e['median_s']}s | {e['worst_s']}s | {'✅' if e['pass_median'] else '❌'} | {'✅' if e['pass_max'] else '❌'} |")
+            cont = f"{e['contended_s']}s" if "contended_s" in e else "-"
+            add(f"| {a} + {m} | {e['median_s']}s | {cont} | {e['worst_s']}s | {'✅' if e['pass_median'] else '❌'} | {'✅' if e['pass_max'] else '❌'} |")
         else:
-            add(f"| {a} + {m} | 計測失敗 | - | - | - |")
+            add(f"| {a} + {m} | 計測失敗 | - | - | - | - |")
     add("")
 
     # 品質優先の選好順（plan.md §3: 予算内なら品質側を採る）で最初に予算を満たす構成が既定
@@ -408,15 +438,18 @@ def build_report(info: dict, results: dict, models_dir: Path) -> str:
     add("## 判断ゲート①の結論")
     add("")
     if chosen:
-        add(f"- **既定ASRモデル = whisper {chosen[0]}** / **既定翻訳エンジン = {chosen[1]}**")
+        add(f"- **既定ASRモデル = {ASR_LABELS[chosen[0]]}** / **既定翻訳エンジン = {chosen[1]}**")
         add("  （品質優先の選好順 kotoba+hy-mt2 → kotoba+nllb → small+hy-mt2 → small+nllb で、予算を満たす最初の構成）")
     else:
         add("- **予算を満たす構成なし** → plan.md R-01 に従い構成再検討（Opus-MT等の追加調査）")
-    add("- config.yaml に反映済み。学校の実機（i5）での再計測後に最終確定とする")
+    add("- この結論を config.yaml の既定値へ反映する。**学校の実機（i5）での再計測が済むまで暫定確定**")
     add("")
     add("### 所見（数値に表れないトレードオフ）")
     add("")
-    add("- **kotoba はCPUで実時間比>1**（発話より文字起こしが遅い）のため、精度は良いが授業のリアルタイム用途には不採用。GPU化・録画の事後書き起こし用途では有力")
+    kotoba_asr = results.get("asr:kotoba")
+    if kotoba_asr:
+        add(f"- **kotoba はCPUでは不採用**: デコード時間が発話長によらずほぼ一定（中央値 {kotoba_asr['decode_s_median']}s）で、"
+            f"それ単独で中央値予算 {BUDGET_MEDIAN_S:.0f}s を圧迫する。精度は良いため、GPU化や録画の事後書き起こし用途では有力")
     add("- **small は教科用語の同音異義誤りが出る**（例: 光合成→「構合性」）。Phase 3 の用語辞書（タスク25）とセットで運用し、実地検証（#19）で許容度を判断する")
     add("- **翻訳品質は hy-mt2 が明確に優位**（下のサンプル参照。NLLBは「光合成→合成光/光合成(日本語のまま)」等の誤り、hy-mt2 は正しく「光合作用」）。遅延差は+164ms、メモリ差は+1.2GBでいずれも予算内")
     add("- ライセンス面でも hy-mt2（Apache-2.0）は NLLB（CC-BY-NC）より制約が少ない")
@@ -459,7 +492,7 @@ def main() -> int:
     models_dir = Path(args.models_dir) if args.models_dir else config.models.resolved_dir
 
     if args.phase:
-        result = PHASES[args.phase](models_dir)
+        result = PHASES[args.phase](models_dir, config)
         print(JSON_SENTINEL + json.dumps(result, ensure_ascii=False))
         return 0
 
@@ -476,8 +509,7 @@ def main() -> int:
     info = system_info()
     print(f"machine: {info['cpu']} / {info['cores']}C{info['threads']}T / {info['ram_gb']}GB")
     results: dict[str, dict | None] = {}
-    for phase in ("asr:kotoba", "asr:small", "mt:nllb", "mt:hy-mt2",
-                  "concurrent:nllb", "concurrent:hy-mt2"):
+    for phase in sorted(PHASES):
         results[phase] = run_phase_subprocess(phase, models_dir)
 
     out_dir = Path(args.out_dir)

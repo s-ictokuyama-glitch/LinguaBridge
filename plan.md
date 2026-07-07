@@ -90,7 +90,7 @@
 |------|------|------|
 | 処理配置 | ASR・翻訳ともサーバー集中。生徒端末は表示専用 | 4GB Chromebook / iPhone のブラウザで1.8Bモデルは動作不安定。10台×約1GBのモデル配布も校内Wi-Fiで非現実的。サーバーなら発話ごとに ASR×1＋翻訳×言語数 で済む |
 | 音声入力 | 先生ブラウザからのWSストリーミングが主経路。Windows機直接収音（localhostでブラウザを開く）がフォールバック | 「先生が自分の端末で話す」要件を満たしつつ、Wi-Fi/証明書トラブル時の保険を確保 |
-| ASR | faster-whisper（CTranslate2）ランタイム。既定 **whisper small**（int8）、`config.yaml` で kotoba-whisper-v2.0 に切替可。**判断ゲート①で確定**: kotoba はCPUで実時間比>1のため不採用（docs/bench/2026-07-07-bench.md）。small の用語誤認は Phase 3 用語辞書で補う | 遅延基準 N-01 を満たすことを優先。同一ランタイムなのでモデル切替の実装コストゼロ |
+| ASR | faster-whisper（CTranslate2）ランタイム。既定 **whisper small**（int8）、`config.yaml` で kotoba-whisper-v2.0 に切替可。**判断ゲート①で確定**: kotoba はCPUではデコードが発話長によらず約6秒かかり予算超過のため不採用（docs/bench/2026-07-07-bench.md）。small の用語誤認は Phase 3 用語辞書で補う | 遅延基準 N-01 を満たすことを優先。同一ランタイムなのでモデル切替の実装コストゼロ |
 | VAD | Silero VAD（ONNX, CPU） | 軽量・無料・実績。発話区切り検出でASRをチャンク処理化 |
 | 翻訳 | `TranslationEngine` 抽象の下に **hy-mt2 1.8b（llama-cpp-python, GGUF int4）** と **NLLB-200-distilled-600M（CTranslate2 int8）** の両実装。**判断ゲート①で既定 = hy-mt2 に確定**（docs/bench/2026-07-07-bench.md: 予算内で品質・ライセンスとも優位。正体は Tencent Hy-MT2-1.8B, Apache-2.0） | 品質（LLM系MT）と速度（専用MTモデル）のトレードオフは机上で確定できないため、差し替え可能にして実機で判定 |
 | 対象言語 | 英語・中国語（簡体字）を一次対応、`config.yaml` の言語リストで拡張 | 実需要に合わせ検証コストを集中。NLLBは200言語対応で拡張余地大 |
@@ -113,12 +113,14 @@ LinguaBridge/
 ├── README.md                     # セットアップ・運用手順（先生向け）
 ├── config.yaml                   # 全設定（モデル・言語・ポート・TLS・記録既定）
 ├── requirements.txt
+├── requirements-bench.txt        # ベンチ・実エンジン系の追加依存（#9）
 ├── setup.ps1                     # 初回セットアップ（要管理者権限）
 ├── start.bat                     # 日常起動（ダブルクリック）
 ├── .gitignore                    # models/ sessions/ certs/ venv/ を除外
 ├── scripts/
 │   ├── download_models.py        # ASR/翻訳モデルの事前ダウンロード
 │   ├── make_cert.ps1             # 自己署名証明書生成
+│   ├── make_fixture_audio.ps1    # SAPIでベンチ用日本語音声を合成（#9）
 │   ├── bench.py                  # Phase 0 実機ベンチ（ASR RTF・翻訳遅延計測）
 │   └── replay_client.py          # 録音済み音声の再生＋擬似生徒10名の負荷試験
 ├── server/
@@ -146,7 +148,8 @@ LinguaBridge/
 │   ├── audio-worklet.js          # マイク→16kHz PCM16 変換
 │   ├── i18n.js                   # UI文言 ja/en/zh
 │   └── vendor/qrcode.min.js      # ローカル同梱QR生成
-├── models/                       # setup.ps1 がDL（gitignore・OneDrive同期除外）
+├── docs/bench/                   # 実機ベンチ報告（#9 判断ゲート①の記録）
+├── models/                       # （既定の格納先は %LOCALAPPDATA%/LinguaBridge/models = config models.dir）
 ├── certs/                        # 自己署名証明書（gitignore）
 ├── sessions/                     # 記録保存先（gitignore）
 └── tests/
@@ -206,9 +209,11 @@ server:
   http_port: 8000            # 生徒用（平文）
   https_port: 8443           # 先生用（自己署名TLS）
   cert_dir: certs/
+models:
+  dir: "%LOCALAPPDATA%/LinguaBridge/models"   # OneDrive外（R-08）。環境変数展開あり
 asr:
   engine: faster-whisper
-  model: kotoba-tech/kotoba-whisper-v2.0-faster   # 切替: "small" 等
+  model: faster-whisper-small   # models.dir配下のディレクトリ名。切替: kotoba-whisper-v2.0-faster
   compute_type: int8
   language: ja
 vad:
@@ -216,9 +221,9 @@ vad:
   min_silence_ms: 500        # 発話終了判定
   max_utterance_s: 30        # 強制分割（§8 E-03）
 mt:
-  engine: hy-mt2             # "hy-mt2" | "nllb"（Phase 0ベンチで既定確定）
-  hy_mt2: { gguf_path: models/hy-mt2-1.8b-q4.gguf, threads: 4 }
-  nllb:   { model_dir: models/nllb-200-600m-ct2,  beam_size: 1 }
+  engine: hy-mt2             # "hy-mt2" | "nllb"（判断ゲート①で hy-mt2 に確定）
+  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4 }   # models.dir相対
+  nllb:   { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
 languages:                   # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }
   - { code: zh, label: 中文（简体） }

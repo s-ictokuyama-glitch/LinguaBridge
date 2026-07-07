@@ -110,7 +110,7 @@ def download_one(spec: ModelSpec, dest: Path) -> Path:
         raise FileNotFoundError(
             f"{spec.repo_id} に {spec.gguf_pattern} に合うGGUFが見つからない。files={files}"
         )
-    hf_hub_download(repo_id=spec.repo_id, filename=candidates[0], local_dir=target)
+    hf_hub_download(repo_id=spec.repo_id, filename=sorted(candidates)[0], local_dir=target)
     return target
 
 

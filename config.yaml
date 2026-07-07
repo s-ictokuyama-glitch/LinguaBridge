@@ -11,8 +11,9 @@ models:
 asr:
   # "fake" は決定的フェイク（#10 トレーサー用）。#11 で faster-whisper 実装を追加
   engine: fake
-  # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUで実時間比>1のため
-  # 既定は small。値は models.dir 配下のディレクトリ名（切替: kotoba-whisper-v2.0-faster）
+  # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUではデコードに
+  # 発話長によらず約6秒かかり予算超過のため、既定は small。
+  # 値は models.dir 配下のディレクトリ名（切替: kotoba-whisper-v2.0-faster）
   model: faster-whisper-small
   compute_type: int8
   language: ja
@@ -27,6 +28,7 @@ mt:
   # 実装後の既定は hy-mt2 — 判断ゲート①で確定（docs/bench/2026-07-07-bench.md:
   # 品質・ライセンスで優位、遅延+164ms・メモリ+1.2GBはいずれも予算内）
   engine: fake
+  decided_engine: hy-mt2   # 判断ゲート①の確定値（#12 実装完了時に engine へ昇格）
   # パスは models.dir からの相対
   hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4 }
   nllb: { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }

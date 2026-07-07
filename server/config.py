@@ -22,7 +22,14 @@ class ModelsConfig(BaseModel):
 
     @property
     def resolved_dir(self) -> Path:
-        return Path(os.path.expandvars(os.path.expanduser(self.dir)))
+        expanded = os.path.expandvars(os.path.expanduser(self.dir))
+        if "%" in expanded:
+            raise ValueError(f"models.dir の環境変数が解決できない: {self.dir}")
+        return Path(expanded)
+
+    def resolve(self, relative: str) -> Path:
+        """models.dir からの相対パス（gguf_path / model_dir 等）を絶対パスにする。"""
+        return self.resolved_dir / relative
 
 
 class AsrConfig(BaseModel):
@@ -51,7 +58,10 @@ class NllbConfig(BaseModel):
 
 
 class MtConfig(BaseModel):
-    engine: str = "fake"  # "fake" | "hy-mt2" | "nllb"（#12で追加、既定は#9ベンチで確定）
+    engine: str = "fake"  # "fake" | "hy-mt2" | "nllb"（実装は#12）
+    # 判断ゲート①（docs/bench/2026-07-07-bench.md）の確定値。
+    # #12 で実装完了時に engine の既定をこの値へ切り替える
+    decided_engine: str = "hy-mt2"
     hy_mt2: HyMt2Config = Field(default_factory=HyMt2Config)
     nllb: NllbConfig = Field(default_factory=NllbConfig)
 

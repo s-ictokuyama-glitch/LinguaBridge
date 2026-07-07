@@ -1,4 +1,4 @@
-﻿# ベンチ・テスト用の日本語音声フィクスチャを Windows SAPI (Haruka) で合成する。
+﻿# ベンチ・テスト用の日本語音声フィクスチャを Windows SAPI の ja-JP 音声（例: Haruka）で合成する。
 #   powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1
 # 出力: tests\fixtures\ja\NN.wav（16kHz mono PCM16）
 # 文リストは tests\fixtures\ja_sentences.txt（1行1文）。
