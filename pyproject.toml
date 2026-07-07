@@ -11,3 +11,7 @@ strict = false
 check_untyped_defs = true
 warn_unused_ignores = true
 no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["faster_whisper.*"]
+ignore_missing_imports = true  # 型スタブ未提供

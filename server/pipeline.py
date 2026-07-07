@@ -19,16 +19,14 @@ from dataclasses import dataclass, field
 
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
+from server.asr.filter import hallucination_reason
 from server.audio.ingest import pcm16_from_bytes
-from server.audio.vad import EnergyVAD, Segment, VoiceSegmenter
+from server.audio.vad import Segment, VoiceSegmenter, build_frame_vad
 from server.config import AppConfig
 from server.mt.base import TranslationEngine
 from server.session import Client, Session
 
 logger = logging.getLogger(__name__)
-
-# 無音・幻覚候補の破棄閾値（詳細な幻覚フィルタは #11 / E-04）
-NO_SPEECH_PROB_LIMIT = 0.6
 
 
 @dataclass
@@ -68,10 +66,13 @@ class Pipeline:
         self._asr = asr_engine
         self._mt = mt_engine
         self._mt_engine_name = config.mt.engine
+        frame_vad, frame_ms = build_frame_vad(config.vad)
         self._segmenter = VoiceSegmenter(
-            EnergyVAD(config.vad.threshold),
+            frame_vad,
             min_silence_ms=config.vad.min_silence_ms,
             max_utterance_s=config.vad.max_utterance_s,
+            frame_ms=frame_ms,
+            pre_roll_ms=config.vad.pre_roll_ms,
         )
         self._asr_queue: asyncio.Queue[Segment] = asyncio.Queue(maxsize=4)
         self._mt_queue: asyncio.Queue[MTJob] = asyncio.Queue()
@@ -132,7 +133,9 @@ class Pipeline:
                 logger.exception("ASR failed; utterance dropped")
                 continue
             asr_ms = int((time.monotonic() - started) * 1000)
-            if not result.text.strip() or result.no_speech_prob > NO_SPEECH_PROB_LIMIT:
+            reason = hallucination_reason(result)
+            if reason is not None:
+                logger.info("発話を破棄（幻覚フィルタ: %s）", reason)
                 continue
             utterance = Utterance(
                 seq=self._session.next_seq(),

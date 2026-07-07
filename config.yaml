@@ -9,8 +9,7 @@ models:
   dir: "%LOCALAPPDATA%/LinguaBridge/models"
 
 asr:
-  # "fake" は決定的フェイク（#10 トレーサー用）。#11 で faster-whisper 実装を追加
-  engine: fake
+  engine: faster-whisper     # "faster-whisper" | "fake"（テスト・デモ用）
   # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUではデコードに
   # 発話長によらず約6秒かかり予算超過のため、既定は small。
   # 値は models.dir 配下のディレクトリ名（切替: kotoba-whisper-v2.0-faster）
@@ -19,9 +18,11 @@ asr:
   language: ja
 
 vad:
-  threshold: 300             # エネルギーVADのRMS閾値（int16）。Silero導入(#11)後は 0..1 の確率閾値
+  engine: silero             # "silero" | "energy"（energyはテスト・フォールバック用）
+  threshold: 0.5             # silero: 音声確率 0..1 / energy: int16 RMS
   min_silence_ms: 500        # 発話終了判定
   max_utterance_s: 30        # 強制分割（plan.md E-03）
+  pre_roll_ms: 240           # 発話開始前の音声を含める長さ（語頭の欠け防止）
 
 mt:
   # "fake" は決定的フェイク（#10 トレーサー用）。#12 で hy-mt2 / nllb 実装を追加。

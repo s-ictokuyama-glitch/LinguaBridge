@@ -3,25 +3,31 @@
 VoiceSegmenter はフレーム単位のVAD判定から発話セグメントを組み立てる状態機械:
 無音 min_silence_ms 継続で発話確定、max_utterance_s で強制分割（plan.md E-03）。
 
-フレーム判定器は差し替え可能で、#10 では EnergyVAD（RMS閾値）、
-#11 で Silero VAD に置換する（インターフェース互換）。
+フレーム判定器は差し替え可能: 本番は SileroVAD（ONNX, 32msフレーム）、
+テスト・フォールバック用に EnergyVAD（RMS閾値, 100msフレーム）。
 """
 
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from server.config import VadConfig
 
 
 class FrameVAD(Protocol):
     def is_speech(self, frame: np.ndarray) -> bool: ...
 
+    def reset(self) -> None: ...
+
 
 class EnergyVAD:
-    """RMSエネルギーによる暫定VAD（int16スケールの閾値）。"""
+    """RMSエネルギーによるVAD（int16スケールの閾値）。テスト・フォールバック用。"""
 
     def __init__(self, threshold: float = 300.0) -> None:
         self.threshold = threshold
@@ -31,6 +37,55 @@ class EnergyVAD:
             return False
         rms = float(np.sqrt(np.mean(np.square(frame.astype(np.float64)))))
         return rms > self.threshold
+
+    def reset(self) -> None:
+        pass
+
+
+class SileroVAD:
+    """Silero VAD（faster-whisper 同梱の ONNX モデル）のストリーミング利用。
+
+    512サンプル（32ms @16kHz）単位で音声確率を返す。同梱の SileroVADModel API は
+    バッチ指向で呼び出しごとにRNN状態がリセットされるため、ONNXセッションを直接呼び、
+    h/c 状態と直前64サンプルの文脈を自前で保持する（faster-whisper 1.2系で動作確認）。
+    """
+
+    FRAME_SAMPLES = 512
+    _CONTEXT_SAMPLES = 64
+
+    def __init__(self, threshold: float = 0.5) -> None:
+        from faster_whisper.vad import get_vad_model
+
+        self._session = get_vad_model().session
+        self.threshold = threshold
+        self._h = np.zeros((1, 1, 128), dtype=np.float32)
+        self._c = np.zeros((1, 1, 128), dtype=np.float32)
+        self._context = np.zeros(self._CONTEXT_SAMPLES, dtype=np.float32)
+
+    def reset(self) -> None:
+        self._h = np.zeros((1, 1, 128), dtype=np.float32)
+        self._c = np.zeros((1, 1, 128), dtype=np.float32)
+        self._context = np.zeros(self._CONTEXT_SAMPLES, dtype=np.float32)
+
+    def is_speech(self, frame: np.ndarray) -> bool:
+        audio = frame.astype(np.float32) / 32768.0
+        if audio.size != self.FRAME_SAMPLES:  # 防御。VoiceSegmenter は常に固定長を渡す
+            audio = np.resize(audio, self.FRAME_SAMPLES)
+        model_input = np.concatenate([self._context, audio])[None, :]
+        out, self._h, self._c = self._session.run(
+            None, {"input": model_input, "h": self._h, "c": self._c}
+        )
+        self._context = audio[-self._CONTEXT_SAMPLES:]
+        return float(np.asarray(out).reshape(-1)[0]) > self.threshold
+
+
+def build_frame_vad(vad_config: VadConfig) -> tuple[FrameVAD, int]:
+    """設定から (FrameVAD実装, フレーム長ms) を作る。Sileroは512サンプル=32ms固定。"""
+    if vad_config.engine == "silero":
+        return SileroVAD(vad_config.threshold), 32
+    if vad_config.engine == "energy":
+        return EnergyVAD(vad_config.threshold), 100
+    raise ValueError(f"未知のVADエンジン: {vad_config.engine}")
 
 
 @dataclass
@@ -51,6 +106,7 @@ class VoiceSegmenter:
         min_silence_ms: int = 500,
         max_utterance_s: int = 30,
         frame_ms: int = 100,
+        pre_roll_ms: int = 240,
     ) -> None:
         self._vad = vad
         self._sample_rate = sample_rate
@@ -63,6 +119,9 @@ class VoiceSegmenter:
         self._utt_start_sample = 0
         self._last_speech_end_sample = 0
         self._silence_run = 0
+        # プリロール: 発話開始判定の直前の音声を発話に含める（語頭の欠けを防ぐ。
+        # VAD判定はフレーム粒度なので、開始フレームだけだと立ち上がりの子音が削れる）
+        self._pre_roll: deque[np.ndarray] = deque(maxlen=max(0, pre_roll_ms // frame_ms))
 
     @property
     def sample_rate(self) -> int:
@@ -89,6 +148,8 @@ class VoiceSegmenter:
 
     def reset(self) -> None:
         self._pending = np.zeros(0, dtype=np.int16)
+        self._pre_roll.clear()
+        self._vad.reset()
         self._reset_utterance()
 
     def _reset_utterance(self) -> None:
@@ -104,9 +165,12 @@ class VoiceSegmenter:
 
         if not self._frames:
             if not speech:
-                return None  # 発話外の無音は捨てる
-            self._utt_start_sample = frame_start
-            self._frames = [frame]
+                self._pre_roll.append(frame)  # 次の発話のプリロール候補として保持
+                return None
+            preceding = list(self._pre_roll)
+            self._pre_roll.clear()
+            self._utt_start_sample = frame_start - sum(f.size for f in preceding)
+            self._frames = [*preceding, frame]
             self._last_speech_end_sample = self._offset
             self._silence_run = 0
             return self._maybe_force_close()

@@ -1,7 +1,8 @@
-# ランタイム依存（#10 トレーサー骨格の範囲）
-# 実エンジン依存（faster-whisper / ctranslate2 / llama-cpp-python）は #11 / #12 で追加する
+# ランタイム依存
+# 翻訳エンジン依存（ctranslate2 / llama-cpp-python 等）は #12 で追加する
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
 PyYAML>=6.0
 numpy>=1.26
+faster-whisper>=1.2       # 実ASR（#11）。Silero VAD (ONNX) も同梱のものを利用

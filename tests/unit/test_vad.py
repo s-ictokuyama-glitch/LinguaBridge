@@ -85,6 +85,26 @@ def test_flush_returns_open_utterance():
     assert seg.flush() is None  # 二重フラッシュは空
 
 
+def test_pre_roll_included_before_speech_onset():
+    # 発話開始判定より前の音声（プリロール）がセグメント先頭に含まれる（語頭の欠け防止）
+    seg = VoiceSegmenter(
+        EnergyVAD(threshold=300),
+        sample_rate=SAMPLE_RATE,
+        min_silence_ms=500,
+        max_utterance_s=30,
+        pre_roll_ms=200,
+    )
+    pcm = np.concatenate([silence_pcm(1.0), speech_pcm(2000, 1.0), silence_pcm(0.8)])
+    segments = feed_all(seg, pcm)
+    assert len(segments) == 1
+    s = segments[0]
+    # 発話開始 t=1.0 の 200ms 前から始まる
+    assert s.t_start == pytest.approx(0.8, abs=0.11)
+    # プリロール分の無音が先頭に付き、FakeASR の先頭非ゼロ規約は保たれる
+    assert s.pcm[0] == 0
+    assert int(s.pcm[s.pcm != 0][0]) == 2000
+
+
 def test_arbitrary_chunk_sizes_equivalent():
     pcm = np.concatenate([speech_pcm(2000, 1.0), silence_pcm(0.8)])
     seg = make_segmenter()

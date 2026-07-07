@@ -33,7 +33,7 @@ class ModelsConfig(BaseModel):
 
 
 class AsrConfig(BaseModel):
-    engine: str = "fake"  # "fake" | "faster-whisper"（#11で追加）
+    engine: str = "faster-whisper"  # "faster-whisper" | "fake"（テスト・デモ用）
     # models.dir 配下のディレクトリ名。既定はベンチ確定値（docs/bench/2026-07-07-bench.md）
     model: str = "faster-whisper-small"
     compute_type: str = "int8"
@@ -41,9 +41,11 @@ class AsrConfig(BaseModel):
 
 
 class VadConfig(BaseModel):
-    threshold: float = 300
+    engine: str = "silero"  # "silero" | "energy"（energyはテスト・フォールバック用）
+    threshold: float = 0.5  # silero: 音声確率 0..1 / energy: int16 RMS
     min_silence_ms: int = 500
     max_utterance_s: int = 30
+    pre_roll_ms: int = 240  # 発話開始前の音声を含める長さ（語頭の欠け防止）
 
 
 class HyMt2Config(BaseModel):

@@ -43,7 +43,16 @@ _TEACHER_INFO_HOSTS = {"127.0.0.1", "::1", "testclient"}
 def build_asr_engine(config: AppConfig) -> ASREngine:
     if config.asr.engine == "fake":
         return FakeASREngine()
-    raise NotImplementedError(f"ASRエンジン '{config.asr.engine}' は未実装（#11 で追加）")
+    if config.asr.engine == "faster-whisper":
+        # 遅延import: fake構成やテストでは faster-whisper を要求しない
+        from server.asr.fw_engine import FasterWhisperEngine
+
+        return FasterWhisperEngine(
+            config.models.resolve(config.asr.model),
+            compute_type=config.asr.compute_type,
+            language=config.asr.language,
+        )
+    raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
 
 def build_mt_engine(config: AppConfig) -> TranslationEngine:
