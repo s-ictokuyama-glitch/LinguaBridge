@@ -59,27 +59,42 @@ function t(key) {
 }
 
 function applyI18n() {
+  // 言語選択前はHTMLの3言語併記テキストのまま（上書きしない）
+  if (!state.lang) return;
+  document.documentElement.lang = state.lang;
   for (const node of document.querySelectorAll("[data-i18n]")) {
     node.textContent = t(node.dataset.i18n);
   }
   setBanner(state.bannerKey);
 }
 
-const BANNER_CLASSES = {
-  idle: "idle",
-  live: "live",
-  paused: "paused",
-  ended: "ended",
-  disconnected: "disconnected",
-};
+const BANNER_KEYS = new Set(["idle", "live", "paused", "ended", "disconnected"]);
 
 function setBanner(key) {
   state.bannerKey = key;
-  el.banner.className = `banner ${BANNER_CLASSES[key] || "idle"}`;
+  el.banner.className = `banner ${BANNER_KEYS.has(key) ? key : "idle"}`;
   el.banner.textContent = t(`banner_${key}`);
 }
 
 // ---- 表示設定（再読み込み後も保持: F-06） ----
+// localStorage はプライベートブラウズ等で例外を投げることがあるため保護する
+// （初期化が途中で死ぬと設定UIやスクロール追従が無言で壊れる）
+
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* 保存できなくても表示機能は生かす */
+  }
+}
 
 function applyFontSize(size) {
   el.captionScreen.classList.remove("size-s", "size-m", "size-l");
@@ -87,13 +102,13 @@ function applyFontSize(size) {
   for (const btn of el.sizeButtons.children) {
     btn.classList.toggle("selected", btn.dataset.size === size);
   }
-  localStorage.setItem(STORAGE_FONT_SIZE, size);
+  storageSet(STORAGE_FONT_SIZE, size);
 }
 
 function applyShowJa(on) {
   el.captionScreen.classList.toggle("hide-ja", !on);
   el.jaToggle.checked = on;
-  localStorage.setItem(STORAGE_SHOW_JA, on ? "1" : "0");
+  storageSet(STORAGE_SHOW_JA, on ? "1" : "0");
 }
 
 // ---- 自動スクロール追従 ----
@@ -126,6 +141,7 @@ async function init() {
       state.lang = lang.code;
       for (const b of el.langOptions.children) b.classList.toggle("selected", b === btn);
       updateJoinButton();
+      applyI18n(); // 参加画面の案内文・ボタンも選択言語に追従（F-07）
     });
     el.langOptions.appendChild(btn);
 
@@ -150,8 +166,8 @@ async function init() {
     applyI18n();
   });
 
-  applyFontSize(localStorage.getItem(STORAGE_FONT_SIZE) || "m");
-  applyShowJa(localStorage.getItem(STORAGE_SHOW_JA) !== "0");
+  applyFontSize(storageGet(STORAGE_FONT_SIZE) || "m");
+  applyShowJa(storageGet(STORAGE_SHOW_JA) !== "0");
   el.jaToggle.addEventListener("change", () => applyShowJa(el.jaToggle.checked));
   for (const btn of el.sizeButtons.children) {
     btn.addEventListener("click", () => applyFontSize(btn.dataset.size));
@@ -257,6 +273,7 @@ function addCard(msg) {
   if (msg.delay_ms >= DELAY_NOTICE_MS) {
     const tag = document.createElement("span");
     tag.className = "delay-tag";
+    tag.dataset.i18n = "delayed"; // 言語変更時に applyI18n で追従させる
     tag.textContent = t("delayed");
     card.append(tag);
   }
@@ -264,6 +281,10 @@ function addCard(msg) {
   ja.className = "ja";
   ja.textContent = msg.ja;
   card.append(ja);
+  const time = document.createElement("span");
+  time.className = "time";
+  time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  card.append(time);
   // 再接続復元と新着が交錯しても表示は発話順を保つ（seq昇順の位置に挿入）
   let ref = null;
   for (let node = el.cards.lastElementChild; node; node = node.previousElementSibling) {
@@ -271,8 +292,17 @@ function addCard(msg) {
     ref = node;
   }
   el.cards.insertBefore(card, ref);
-  // 追従中のみ自動スクロール（上スクロールで停止、「最新へ」で復帰）
-  if (state.following) scrollToLatest();
+  if (state.following) {
+    // 追従中のみ自動スクロール（上スクロールで停止、「最新へ」で復帰）
+    scrollToLatest();
+  } else if (ref !== null) {
+    // 履歴を読んでいる最中に視界より上へ挿入された場合のジャンプ補正
+    // （iOS Safari は scroll anchoring 非対応）
+    const containerTop = el.cards.getBoundingClientRect().top;
+    if (card.getBoundingClientRect().bottom <= containerTop) {
+      el.cards.scrollTop += card.offsetHeight + 10; // 10 = カード間のgap
+    }
+  }
 }
 
 init();

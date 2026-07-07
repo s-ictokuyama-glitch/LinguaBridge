@@ -189,12 +189,19 @@ class Pipeline:
                     mt_ms=int((time.monotonic() - started) * 1000),
                 )
                 job.utterance.translations[job.lang] = translation
+            # delay_ms は「ライブ配信の処理遅延」の指標（E-05）。再接続復元の字幕は
+            # 歴史的な再送なので 0 とし、生徒側の「遅延中」表示を誤発火させない
+            delay_ms = (
+                0
+                if job.target_client_id is not None
+                else max(0, int((time.monotonic() - job.closed_at) * 1000))
+            )
             caption = proto.Caption(
                 seq=job.utterance.seq,
                 ja=job.utterance.text_ja,
                 text=translation.text,
                 lang=job.lang,
-                delay_ms=max(0, int((time.monotonic() - job.closed_at) * 1000)),
+                delay_ms=delay_ms,
             )
             if job.target_client_id is not None:
                 client = self._session.clients.get(job.target_client_id)

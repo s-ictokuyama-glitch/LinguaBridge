@@ -9,12 +9,13 @@
 <body>
   <section id="join-screen">
     <h1>LinguaBridge</h1>
-    <p class="lead">先生の話す内容が、選んだ言語の字幕で表示されます。</p>
-    <label for="code-input">参加コード（4桁）</label>
+    <!-- 言語選択前は3言語併記、選択後は data-i18n で選択言語に追従 -->
+    <p class="lead" data-i18n="join_lead">先生の話す内容が、選んだ言語の字幕で表示されます。</p>
+    <label for="code-input" data-i18n="join_code_label">参加コード（4桁）</label>
     <input id="code-input" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="0000">
-    <p class="label">言語 / Language / 语言</p>
+    <p class="label" data-i18n="join_lang_label">言語 / Language / 语言</p>
     <div id="lang-options"></div>
-    <button id="join-btn" disabled>参加する / Join / 加入</button>
+    <button id="join-btn" data-i18n="join_btn" disabled>参加する / Join / 加入</button>
     <p id="join-error" class="error" hidden></p>
   </section>
 
@@ -31,7 +32,7 @@
           <button data-size="m" data-i18n="size_m"></button>
           <button data-size="l" data-i18n="size_l"></button>
         </div>
-        <select id="lang-select" title="Language"></select>
+        <select id="lang-select"></select>
       </div>
     </header>
     <main id="cards"></main>
