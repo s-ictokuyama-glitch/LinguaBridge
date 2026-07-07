@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -14,9 +15,20 @@ class ServerConfig(BaseModel):
     cert_dir: str = "certs/"
 
 
+class ModelsConfig(BaseModel):
+    """モデル格納先。OneDrive同期の影響を受けない場所に置く（plan.md R-08）。"""
+
+    dir: str = "%LOCALAPPDATA%/LinguaBridge/models"
+
+    @property
+    def resolved_dir(self) -> Path:
+        return Path(os.path.expandvars(os.path.expanduser(self.dir)))
+
+
 class AsrConfig(BaseModel):
     engine: str = "fake"  # "fake" | "faster-whisper"（#11で追加）
-    model: str = "kotoba-tech/kotoba-whisper-v2.0-faster"
+    # models.dir 配下のディレクトリ名。既定はベンチ確定値（docs/bench/2026-07-07-bench.md）
+    model: str = "faster-whisper-small"
     compute_type: str = "int8"
     language: str = "ja"
 
@@ -28,12 +40,13 @@ class VadConfig(BaseModel):
 
 
 class HyMt2Config(BaseModel):
-    gguf_path: str = "models/hy-mt2-1.8b-q4.gguf"
+    gguf_path: str = "hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf"  # models.dir からの相対
     threads: int = 4
 
 
 class NllbConfig(BaseModel):
-    model_dir: str = "models/nllb-200-600m-ct2"
+    model_dir: str = "nllb-200-distilled-600M-ct2"  # models.dir からの相対
+    tokenizer_dir: str = "nllb-tokenizer"
     beam_size: int = 1
 
 
@@ -55,6 +68,7 @@ class RecordingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
+    models: ModelsConfig = Field(default_factory=ModelsConfig)
     asr: AsrConfig = Field(default_factory=AsrConfig)
     vad: VadConfig = Field(default_factory=VadConfig)
     mt: MtConfig = Field(default_factory=MtConfig)

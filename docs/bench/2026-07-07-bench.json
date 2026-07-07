@@ -1,0 +1,463 @@
+{
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-07-07"
+  },
+  "results": {
+    "asr:kotoba": {
+      "model": "kotoba",
+      "load_s": 3.5,
+      "rss_mb": 824,
+      "rtf_median": 1.216,
+      "rtf_max": 2.005,
+      "decode_s_median": 6.14,
+      "items": [
+        {
+          "file": "01.wav",
+          "audio_s": 3.94,
+          "decode_s": 5.981,
+          "rtf": 1.518,
+          "text": "今日は植物の光合成について勉強します。"
+        },
+        {
+          "file": "02.wav",
+          "audio_s": 4.44,
+          "decode_s": 5.931,
+          "rtf": 1.336,
+          "text": "光合成には日光と水と二酸化炭素が必要です。"
+        },
+        {
+          "file": "03.wav",
+          "audio_s": 3.45,
+          "decode_s": 6.009,
+          "rtf": 1.742,
+          "text": "教科書の42ページを開いてください。"
+        },
+        {
+          "file": "04.wav",
+          "audio_s": 8.24,
+          "decode_s": 6.357,
+          "rtf": 0.771,
+          "text": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってでんぷんが作られます。"
+        },
+        {
+          "file": "05.wav",
+          "audio_s": 4.42,
+          "decode_s": 6.126,
+          "rtf": 1.386,
+          "text": "昨日の実験の結果をグループごとに発表してもらいます。"
+        },
+        {
+          "file": "06.wav",
+          "audio_s": 6.53,
+          "decode_s": 6.183,
+          "rtf": 0.948,
+          "text": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。"
+        },
+        {
+          "file": "07.wav",
+          "audio_s": 3.08,
+          "decode_s": 6.164,
+          "rtf": 2.005,
+          "text": "質問がある人は手を挙げてください。"
+        },
+        {
+          "file": "08.wav",
+          "audio_s": 7.27,
+          "decode_s": 6.028,
+          "rtf": 0.829,
+          "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。"
+        },
+        {
+          "file": "09.wav",
+          "audio_s": 5.64,
+          "decode_s": 6.187,
+          "rtf": 1.097,
+          "text": "実験器具は使い終わったら水で洗って、元の場所に戻してください。"
+        },
+        {
+          "file": "10.wav",
+          "audio_s": 6.57,
+          "decode_s": 6.189,
+          "rtf": 0.942,
+          "text": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます"
+        }
+      ]
+    },
+    "asr:small": {
+      "model": "small",
+      "load_s": 1.2,
+      "rss_mb": 300,
+      "rtf_median": 0.337,
+      "rtf_max": 0.507,
+      "decode_s_median": 1.69,
+      "items": [
+        {
+          "file": "01.wav",
+          "audio_s": 3.94,
+          "decode_s": 1.614,
+          "rtf": 0.41,
+          "text": "今日は植物の構合性について勉強します。"
+        },
+        {
+          "file": "02.wav",
+          "audio_s": 4.44,
+          "decode_s": 1.665,
+          "rtf": 0.375,
+          "text": "交合性には日光と水と二酸化炭素が必要です"
+        },
+        {
+          "file": "03.wav",
+          "audio_s": 3.45,
+          "decode_s": 1.557,
+          "rtf": 0.451,
+          "text": "教科書の42ページを開いてください。"
+        },
+        {
+          "file": "04.wav",
+          "audio_s": 8.24,
+          "decode_s": 1.915,
+          "rtf": 0.232,
+          "text": "用力体は植物の細胞の中にある小さな機関で、ここで光のエネルギーを使って電分が作られます。"
+        },
+        {
+          "file": "05.wav",
+          "audio_s": 4.42,
+          "decode_s": 1.702,
+          "rtf": 0.385,
+          "text": "昨日の実験の結果をグループごとに発表してもらいます。"
+        },
+        {
+          "file": "06.wav",
+          "audio_s": 6.53,
+          "decode_s": 1.833,
+          "rtf": 0.281,
+          "text": "来週の通りにショーテストを行うので、今日の内容をよく復習しておいてください。"
+        },
+        {
+          "file": "07.wav",
+          "audio_s": 3.08,
+          "decode_s": 1.558,
+          "rtf": 0.507,
+          "text": "質問がある人は手を挙げてください。"
+        },
+        {
+          "file": "08.wav",
+          "audio_s": 7.27,
+          "decode_s": 1.88,
+          "rtf": 0.259,
+          "text": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。"
+        },
+        {
+          "file": "09.wav",
+          "audio_s": 5.64,
+          "decode_s": 1.685,
+          "rtf": 0.299,
+          "text": "実験器具は使い終わったら水で洗って、元の場所に戻してください。"
+        },
+        {
+          "file": "10.wav",
+          "audio_s": 6.57,
+          "decode_s": 1.777,
+          "rtf": 0.27,
+          "text": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。"
+        }
+      ]
+    },
+    "mt:nllb": {
+      "engine": "nllb",
+      "load_s": 4.2,
+      "rss_mb": 907,
+      "ms_median": {
+        "en": 560,
+        "zh": 674
+      },
+      "ms_max": {
+        "en": 933,
+        "zh": 954
+      },
+      "pair_ms_median": 1345,
+      "items": [
+        {
+          "lang": "en",
+          "ms": 523,
+          "ja": "今日は植物の光合成について勉強します。",
+          "out": "Today, I'm going to study plant photosynthesis."
+        },
+        {
+          "lang": "zh",
+          "ms": 366,
+          "ja": "今日は植物の光合成について勉強します。",
+          "out": "今天我们要学习植物光合成."
+        },
+        {
+          "lang": "en",
+          "ms": 527,
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "out": "Photosynthesis requires sunlight, water and carbon dioxide."
+        },
+        {
+          "lang": "zh",
+          "ms": 620,
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "out": "合成光需要太阳光,水和二氧化碳."
+        },
+        {
+          "lang": "en",
+          "ms": 365,
+          "ja": "教科書の四十二ページを開いてください。",
+          "out": "Please open the textbook on page 42."
+        },
+        {
+          "lang": "zh",
+          "ms": 633,
+          "ja": "教科書の四十二ページを開いてください。",
+          "out": "现在,请打开教科书的四十二页."
+        },
+        {
+          "lang": "en",
+          "ms": 933,
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "out": "The leafy greens are tiny organs in plant cells where light energy is used to make denpons."
+        },
+        {
+          "lang": "zh",
+          "ms": 542,
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "out": "叶绿体是植物细胞中的一个小器官,"
+        },
+        {
+          "lang": "en",
+          "ms": 594,
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "out": "I'll have the results of yesterday's experiment published in groups."
+        },
+        {
+          "lang": "zh",
+          "ms": 715,
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "out": "现在,我们要把昨天的实验结果公布给每个小组."
+        },
+        {
+          "lang": "en",
+          "ms": 862,
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "out": "I'm going to do a small test next Tuesday, so please do a good review of today's content."
+        },
+        {
+          "lang": "zh",
+          "ms": 819,
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "out": "现在,我在星期二做小试题,所以请重复今天的内容."
+        },
+        {
+          "lang": "en",
+          "ms": 387,
+          "ja": "質問がある人は手を挙げてください。",
+          "out": "If you have questions, raise your hand."
+        },
+        {
+          "lang": "zh",
+          "ms": 450,
+          "ja": "質問がある人は手を挙げてください。",
+          "out": "任何有问题的人都可以举起手."
+        },
+        {
+          "lang": "en",
+          "ms": 926,
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "out": "So let's see if the number of atoms on the left and right side of this chemical reaction are the same."
+        },
+        {
+          "lang": "zh",
+          "ms": 936,
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "out": "现在,我们要看看,我们在化学反应的左边和右边的原子数量是相同的."
+        },
+        {
+          "lang": "en",
+          "ms": 788,
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "out": "When the experimental equipment is finished, wash it with water and put it back in its original place."
+        },
+        {
+          "lang": "zh",
+          "ms": 924,
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "out": "试验设备使用完毕后,请用水洗,然后把它们放回原始位置."
+        },
+        {
+          "lang": "en",
+          "ms": 427,
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "out": "So this is the end of the class today."
+        },
+        {
+          "lang": "zh",
+          "ms": 954,
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "out": "现在,我们今天的课程就是这样.下次,我们会学习呼吸与呼吸之间的区别."
+        }
+      ]
+    },
+    "mt:hy-mt2": {
+      "engine": "hy-mt2",
+      "load_s": 1.9,
+      "rss_mb": 2078,
+      "ms_median": {
+        "en": 840,
+        "zh": 654
+      },
+      "ms_max": {
+        "en": 1251,
+        "zh": 953
+      },
+      "pair_ms_median": 1509,
+      "items": [
+        {
+          "lang": "en",
+          "ms": 392,
+          "ja": "今日は植物の光合成について勉強します。",
+          "out": "Today, we will study about plant photosynthesis."
+        },
+        {
+          "lang": "zh",
+          "ms": 438,
+          "ja": "今日は植物の光合成について勉強します。",
+          "out": "今天我们将学习关于植物的光合作用。"
+        },
+        {
+          "lang": "en",
+          "ms": 587,
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "out": "Photosynthesis requires sunlight, water, and carbon dioxide."
+        },
+        {
+          "lang": "zh",
+          "ms": 442,
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "out": "光合作用需要阳光、水和二氧化碳。"
+        },
+        {
+          "lang": "en",
+          "ms": 506,
+          "ja": "教科書の四十二ページを開いてください。",
+          "out": "Please open page 42 of the textbook."
+        },
+        {
+          "lang": "zh",
+          "ms": 453,
+          "ja": "教科書の四十二ページを開いてください。",
+          "out": "请翻开教科书的第四十二页。"
+        },
+        {
+          "lang": "en",
+          "ms": 1025,
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "out": "Chloroplasts are small organs found in plant cells, where light energy is used to produce starch."
+        },
+        {
+          "lang": "zh",
+          "ms": 953,
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "out": "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。"
+        },
+        {
+          "lang": "en",
+          "ms": 730,
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "out": "We will have each group present the results of yesterday’s experiment."
+        },
+        {
+          "lang": "zh",
+          "ms": 579,
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "out": "请按小组分别汇报昨天的实验结果。"
+        },
+        {
+          "lang": "en",
+          "ms": 992,
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "out": "There will be a mini-test on Tuesday next week, so please review the content from today thoroughly."
+        },
+        {
+          "lang": "zh",
+          "ms": 729,
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "out": "下周二会进行小测试，请好好复习今天的内容。"
+        },
+        {
+          "lang": "en",
+          "ms": 515,
+          "ja": "質問がある人は手を挙げてください。",
+          "out": "Those with questions, please raise your hands."
+        },
+        {
+          "lang": "zh",
+          "ms": 350,
+          "ja": "質問がある人は手を挙げてください。",
+          "out": "有问题的请举手。"
+        },
+        {
+          "lang": "en",
+          "ms": 1232,
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "out": "Let’s make sure that the number of atoms is the same on both the left and right sides of this chemical reaction equation."
+        },
+        {
+          "lang": "zh",
+          "ms": 734,
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "out": "请确认该化学反应式左侧和右侧的原子数相同。"
+        },
+        {
+          "lang": "en",
+          "ms": 950,
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "out": "After using the laboratory equipment, wash it with water and put it back in its original place."
+        },
+        {
+          "lang": "zh",
+          "ms": 759,
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "out": "实验器具用完后，请用水清洗，然后放回原处。"
+        },
+        {
+          "lang": "en",
+          "ms": 1251,
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "out": "So, that’s all for today’s class. Next time, we will learn about the differences between breathing and other processes."
+        },
+        {
+          "lang": "zh",
+          "ms": 809,
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "out": "那么，今天的课程就到这里。下次我们将学习与呼吸的区别。"
+        }
+      ]
+    },
+    "concurrent:nllb": {
+      "engine": "nllb",
+      "wall_s": 66.5,
+      "peak_rss_mb": 2024,
+      "asr_rtf_median": 1.244,
+      "asr_rtf_max": 2.237,
+      "mt_ms_median": 702,
+      "mt_ms_max": 1178
+    },
+    "concurrent:hy-mt2": {
+      "engine": "hy-mt2",
+      "wall_s": 71.2,
+      "peak_rss_mb": 3244,
+      "asr_rtf_median": 1.283,
+      "asr_rtf_max": 2.923,
+      "mt_ms_median": 896,
+      "mt_ms_max": 1553
+    }
+  }
+}

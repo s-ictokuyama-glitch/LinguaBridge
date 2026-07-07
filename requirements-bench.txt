@@ -1,0 +1,9 @@
+# ベンチ（#9）・実エンジン（#11/#12）用の追加依存。
+# llama-cpp-python はCPU用プリビルトwheelのインデックスを使う
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+faster-whisper>=1.0
+huggingface_hub>=0.23
+transformers>=4.40
+sentencepiece>=0.2
+psutil>=5.9
+llama-cpp-python>=0.2.85

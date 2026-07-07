@@ -4,10 +4,16 @@ server:
   https_port: 8443           # 先生用（自己署名TLS。#16 運用パッケージで有効化）
   cert_dir: certs/
 
+models:
+  # OneDrive同期の影響を受けない場所に置く（plan.md R-08）。環境変数は展開される
+  dir: "%LOCALAPPDATA%/LinguaBridge/models"
+
 asr:
-  # "fake" は決定的フェイク（#10 トレーサー用）。#11 で faster-whisper を追加し既定を切替
+  # "fake" は決定的フェイク（#10 トレーサー用）。#11 で faster-whisper 実装を追加
   engine: fake
-  model: kotoba-tech/kotoba-whisper-v2.0-faster
+  # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUで実時間比>1のため
+  # 既定は small。値は models.dir 配下のディレクトリ名（切替: kotoba-whisper-v2.0-faster）
+  model: faster-whisper-small
   compute_type: int8
   language: ja
 
@@ -17,10 +23,13 @@ vad:
   max_utterance_s: 30        # 強制分割（plan.md E-03）
 
 mt:
-  # "fake" は決定的フェイク（#10 トレーサー用）。#12 で hy-mt2 / nllb を追加、#9 のベンチで既定確定
+  # "fake" は決定的フェイク（#10 トレーサー用）。#12 で hy-mt2 / nllb 実装を追加。
+  # 実装後の既定は hy-mt2 — 判断ゲート①で確定（docs/bench/2026-07-07-bench.md:
+  # 品質・ライセンスで優位、遅延+164ms・メモリ+1.2GBはいずれも予算内）
   engine: fake
-  hy_mt2: { gguf_path: models/hy-mt2-1.8b-q4.gguf, threads: 4 }
-  nllb: { model_dir: models/nllb-200-600m-ct2, beam_size: 1 }
+  # パスは models.dir からの相対
+  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4 }
+  nllb: { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
 
 languages: # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }

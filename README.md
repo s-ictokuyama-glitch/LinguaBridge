@@ -35,6 +35,20 @@ py -3.12 -m venv .venv
   （マイクのセキュアコンテキスト要件のため localhost 必須。別端末からのHTTPS運用は #16）
 - **生徒ページ**: 同一LANの端末から `http://<サーバーIP>:8000/?code=XXXX`（QRから開ける）
 
+## モデル取得とベンチ（イシュー #9）
+
+```powershell
+.venv\Scripts\pip install -r requirements-bench.txt      # 実エンジン系の依存
+.venv\Scripts\python scripts\download_models.py          # 全モデルを1コマンドで取得
+powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベンチ用日本語音声を合成
+.venv\Scripts\python scripts\bench.py                    # 実機ベンチ → docs\bench\ に報告
+```
+
+モデルは OneDrive 同期を避けるため `%LOCALAPPDATA%\LinguaBridge\models` に置かれる
+（`config.yaml` の `models.dir`）。判断ゲート①の結果と既定エンジンの根拠は
+[docs/bench/2026-07-07-bench.md](docs/bench/2026-07-07-bench.md) を参照。
+**学校の実機（i5）へ導入する前に同コマンドで再計測すること。**
+
 ## テスト
 
 ```powershell

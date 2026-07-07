@@ -11,6 +11,9 @@ models/
 certs/
 sessions/
 
+# 生成フィクスチャ（scripts/make_fixture_audio.ps1 で再生成可能）
+tests/fixtures/ja/*.wav
+
 # OS
 Thumbs.db
 .DS_Store

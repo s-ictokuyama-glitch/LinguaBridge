@@ -90,9 +90,9 @@
 |------|------|------|
 | 処理配置 | ASR・翻訳ともサーバー集中。生徒端末は表示専用 | 4GB Chromebook / iPhone のブラウザで1.8Bモデルは動作不安定。10台×約1GBのモデル配布も校内Wi-Fiで非現実的。サーバーなら発話ごとに ASR×1＋翻訳×言語数 で済む |
 | 音声入力 | 先生ブラウザからのWSストリーミングが主経路。Windows機直接収音（localhostでブラウザを開く）がフォールバック | 「先生が自分の端末で話す」要件を満たしつつ、Wi-Fi/証明書トラブル時の保険を確保 |
-| ASR | faster-whisper（CTranslate2）ランタイム。既定 **kotoba-whisper-v2.0**（日本語特化蒸留・int8）、`config.yaml` で openai whisper small/base に切替可 | 日本語精度と速度の両立。同一ランタイムなのでモデル切替の実装コストゼロ |
+| ASR | faster-whisper（CTranslate2）ランタイム。既定 **whisper small**（int8）、`config.yaml` で kotoba-whisper-v2.0 に切替可。**判断ゲート①で確定**: kotoba はCPUで実時間比>1のため不採用（docs/bench/2026-07-07-bench.md）。small の用語誤認は Phase 3 用語辞書で補う | 遅延基準 N-01 を満たすことを優先。同一ランタイムなのでモデル切替の実装コストゼロ |
 | VAD | Silero VAD（ONNX, CPU） | 軽量・無料・実績。発話区切り検出でASRをチャンク処理化 |
-| 翻訳 | `TranslationEngine` 抽象の下に **hy-mt2 1.8b（llama-cpp-python, GGUF int4）** と **NLLB-200-distilled-600M（CTranslate2 int8）** の両実装。暫定既定は品質重視で hy-mt2、Phase 0 実機ベンチで N-01 を満たさなければ NLLB に切替 | 品質（LLM系MT）と速度（専用MTモデル）のトレードオフは机上で確定できないため、差し替え可能にして実機で判定 |
+| 翻訳 | `TranslationEngine` 抽象の下に **hy-mt2 1.8b（llama-cpp-python, GGUF int4）** と **NLLB-200-distilled-600M（CTranslate2 int8）** の両実装。**判断ゲート①で既定 = hy-mt2 に確定**（docs/bench/2026-07-07-bench.md: 予算内で品質・ライセンスとも優位。正体は Tencent Hy-MT2-1.8B, Apache-2.0） | 品質（LLM系MT）と速度（専用MTモデル）のトレードオフは机上で確定できないため、差し替え可能にして実機で判定 |
 | 対象言語 | 英語・中国語（簡体字）を一次対応、`config.yaml` の言語リストで拡張 | 実需要に合わせ検証コストを集中。NLLBは200言語対応で拡張余地大 |
 | バックエンド | Python 3.12+ / FastAPI / uvicorn 単一プロセス。ASR/翻訳は ThreadPoolExecutor（CTranslate2・llama.cpp はGIL解放） | faster-whisper がPython前提。WS・静的配信・非同期を1プロセスで完結 |
 | フロントエンド | 素のHTML/CSS/JS（ビルド工程なし）。QR生成はローカル同梱の qrcode ライブラリ（CDN不可＝オフライン要件） | 画面数が少なく、npm/Vite等の保守負担に見合わない |
@@ -471,7 +471,7 @@ class TranslationEngine(ABC):
 - A-07: 生徒端末のブラウザは Chrome（ChromeOS）/ Safari（iOS15+）相当の現行版
 
 ### Open Questions（未解決・Phase 0 で解消）
-- Q-01: **hy-mt2 1.8b の正確な配布元（HFリポジトリID）・GGUF提供有無・ライセンス**は？ → タスク2で確認。取得不能なら R-04 の代替へ
+- Q-01: **hy-mt2 1.8b の正確な配布元（HFリポジトリID）・GGUF提供有無・ライセンス**は？ → **解消（2026-07-07）**: Tencent Hy-MT2-1.8B。公式GGUF `tencent/Hy-MT2-1.8B-GGUF`（Q4_K_M 1.13GB）、**Apache-2.0**。docs/bench/2026-07-07-bench.md 参照
 - Q-02: 校内Wi-FiのAP分離の有無 → タスク5の実地確認で判明
 - Q-03: 学校管理Chromebookで自己署名証明書の警告承認が可能か → タスク6（判断ゲート②）
 - Q-04: 教室での実マイク環境（内蔵で足りるか、ピンマイクが要るか） → タスク22
