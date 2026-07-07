@@ -8,7 +8,6 @@ faster-whisper-small ⇄ kotoba-whisper-v2.0-faster を切替できる。
 from __future__ import annotations
 
 import logging
-import statistics
 from pathlib import Path
 from typing import Any
 
@@ -62,9 +61,11 @@ class FasterWhisperEngine(ASREngine):
         segs = list(segments)
         if not segs:
             return ASRResult(text="", no_speech_prob=1.0)
+        # 複数セグメント時は最悪値を代表にする（平均だと1つの幻覚セグメントが
+        # 他のクリーンなセグメントに薄められ、E-04フィルタをすり抜ける）
         return ASRResult(
             text="".join(s.text for s in segs).strip(),
-            avg_logprob=statistics.fmean(s.avg_logprob for s in segs),
-            no_speech_prob=statistics.fmean(s.no_speech_prob for s in segs),
-            compression_ratio=statistics.fmean(s.compression_ratio for s in segs),
+            avg_logprob=min(s.avg_logprob for s in segs),
+            no_speech_prob=max(s.no_speech_prob for s in segs),
+            compression_ratio=max(s.compression_ratio for s in segs),
         )

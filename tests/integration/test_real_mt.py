@@ -80,6 +80,16 @@ class TestHyMt2Engine:
         assert not HIRAGANA.search(out)
 
 
+@requires_hymt
+def test_build_mt_engine_constructs_hymt_from_config():
+    """受け入れ基準: 設定のみで hy-mt2 が結線される（config→ファクトリの経路）。"""
+    from server.main import build_mt_engine
+    from server.mt.hymt_engine import HyMt2Engine
+
+    engine = build_mt_engine(AppConfig(mt=MtConfig(engine="hy-mt2")))
+    assert isinstance(engine, HyMt2Engine)
+
+
 @requires_nllb
 class TestRealMtOverWebSocket:
     def test_fake_asr_text_reaches_student_really_translated(self):

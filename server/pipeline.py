@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
-from server.asr.filter import hallucination_reason
+from server.asr.hallucination import hallucination_reason
 from server.audio.ingest import pcm16_from_bytes
 from server.audio.vad import Segment, VoiceSegmenter, build_frame_vad
 from server.config import AppConfig
@@ -66,12 +66,12 @@ class Pipeline:
         self._asr = asr_engine
         self._mt = mt_engine
         self._mt_engine_name = config.mt.engine
-        frame_vad, frame_ms = build_frame_vad(config.vad)
+        frame_vad = build_frame_vad(config.vad)
         self._segmenter = VoiceSegmenter(
             frame_vad,
             min_silence_ms=config.vad.min_silence_ms,
             max_utterance_s=config.vad.max_utterance_s,
-            frame_ms=frame_ms,
+            frame_ms=frame_vad.frame_ms,
             pre_roll_ms=config.vad.pre_roll_ms,
         )
         self._asr_queue: asyncio.Queue[Segment] = asyncio.Queue(maxsize=4)

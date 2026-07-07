@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from server.config import AppConfig, Language, MtConfig
+from server.config import AppConfig, Language, ModelsConfig, MtConfig
 from server.main import build_mt_engine
 from server.mt.hymt_engine import HYMT_LANG_LABELS, HyMt2Engine, build_prompt
 from server.mt.nllb_engine import NLLB_LANG_CODES, NllbEngine
@@ -49,11 +49,30 @@ def test_missing_model_path_raises_with_guidance(tmp_path: Path):
         HyMt2Engine(tmp_path / "nai.gguf")
 
 
-def test_build_mt_engine_rejects_uncovered_language(tmp_path: Path):
-    # エンジンが対応しない言語が config にあると起動時に失敗する（E-14 の起動時版）
+def test_build_mt_engine_rejects_uncovered_language():
+    # エンジンが対応しない言語が config にあると、モデルの有無以前に起動を拒否する
+    # （E-14 の起動時版。言語検証はファイル検証より先）
+    config = AppConfig(
+        mt=MtConfig(engine="nllb"),
+        languages=[Language(code="en", label="English"), Language(code="fr", label="Français")],
+    )
+    with pytest.raises(ValueError, match="fr"):
+        build_mt_engine(config)
+
+
+def test_build_mt_engine_fake_covers_any_config_language():
     config = AppConfig(
         mt=MtConfig(engine="fake"),
         languages=[Language(code="en", label="English"), Language(code="xx", label="Test")],
     )
-    # fake は config の言語を全部名乗るので通る
     assert build_mt_engine(config) is not None
+
+
+def test_build_mt_engine_detects_incomplete_model(tmp_path: Path):
+    # E-13: ダウンロード中断等による不完全なモデルでは起動しない
+    gguf = tmp_path / "hy-mt2" / "Hy-MT2-1.8B-Q4_K_M.gguf"
+    gguf.parent.mkdir(parents=True)
+    gguf.write_bytes(b"x" * 10)
+    config = AppConfig(models=ModelsConfig(dir=str(tmp_path)), mt=MtConfig(engine="hy-mt2"))
+    with pytest.raises(FileNotFoundError, match="不完全"):
+        build_mt_engine(config)

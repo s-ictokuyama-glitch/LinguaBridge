@@ -24,6 +24,7 @@ from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, load_config
+from server.model_files import require_model_files
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -47,44 +48,51 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
         # 遅延import: fake構成やテストでは faster-whisper を要求しない
         from server.asr.fw_engine import FasterWhisperEngine
 
+        model_dir = config.models.resolve(config.asr.model)
+        require_model_files(model_dir, 10_000_000, "ASRモデル")
         return FasterWhisperEngine(
-            config.models.resolve(config.asr.model),
+            model_dir,
             compute_type=config.asr.compute_type,
             language=config.asr.language,
         )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
 
-def build_mt_engine(config: AppConfig) -> TranslationEngine:
-    engine: TranslationEngine
-    if config.mt.engine == "fake":
-        engine = FakeTranslationEngine(config.language_codes)
-    elif config.mt.engine == "nllb":
-        # 遅延import: 使わないエンジンの依存を要求しない
-        from server.mt.nllb_engine import NllbEngine
-
-        engine = NllbEngine(
-            config.models.resolve(config.mt.nllb.model_dir),
-            config.models.resolve(config.mt.nllb.tokenizer_dir),
-            beam_size=config.mt.nllb.beam_size,
-        )
-    elif config.mt.engine == "hy-mt2":
-        from server.mt.hymt_engine import HyMt2Engine
-
-        engine = HyMt2Engine(
-            config.models.resolve(config.mt.hy_mt2.gguf_path),
-            threads=config.mt.hy_mt2.threads,
-            temperature=config.mt.hy_mt2.temperature,
-        )
-    else:
-        raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
-    missing = set(config.language_codes) - set(engine.supported_languages())
+def _require_language_coverage(config: AppConfig, supported: set[str]) -> None:
+    missing = set(config.language_codes) - supported
     if missing:
         # 対応外言語を設定したまま起動しない（E-14 は join 時にも検証される）
         raise ValueError(
             f"翻訳エンジン '{config.mt.engine}' が未対応の言語が languages にある: {sorted(missing)}"
         )
-    return engine
+
+
+def build_mt_engine(config: AppConfig) -> TranslationEngine:
+    # 言語カバレッジ検証 → モデルファイル検証 → 構築、の順（設定ミスを先に報告する）
+    if config.mt.engine == "fake":
+        return FakeTranslationEngine(config.language_codes)
+    if config.mt.engine == "nllb":
+        # 遅延import: 使わないエンジンの依存を要求しない
+        from server.mt.nllb_engine import NLLB_LANG_CODES, NllbEngine
+
+        _require_language_coverage(config, set(NLLB_LANG_CODES))
+        model_dir = config.models.resolve(config.mt.nllb.model_dir)
+        tokenizer_dir = config.models.resolve(config.mt.nllb.tokenizer_dir)
+        require_model_files(model_dir, 100_000_000, "NLLBモデル")
+        require_model_files(tokenizer_dir, 100_000, "NLLBトークナイザ")
+        return NllbEngine(model_dir, tokenizer_dir, beam_size=config.mt.nllb.beam_size)
+    if config.mt.engine == "hy-mt2":
+        from server.mt.hymt_engine import HYMT_LANG_LABELS, HyMt2Engine
+
+        _require_language_coverage(config, set(HYMT_LANG_LABELS))
+        gguf_path = config.models.resolve(config.mt.hy_mt2.gguf_path)
+        require_model_files(gguf_path, 500_000_000, "Hy-MT2のGGUF")
+        return HyMt2Engine(
+            gguf_path,
+            threads=config.mt.hy_mt2.threads,
+            temperature=config.mt.hy_mt2.temperature,
+        )
+    raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
 
 
 def get_lan_ip() -> str:
@@ -136,7 +144,8 @@ def create_app(
 
     @app.get("/healthz")
     async def healthz() -> dict:
-        # フェイクエンジンは即ロード完了。実モデルのロード完了ゲート（503）は #11/#16
+        # uvicorn は lifespan（モデルwarmup）完了後にしか応答しないため、
+        # 応答が返る時点でロード済み。明示的な503ゲートは #16（運用パッケージ）
         return {"status": "ok"}
 
     @app.get("/api/config")

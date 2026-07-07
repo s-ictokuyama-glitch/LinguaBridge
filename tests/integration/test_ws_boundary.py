@@ -133,6 +133,23 @@ class TestCaptionFlow:
             langs_called = {lang for _, lang in mt_engine.calls}
             assert langs_called == {"en"}, "選択者0名のzhに翻訳ジョブが発生している"
 
+    def test_hallucination_text_is_not_delivered(self, client, mt_engine):
+        """幻覚フィルタ（E-04）が配信経路で効いている: 破棄された発話は
+        caption にも seq にも現れない。"""
+        with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
+            join_student(student, "en")
+            join_teacher(teacher)
+            start_session(teacher)
+            student.receive_json()  # session live
+
+            send_utterance(teacher, key=4000)  # フェイクASRが既知幻覚フレーズを返す
+            send_utterance(teacher, key=1000)
+
+            cap = student.receive_json()
+            assert cap["ja"] == PHRASE_1000
+            assert cap["seq"] == 1  # 幻覚発話は seq を消費していない＝破棄済み
+            assert all("ご視聴" not in ja for ja, _ in mt_engine.calls)
+
     def test_set_lang_switches_captions(self, client, mt_engine):
         with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
             join_student(student, "en")

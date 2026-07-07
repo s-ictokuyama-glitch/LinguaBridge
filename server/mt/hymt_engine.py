@@ -52,12 +52,20 @@ class HyMt2Engine(TranslationEngine):
         from llama_cpp import Llama
 
         logger.info("Hy-MT2モデルをロード中: %s", self._gguf_path.name)
-        self._llm = Llama(
+        llm = Llama(
             model_path=str(self._gguf_path),
             n_ctx=2048,
             n_threads=self._threads,
             verbose=False,
         )
+        # チャットテンプレートがGGUFに無いと llama.cpp が別形式に暗黙フォールバックし
+        # 出力が壊れる。公式GGUFには埋め込み済み — 無ければ入手元を疑う
+        if "tokenizer.chat_template" not in (llm.metadata or {}):
+            raise RuntimeError(
+                f"GGUFにチャットテンプレートが無い: {self._gguf_path}\n"
+                "tencent/Hy-MT2-1.8B-GGUF の公式ファイルか確認してください"
+            )
+        self._llm = llm
         self.translate("こんにちは。", "en")  # ダミー推論（初回遅延対策）
         logger.info("Hy-MT2ウォームアップ完了")
 

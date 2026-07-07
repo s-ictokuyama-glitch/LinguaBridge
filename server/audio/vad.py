@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 
 class FrameVAD(Protocol):
+    frame_ms: int  # この実装が要求する判定フレーム長
+
     def is_speech(self, frame: np.ndarray) -> bool: ...
 
     def reset(self) -> None: ...
@@ -28,6 +30,8 @@ class FrameVAD(Protocol):
 
 class EnergyVAD:
     """RMSエネルギーによるVAD（int16スケールの閾値）。テスト・フォールバック用。"""
+
+    frame_ms = 100
 
     def __init__(self, threshold: float = 300.0) -> None:
         self.threshold = threshold
@@ -52,6 +56,7 @@ class SileroVAD:
 
     FRAME_SAMPLES = 512
     _CONTEXT_SAMPLES = 64
+    frame_ms = 32  # 512サンプル @16kHz
 
     def __init__(self, threshold: float = 0.5) -> None:
         from faster_whisper.vad import get_vad_model
@@ -77,7 +82,9 @@ class SileroVAD:
     def is_speech(self, frame: np.ndarray) -> bool:
         audio = frame.astype(np.float32) / 32768.0
         if audio.size != self.FRAME_SAMPLES:  # 防御。VoiceSegmenter は常に固定長を渡す
-            audio = np.resize(audio, self.FRAME_SAMPLES)
+            padded = np.zeros(self.FRAME_SAMPLES, dtype=np.float32)
+            padded[: min(audio.size, self.FRAME_SAMPLES)] = audio[: self.FRAME_SAMPLES]
+            audio = padded
         model_input = np.concatenate([self._context, audio])[None, :]
         out, self._h, self._c = self._session.run(
             None, {"input": model_input, "h": self._h, "c": self._c}
@@ -86,10 +93,10 @@ class SileroVAD:
         return float(np.asarray(out).reshape(-1)[0]) > self.threshold
 
 
-def build_frame_vad(vad_config: VadConfig) -> tuple[FrameVAD, int]:
-    """設定から (FrameVAD実装, フレーム長ms) を作る。Sileroは512サンプル=32ms固定。"""
+def build_frame_vad(vad_config: VadConfig) -> FrameVAD:
+    """設定から FrameVAD 実装を作る。フレーム長は各実装の frame_ms 属性が持つ。"""
     if vad_config.engine == "silero":
-        return SileroVAD(vad_config.threshold), 32
+        return SileroVAD(vad_config.threshold)
     if vad_config.engine == "energy":
         if vad_config.threshold <= 1.0:
             # silero用の確率閾値のまま energy に切り替えると全フレームが音声判定になる
@@ -97,7 +104,7 @@ def build_frame_vad(vad_config: VadConfig) -> tuple[FrameVAD, int]:
                 f"energy VAD の threshold は int16 RMS スケール（例: 300）。"
                 f"現在値 {vad_config.threshold} は silero 用の確率閾値の可能性"
             )
-        return EnergyVAD(vad_config.threshold), 100
+        return EnergyVAD(vad_config.threshold)
     raise ValueError(f"未知のVADエンジン: {vad_config.engine}")
 
 

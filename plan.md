@@ -217,12 +217,14 @@ asr:
   compute_type: int8
   language: ja
 vad:
-  threshold: 0.5
+  engine: silero             # "silero" | "energy"（テスト・フォールバック用）
+  threshold: 0.5             # silero: 音声確率 / energy: int16 RMS
   min_silence_ms: 500        # 発話終了判定
   max_utterance_s: 30        # 強制分割（§8 E-03）
+  pre_roll_ms: 240           # 発話開始前の音声を含める（語頭の欠け防止）
 mt:
   engine: hy-mt2             # "hy-mt2" | "nllb"（判断ゲート①で hy-mt2 に確定）
-  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4 }   # models.dir相対
+  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4, temperature: 0.7 }   # models.dir相対
   nllb:   { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
 languages:                   # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }

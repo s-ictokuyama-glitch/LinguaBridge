@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 from starlette.testclient import TestClient
 
-from server.asr.filter import hallucination_reason
+from server.asr.hallucination import hallucination_reason
 from server.audio.vad import SileroVAD, VoiceSegmenter
 from server.config import AppConfig, VadConfig
 from server.main import create_app
@@ -26,8 +26,13 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_WAV = ROOT / "tests" / "fixtures" / "ja" / "03.wav"  # 「教科書の四十二ページを開いてください。」
 SMALL_MODEL_DIR = AppConfig().models.resolved_dir / "faster-whisper-small"
 
+KOTOBA_MODEL_DIR = AppConfig().models.resolved_dir / "kotoba-whisper-v2.0-faster"
+
 requires_models = pytest.mark.skipif(
     not SMALL_MODEL_DIR.exists(), reason="モデル未取得（scripts/download_models.py を実行）"
+)
+requires_kotoba = pytest.mark.skipif(
+    not KOTOBA_MODEL_DIR.exists(), reason="kotobaモデル未取得（scripts/download_models.py を実行）"
 )
 requires_fixture = pytest.mark.skipif(
     not FIXTURE_WAV.exists(), reason="fixture未生成（scripts/make_fixture_audio.ps1 を実行）"
@@ -108,6 +113,22 @@ class TestFasterWhisperEngine:
     def test_rejects_wrong_sample_rate(self, fw_engine):
         with pytest.raises(ValueError):
             fw_engine.transcribe(silence_pcm(0.5), 48000)
+
+
+@requires_kotoba
+@requires_fixture
+@pytest.mark.timeout(90)  # kotoba はCPUデコードが遅い（それが不採用理由。ここは切替可否の検証）
+def test_config_switch_to_kotoba_model():
+    """受け入れ基準: 設定値（models.dir 配下のディレクトリ名）の変更のみで kotoba へ切替できる。"""
+    from server.config import AsrConfig
+    from server.main import build_asr_engine
+
+    config = AppConfig(
+        asr=AsrConfig(engine="faster-whisper", model="kotoba-whisper-v2.0-faster")
+    )
+    engine = build_asr_engine(config)
+    result = engine.transcribe(load_fixture_pcm(), 16000)
+    assert "教科書" in result.text
 
 
 @requires_models

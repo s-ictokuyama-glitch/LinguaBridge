@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from server.asr.base import ASRResult
-from server.asr.filter import hallucination_reason
+from server.asr.hallucination import hallucination_reason
 
 
 def ok_result(text: str = "光合成には日光が必要です。") -> ASRResult:
