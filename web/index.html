@@ -18,14 +18,27 @@
     <p id="join-error" class="error" hidden></p>
   </section>
 
-  <section id="caption-screen" hidden>
+  <section id="caption-screen" class="size-m" hidden>
     <header>
-      <span id="session-banner" class="banner idle">接続中…</span>
-      <select id="lang-select" title="言語を変更"></select>
+      <span id="session-banner" class="banner idle">…</span>
+      <div class="header-controls">
+        <label class="ja-toggle">
+          <input type="checkbox" id="ja-toggle" checked>
+          <span id="ja-toggle-label" data-i18n="show_ja"></span>
+        </label>
+        <div id="size-buttons" role="group">
+          <button data-size="s" data-i18n="size_s"></button>
+          <button data-size="m" data-i18n="size_m"></button>
+          <button data-size="l" data-i18n="size_l"></button>
+        </div>
+        <select id="lang-select" title="Language"></select>
+      </div>
     </header>
     <main id="cards"></main>
+    <button id="latest-btn" data-i18n="latest" hidden></button>
   </section>
 
+  <script src="/static/i18n.js"></script>
   <script src="/static/student.js"></script>
 </body>
 </html>

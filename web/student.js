@@ -1,8 +1,13 @@
 // 生徒ページ: コード入力（QRクエリで自動入力）→ 言語選択 → 字幕カード表示
+// UI文言は i18n.js（ja/en/zh）で選択言語に追従する（F-07）
 "use strict";
 
 const RETRY_BASE_MS = 1000;
 const RETRY_MAX_MS = 15000;
+const DELAY_NOTICE_MS = 5000; // これ以上遅れた字幕に「遅延中」を付す（E-05）
+const FOLLOW_THRESHOLD_PX = 40; // 最下部からこの範囲内なら「追従中」とみなす
+const STORAGE_FONT_SIZE = "lb_font_size";
+const STORAGE_SHOW_JA = "lb_show_ja";
 
 const state = {
   code: "",
@@ -18,6 +23,8 @@ const state = {
   ended: false,
   languages: [],
   retryDelayMs: RETRY_BASE_MS,
+  following: true, // 自動スクロール追従中か（上スクロールで停止、「最新へ」で復帰）
+  bannerKey: "idle",
 };
 
 function advanceWatermark(seq) {
@@ -39,20 +46,65 @@ const el = {
   banner: document.getElementById("session-banner"),
   langSelect: document.getElementById("lang-select"),
   cards: document.getElementById("cards"),
+  jaToggle: document.getElementById("ja-toggle"),
+  sizeButtons: document.getElementById("size-buttons"),
+  latestBtn: document.getElementById("latest-btn"),
 };
 
-const BANNERS = {
-  idle: ["idle", "開始待ち / Waiting"],
-  live: ["live", "配信中 / Live"],
-  paused: ["paused", "一時停止中 / Paused"],
-  ended: ["ended", "授業は終了しました / Ended"],
-  disconnected: ["disconnected", "再接続中… / Reconnecting…"],
+// ---- i18n ----
+
+function t(key) {
+  const dict = I18N[state.lang] || I18N.ja;
+  return dict[key] || I18N.ja[key] || key;
+}
+
+function applyI18n() {
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    node.textContent = t(node.dataset.i18n);
+  }
+  setBanner(state.bannerKey);
+}
+
+const BANNER_CLASSES = {
+  idle: "idle",
+  live: "live",
+  paused: "paused",
+  ended: "ended",
+  disconnected: "disconnected",
 };
 
 function setBanner(key) {
-  const [cls, text] = BANNERS[key] || BANNERS.idle;
-  el.banner.className = `banner ${cls}`;
-  el.banner.textContent = text;
+  state.bannerKey = key;
+  el.banner.className = `banner ${BANNER_CLASSES[key] || "idle"}`;
+  el.banner.textContent = t(`banner_${key}`);
+}
+
+// ---- 表示設定（再読み込み後も保持: F-06） ----
+
+function applyFontSize(size) {
+  el.captionScreen.classList.remove("size-s", "size-m", "size-l");
+  el.captionScreen.classList.add(`size-${size}`);
+  for (const btn of el.sizeButtons.children) {
+    btn.classList.toggle("selected", btn.dataset.size === size);
+  }
+  localStorage.setItem(STORAGE_FONT_SIZE, size);
+}
+
+function applyShowJa(on) {
+  el.captionScreen.classList.toggle("hide-ja", !on);
+  el.jaToggle.checked = on;
+  localStorage.setItem(STORAGE_SHOW_JA, on ? "1" : "0");
+}
+
+// ---- 自動スクロール追従 ----
+
+function setFollowing(on) {
+  state.following = on;
+  el.latestBtn.hidden = on;
+}
+
+function scrollToLatest() {
+  el.cards.scrollTop = el.cards.scrollHeight;
 }
 
 function updateJoinButton() {
@@ -95,7 +147,27 @@ async function init() {
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
       state.ws.send(JSON.stringify({ type: "set_lang", lang: state.lang }));
     }
+    applyI18n();
   });
+
+  applyFontSize(localStorage.getItem(STORAGE_FONT_SIZE) || "m");
+  applyShowJa(localStorage.getItem(STORAGE_SHOW_JA) !== "0");
+  el.jaToggle.addEventListener("change", () => applyShowJa(el.jaToggle.checked));
+  for (const btn of el.sizeButtons.children) {
+    btn.addEventListener("click", () => applyFontSize(btn.dataset.size));
+  }
+
+  el.cards.addEventListener("scroll", () => {
+    const atBottom =
+      el.cards.scrollHeight - el.cards.scrollTop - el.cards.clientHeight < FOLLOW_THRESHOLD_PX;
+    setFollowing(atBottom);
+  });
+  el.latestBtn.addEventListener("click", () => {
+    scrollToLatest();
+    setFollowing(true);
+  });
+
+  applyI18n();
 }
 
 function connect(lastSeq) {
@@ -135,6 +207,7 @@ function handleMessage(msg) {
       el.joinScreen.hidden = true;
       el.captionScreen.hidden = false;
       el.langSelect.value = state.lang;
+      applyI18n();
       setBanner(msg.session_state);
       break;
     case "join_rejected": {
@@ -149,12 +222,7 @@ function handleMessage(msg) {
         el.captionScreen.hidden = true;
         el.joinScreen.hidden = false;
       }
-      el.joinError.textContent =
-        msg.reason === "bad_code"
-          ? "参加コードが違います / Wrong code / 参加码错误"
-          : msg.reason === "rate_limited"
-            ? "試行回数が多すぎます。1分ほど待ってください / Too many attempts"
-            : "この言語には対応していません / Unsupported language";
+      el.joinError.textContent = t(`err_${msg.reason}`);
       el.joinError.hidden = false;
       break;
     }
@@ -171,6 +239,7 @@ function handleMessage(msg) {
       if (msg.code === "bad_lang" && state.prevLang) {
         state.lang = state.prevLang;
         el.langSelect.value = state.prevLang;
+        applyI18n();
       }
       break;
   }
@@ -178,18 +247,23 @@ function handleMessage(msg) {
 
 function addCard(msg) {
   if (el.cards.querySelector(`[data-seq="${msg.seq}"]`)) return; // 再送の重複防御
-  const nearBottom =
-    el.cards.scrollHeight - el.cards.scrollTop - el.cards.clientHeight < 120;
   const card = document.createElement("div");
   card.className = "card";
   card.dataset.seq = msg.seq;
   const text = document.createElement("p");
   text.className = "text";
   text.textContent = msg.text;
+  card.append(text);
+  if (msg.delay_ms >= DELAY_NOTICE_MS) {
+    const tag = document.createElement("span");
+    tag.className = "delay-tag";
+    tag.textContent = t("delayed");
+    card.append(tag);
+  }
   const ja = document.createElement("p");
   ja.className = "ja";
   ja.textContent = msg.ja;
-  card.append(text, ja);
+  card.append(ja);
   // 再接続復元と新着が交錯しても表示は発話順を保つ（seq昇順の位置に挿入）
   let ref = null;
   for (let node = el.cards.lastElementChild; node; node = node.previousElementSibling) {
@@ -197,8 +271,8 @@ function addCard(msg) {
     ref = node;
   }
   el.cards.insertBefore(card, ref);
-  // 最下部付近を見ている時だけ自動スクロール（履歴を遡っている間は追従しない）
-  if (nearBottom) el.cards.scrollTop = el.cards.scrollHeight;
+  // 追従中のみ自動スクロール（上スクロールで停止、「最新へ」で復帰）
+  if (state.following) scrollToLatest();
 }
 
 init();
