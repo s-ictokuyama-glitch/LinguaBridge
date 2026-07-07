@@ -1,8 +1,12 @@
 # ランタイム依存
-# 翻訳エンジン依存（ctranslate2 / llama-cpp-python 等）は #12 で追加する
+# llama-cpp-python はCPU用プリビルトwheelのインデックスを使う
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
 PyYAML>=6.0
 numpy>=1.26
-faster-whisper>=1.2       # 実ASR（#11）。Silero VAD (ONNX) も同梱のものを利用
+faster-whisper>=1.2       # 実ASR（#11）。Silero VAD (ONNX) と ctranslate2 も同梱/依存で入る
+llama-cpp-python>=0.2.85  # hy-mt2 翻訳エンジン（#12）
+transformers>=4.40        # NLLBトークナイザ（torch不要）
+sentencepiece>=0.2

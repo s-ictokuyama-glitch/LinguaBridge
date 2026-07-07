@@ -56,9 +56,35 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
 
 
 def build_mt_engine(config: AppConfig) -> TranslationEngine:
+    engine: TranslationEngine
     if config.mt.engine == "fake":
-        return FakeTranslationEngine(config.language_codes)
-    raise NotImplementedError(f"翻訳エンジン '{config.mt.engine}' は未実装（#12 で追加）")
+        engine = FakeTranslationEngine(config.language_codes)
+    elif config.mt.engine == "nllb":
+        # 遅延import: 使わないエンジンの依存を要求しない
+        from server.mt.nllb_engine import NllbEngine
+
+        engine = NllbEngine(
+            config.models.resolve(config.mt.nllb.model_dir),
+            config.models.resolve(config.mt.nllb.tokenizer_dir),
+            beam_size=config.mt.nllb.beam_size,
+        )
+    elif config.mt.engine == "hy-mt2":
+        from server.mt.hymt_engine import HyMt2Engine
+
+        engine = HyMt2Engine(
+            config.models.resolve(config.mt.hy_mt2.gguf_path),
+            threads=config.mt.hy_mt2.threads,
+            temperature=config.mt.hy_mt2.temperature,
+        )
+    else:
+        raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
+    missing = set(config.language_codes) - set(engine.supported_languages())
+    if missing:
+        # 対応外言語を設定したまま起動しない（E-14 は join 時にも検証される）
+        raise ValueError(
+            f"翻訳エンジン '{config.mt.engine}' が未対応の言語が languages にある: {sorted(missing)}"
+        )
+    return engine
 
 
 def get_lan_ip() -> str:

@@ -25,13 +25,12 @@ vad:
   pre_roll_ms: 240           # 発話開始前の音声を含める長さ（語頭の欠け防止）
 
 mt:
-  # "fake" は決定的フェイク（#10 トレーサー用）。#12 で hy-mt2 / nllb 実装を追加。
-  # 実装後の既定は hy-mt2 — 判断ゲート①で確定（docs/bench/2026-07-07-bench.md:
-  # 品質・ライセンスで優位、遅延+164ms・メモリ+1.2GBはいずれも予算内）
-  engine: fake
-  decided_engine: hy-mt2   # 判断ゲート①の確定値（#12 実装完了時に engine へ昇格）
+  # 既定 hy-mt2 は判断ゲート①で確定（docs/bench/2026-07-07-bench.md:
+  # 品質・ライセンスで優位、遅延+164ms・メモリ+1.2GBはいずれも予算内）。
+  # 学校実機(i5)の再計測で予算を破る場合は nllb へ切替（非商用ライセンス注意）
+  engine: hy-mt2             # "hy-mt2" | "nllb" | "fake"（テスト・デモ用）
   # パスは models.dir からの相対
-  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4 }
+  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4, temperature: 0.7 }
   nllb: { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
 
 languages: # 生徒が選択可能な言語（F-12）

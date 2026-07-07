@@ -51,6 +51,7 @@ class VadConfig(BaseModel):
 class HyMt2Config(BaseModel):
     gguf_path: str = "hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf"  # models.dir からの相対
     threads: int = 4
+    temperature: float = 0.7  # モデルカード推奨値。テスト等では 0（貪欲）で決定的にできる
 
 
 class NllbConfig(BaseModel):
@@ -60,10 +61,8 @@ class NllbConfig(BaseModel):
 
 
 class MtConfig(BaseModel):
-    engine: str = "fake"  # "fake" | "hy-mt2" | "nllb"（実装は#12）
-    # 判断ゲート①（docs/bench/2026-07-07-bench.md）の確定値。
-    # #12 で実装完了時に engine の既定をこの値へ切り替える
-    decided_engine: str = "hy-mt2"
+    # 既定は判断ゲート①の確定値（docs/bench/2026-07-07-bench.md）
+    engine: str = "hy-mt2"  # "hy-mt2" | "nllb" | "fake"（テスト・デモ用）
     hy_mt2: HyMt2Config = Field(default_factory=HyMt2Config)
     nllb: NllbConfig = Field(default_factory=NllbConfig)
 

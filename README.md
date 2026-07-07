@@ -5,17 +5,20 @@
 - 全体計画: [plan.md](plan.md)
 - PRD・実装スライス: [GitHub Issues](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues)（PRD は #8）
 
-## 現在の状態（イシュー #11 完了時点）
+## 現在の状態（イシュー #12 完了時点）
 
-**実ASRが動作する**: マイクの日本語発話が faster-whisper（既定 whisper small int8、
-`config.yaml` で kotoba-whisper-v2.0 へ切替可）で文字起こしされ、生徒カードに届く。
-翻訳のみフェイク（`[en] 原文` 形式）で、実翻訳エンジンは #12 で追加する。
+**ASR・翻訳とも実エンジンで動作する**: マイクの日本語発話が faster-whisper
+（既定 whisper small int8、kotoba へ切替可）で文字起こしされ、
+**Hy-MT2-1.8B**（既定・GGUF/llama.cpp）または **NLLB-200 600M**（CTranslate2、
+`mt.engine: nllb` で切替）で英語・中国語（簡体字）へ実翻訳されて生徒カードに届く。
+実測遅延は発話終了→表示で約1.7〜2.0秒（開発機、docs/bench 参照）。
 
 - 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、文字起こしライブ表示）
 - サーバー（4桁コードの単一ルーム、**Silero VAD** 発話セグメンテーション（無音500ms確定・
   30s強制分割・プリロール240ms）、**幻覚フィルタ**（E-04: no_speech_prob /
   compression_ratio / avg_logprob / 既知フレーズ辞書）、起動時warmup、
-  言語別ブロードキャスト、再接続時の履歴差分再送）
+  **アクティブ言語のみ翻訳・言語ごとに1回だけ翻訳**、言語別ブロードキャスト、
+  再接続時の履歴差分再送）
 - 生徒ページ（コード入力→言語選択→字幕カード、言語の途中変更、自動スクロール）
 
 実モデルが必要（下記「モデル取得」参照）。モデル・フィクスチャが無い環境では

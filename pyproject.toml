@@ -13,5 +13,5 @@ warn_unused_ignores = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = ["faster_whisper.*"]
+module = ["faster_whisper.*", "llama_cpp.*", "ctranslate2.*", "transformers.*"]
 ignore_missing_imports = true  # 型スタブ未提供
