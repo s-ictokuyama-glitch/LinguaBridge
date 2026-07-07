@@ -4,6 +4,7 @@
 const state = {
   code: "",
   lang: null,
+  prevLang: null,
   lastSeq: 0,
   ws: null,
   joined: false,
@@ -72,6 +73,7 @@ async function init() {
     connect(null);
   });
   el.langSelect.addEventListener("change", () => {
+    state.prevLang = state.lang;
     state.lang = el.langSelect.value;
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
       state.ws.send(JSON.stringify({ type: "set_lang", lang: state.lang }));
@@ -123,6 +125,13 @@ function handleMessage(msg) {
     case "session":
       if (msg.state === "ended") state.ended = true;
       setBanner(msg.state);
+      break;
+    case "error":
+      // set_lang が拒否された場合は選択を元に戻す
+      if (msg.code === "bad_lang" && state.prevLang) {
+        state.lang = state.prevLang;
+        el.langSelect.value = state.prevLang;
+      }
       break;
   }
 }

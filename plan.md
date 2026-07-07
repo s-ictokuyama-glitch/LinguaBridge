@@ -94,7 +94,7 @@
 | VAD | Silero VAD（ONNX, CPU） | 軽量・無料・実績。発話区切り検出でASRをチャンク処理化 |
 | 翻訳 | `TranslationEngine` 抽象の下に **hy-mt2 1.8b（llama-cpp-python, GGUF int4）** と **NLLB-200-distilled-600M（CTranslate2 int8）** の両実装。暫定既定は品質重視で hy-mt2、Phase 0 実機ベンチで N-01 を満たさなければ NLLB に切替 | 品質（LLM系MT）と速度（専用MTモデル）のトレードオフは机上で確定できないため、差し替え可能にして実機で判定 |
 | 対象言語 | 英語・中国語（簡体字）を一次対応、`config.yaml` の言語リストで拡張 | 実需要に合わせ検証コストを集中。NLLBは200言語対応で拡張余地大 |
-| バックエンド | Python 3.11+ / FastAPI / uvicorn 単一プロセス。ASR/翻訳は ThreadPoolExecutor（CTranslate2・llama.cpp はGIL解放） | faster-whisper がPython前提。WS・静的配信・非同期を1プロセスで完結 |
+| バックエンド | Python 3.12+ / FastAPI / uvicorn 単一プロセス。ASR/翻訳は ThreadPoolExecutor（CTranslate2・llama.cpp はGIL解放） | faster-whisper がPython前提。WS・静的配信・非同期を1プロセスで完結 |
 | フロントエンド | 素のHTML/CSS/JS（ビルド工程なし）。QR生成はローカル同梱の qrcode ライブラリ（CDN不可＝オフライン要件） | 画面数が少なく、npm/Vite等の保守負担に見合わない |
 | ネットワーク | 校内Wi-Fi直結が主構成、**Windowsモバイルホットスポット**が副構成。Phase 0 で実地疎通確認 | 校内Wi-FiのAP分離（クライアントアイソレーション）が未確認のため、両構成を用意 |
 | HTTPS | サーバーは **HTTPS(8443, 自己署名)** と **HTTP(8000)** を同時リッスン。先生ページはHTTPS（マイクにセキュアコンテキスト必須、初回のみ警告を手動承認）、生徒ページはHTTP（マイク不要、10台での証明書警告を回避） | `getUserMedia` は HTTPS/localhost 限定。生徒側に警告承認を強いない |
@@ -128,7 +128,7 @@ LinguaBridge/
 │   ├── ws_protocol.py            # WSメッセージのpydanticスキーマ（§6参照）
 │   ├── pipeline.py               # オーケストレーター（キュー・ワーカー・配信）
 │   ├── audio/
-│   │   ├── ingest.py             # 先生WSからのPCM受信・リングバッファ
+│   │   ├── ingest.py             # 先生WSからのPCMデコード（バッファリングはvad.py側）
 │   │   └── vad.py                # Silero VAD による発話セグメンテーション
 │   ├── asr/
 │   │   ├── base.py               # ASREngine 抽象
@@ -244,6 +244,7 @@ history_resend: 50
 | `GET /` | 生徒ページ（`?code=1234` 付きQR経由なら参加コード自動入力） |
 | `GET /teacher` | 先生ページ（HTTPS側でのみ案内） |
 | `GET /api/config` | 言語リスト・UI文言など公開設定のJSON |
+| `GET /api/teacher-info` | 参加コード・参加URL（QR用）。ループバック接続のみ応答（先生ページ用。別端末HTTPS運用時は #16 でトークン方式に変更） |
 | `GET /healthz` | 死活監視（モデルロード完了で200） |
 | 静的配信 `/static/*` | web/ 以下 |
 

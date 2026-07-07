@@ -61,9 +61,16 @@ function connect(code) {
     ws.send(JSON.stringify({ type: "join", role: "teacher", code }));
   });
   ws.addEventListener("message", (ev) => handleMessage(JSON.parse(ev.data)));
-  ws.addEventListener("close", () => {
+  ws.addEventListener("close", (ev) => {
     if (!state.joined) return;
     setButtons(false);
+    if (ev.code === 4000) {
+      // 後勝ち接続に置き換えられた（E-08）。再接続すると互いにキックし合うので止まる
+      el.pageError.textContent =
+        "別のタブ・端末で先生ページが接続されたため、この接続は終了しました。";
+      el.pageError.hidden = false;
+      return;
+    }
     el.micStatus.textContent = "サーバーとの接続が切れました。再接続中…";
     setTimeout(() => connect(code), 2000);
   });

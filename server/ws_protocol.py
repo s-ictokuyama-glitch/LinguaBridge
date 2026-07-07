@@ -18,6 +18,10 @@ class ProtocolError(Exception):
     pass
 
 
+SessionState = Literal["idle", "live", "paused", "ended"]
+JoinRejectReason = Literal["bad_code", "bad_lang"]
+
+
 # ---- クライアント → サーバー ----
 
 
@@ -65,12 +69,12 @@ class Joined(BaseModel):
     type: Literal["joined"] = "joined"
     seq_head: int
     languages: list[Language]
-    session_state: str
+    session_state: SessionState
 
 
 class JoinRejected(BaseModel):
     type: Literal["join_rejected"] = "join_rejected"
-    reason: str  # "bad_code" | "bad_lang"
+    reason: JoinRejectReason
 
 
 class Caption(BaseModel):
@@ -84,7 +88,7 @@ class Caption(BaseModel):
 
 class SessionStateMsg(BaseModel):
     type: Literal["session"] = "session"
-    state: str  # "idle" | "live" | "paused" | "ended"
+    state: SessionState
 
 
 class AsrFinal(BaseModel):

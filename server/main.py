@@ -37,7 +37,7 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 # ソフトな防御（R-10）だが、LAN内の他端末へ無条件に晒さないよう
 # ループバックに限定する。"testclient" は starlette TestClient の固定値。
 # 先生ページを別端末のHTTPSで開く構成は #16 でトークン方式にする。
-_TEACHER_INFO_HOSTS = {"127.0.0.1", "::1", "testclient", None}
+_TEACHER_INFO_HOSTS = {"127.0.0.1", "::1", "testclient"}
 
 
 def build_asr_engine(config: AppConfig) -> ASREngine:

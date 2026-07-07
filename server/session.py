@@ -10,12 +10,20 @@ import secrets
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol
+
+from server.ws_protocol import SessionState
 
 if TYPE_CHECKING:
     from server.pipeline import Translation, Utterance
 
-SessionState = Literal["idle", "live", "paused", "ended"]
+
+class ClientSocket(Protocol):
+    """クライアントへの送信口。starlette WebSocket が構造的に満たす。"""
+
+    async def send_json(self, data: Any) -> None: ...
+
+    async def close(self, code: int = 1000) -> None: ...
 
 
 def generate_join_code() -> str:
@@ -27,7 +35,7 @@ class Client:
     id: str
     role: Literal["teacher", "student"]
     lang: str | None  # 生徒のみ
-    ws: Any  # starlette WebSocket。ユニットテストでは None
+    ws: ClientSocket | None  # ユニットテストでは None
     joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 

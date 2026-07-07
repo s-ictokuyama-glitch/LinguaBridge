@@ -5,7 +5,7 @@ timeout = 20
 timeout_method = "thread"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.12"  # plan.md §3 の下限（numpy 2.x の型スタブが3.12+構文のため）
 packages = ["server"]
 strict = false
 check_untyped_defs = true

@@ -23,7 +23,7 @@ from server.audio.ingest import pcm16_from_bytes
 from server.audio.vad import EnergyVAD, Segment, VoiceSegmenter
 from server.config import AppConfig
 from server.mt.base import TranslationEngine
-from server.session import Session
+from server.session import Client, Session
 
 logger = logging.getLogger(__name__)
 
@@ -181,25 +181,24 @@ class Pipeline:
     async def broadcast_caption(self, caption: proto.Caption) -> None:
         payload = caption.model_dump()
         for client in self._session.students():
-            if client.lang == caption.lang and client.ws is not None:
-                try:
-                    await client.ws.send_json(payload)
-                except Exception:
-                    pass  # 切断済み。クライアント除去はWSハンドラの finally が行う
+            if client.lang == caption.lang:
+                await self._safe_send(client, payload)
 
     async def send_to_teacher(self, message: proto.AsrFinal | proto.ErrorMsg) -> None:
         teacher = self._session.teacher()
-        if teacher is not None and teacher.ws is not None:
-            try:
-                await teacher.ws.send_json(message.model_dump())
-            except Exception:
-                pass
+        if teacher is not None:
+            await self._safe_send(teacher, message.model_dump())
 
     async def broadcast_session_state(self) -> None:
         payload = proto.SessionStateMsg(state=self._session.state).model_dump()
         for client in list(self._session.clients.values()):
-            if client.ws is not None:
-                try:
-                    await client.ws.send_json(payload)
-                except Exception:
-                    pass
+            await self._safe_send(client, payload)
+
+    @staticmethod
+    async def _safe_send(client: Client, payload: dict) -> None:
+        if client.ws is None:
+            return
+        try:
+            await client.ws.send_json(payload)
+        except Exception:
+            pass  # 切断済み。クライアント除去はWSハンドラの finally が行う
