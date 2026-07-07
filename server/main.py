@@ -256,7 +256,11 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
     config = load_config(args.config)
-    app = create_app(config)
+    try:
+        app = create_app(config)
+    except FileNotFoundError as exc:  # モデル未取得（E-13）。トレースバックを見せない
+        print(f"起動できません: {exc}")
+        raise SystemExit(1) from exc
     session: Session = app.state.session
     ip = get_lan_ip()
     print("=" * 60)

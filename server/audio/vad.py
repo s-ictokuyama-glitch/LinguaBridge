@@ -56,7 +56,14 @@ class SileroVAD:
     def __init__(self, threshold: float = 0.5) -> None:
         from faster_whisper.vad import get_vad_model
 
-        self._session = get_vad_model().session
+        session = getattr(get_vad_model(), "session", None)
+        if session is None:
+            raise RuntimeError(
+                "faster-whisper の Silero VAD 内部API（SileroVADModel.session）が"
+                "見つからない。faster-whisper のバージョン変更が原因の可能性。"
+                "requirements.txt のバージョン指定と本クラスの実装を確認のこと"
+            )
+        self._session = session
         self.threshold = threshold
         self._h = np.zeros((1, 1, 128), dtype=np.float32)
         self._c = np.zeros((1, 1, 128), dtype=np.float32)
@@ -84,6 +91,12 @@ def build_frame_vad(vad_config: VadConfig) -> tuple[FrameVAD, int]:
     if vad_config.engine == "silero":
         return SileroVAD(vad_config.threshold), 32
     if vad_config.engine == "energy":
+        if vad_config.threshold <= 1.0:
+            # silero用の確率閾値のまま energy に切り替えると全フレームが音声判定になる
+            raise ValueError(
+                f"energy VAD の threshold は int16 RMS スケール（例: 300）。"
+                f"現在値 {vad_config.threshold} は silero 用の確率閾値の可能性"
+            )
         return EnergyVAD(vad_config.threshold), 100
     raise ValueError(f"未知のVADエンジン: {vad_config.engine}")
 
@@ -111,7 +124,8 @@ class VoiceSegmenter:
         self._vad = vad
         self._sample_rate = sample_rate
         self._frame_len = sample_rate * frame_ms // 1000
-        self._silence_frames_to_close = max(1, min_silence_ms // frame_ms)
+        # 切り上げ: フレーム長で割り切れない場合も「min_silence_ms 以上の無音」を保証する
+        self._silence_frames_to_close = max(1, -(-min_silence_ms // frame_ms))
         self._max_samples = max_utterance_s * sample_rate
         self._pending = np.zeros(0, dtype=np.int16)  # フレーム長未満の端数
         self._offset = 0  # 音声先頭からの処理済みサンプル数
