@@ -1,0 +1,33 @@
+# LinguaBridge 設定（plan.md §5 のスキーマ骨子に準拠）
+server:
+  http_port: 8000            # 生徒用（平文HTTP）
+  https_port: 8443           # 先生用（自己署名TLS。#16 運用パッケージで有効化）
+  cert_dir: certs/
+
+asr:
+  # "fake" は決定的フェイク（#10 トレーサー用）。#11 で faster-whisper を追加し既定を切替
+  engine: fake
+  model: kotoba-tech/kotoba-whisper-v2.0-faster
+  compute_type: int8
+  language: ja
+
+vad:
+  threshold: 300             # エネルギーVADのRMS閾値（int16）。Silero導入(#11)後は 0..1 の確率閾値
+  min_silence_ms: 500        # 発話終了判定
+  max_utterance_s: 30        # 強制分割（plan.md E-03）
+
+mt:
+  # "fake" は決定的フェイク（#10 トレーサー用）。#12 で hy-mt2 / nllb を追加、#9 のベンチで既定確定
+  engine: fake
+  hy_mt2: { gguf_path: models/hy-mt2-1.8b-q4.gguf, threads: 4 }
+  nllb: { model_dir: models/nllb-200-600m-ct2, beam_size: 1 }
+
+languages: # 生徒が選択可能な言語（F-12）
+  - { code: en, label: English }
+  - { code: zh, label: 中文（简体） }
+
+recording:
+  default_on: false
+  out_dir: sessions/
+
+history_resend: 50

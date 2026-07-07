@@ -1,0 +1,25 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f4f6f8; color: #1c2733; padding: 20px; }
+h1 { font-size: 1.4rem; margin-bottom: 16px; }
+h2 { font-size: 1.05rem; margin-bottom: 10px; }
+.columns { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.panel { background: #fff; border: 1px solid #dde5ec; border-radius: 12px; padding: 18px; flex: 1 1 320px; }
+
+#join-panel { text-align: center; }
+#qr { display: flex; justify-content: center; margin: 10px 0; min-height: 200px; }
+.code-label { color: #5a6b7c; font-size: 0.9rem; }
+.code { font-size: 3rem; font-weight: 800; letter-spacing: 0.3em; }
+.url { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; word-break: break-all; margin: 8px 0; }
+.hint { color: #5a6b7c; font-size: 0.85rem; margin-top: 8px; }
+.error { color: #c62828; font-weight: 700; margin-bottom: 12px; }
+
+.state { font-weight: 700; }
+.controls { display: flex; gap: 10px; margin: 12px 0; }
+.controls button { padding: 12px 20px; font-size: 1rem; font-weight: 700; border-radius: 10px; border: none; cursor: pointer; }
+.controls button:disabled { opacity: 0.45; cursor: default; }
+#start-btn { background: #1d7a2c; color: #fff; }
+#pause-btn { background: #e0a812; color: #fff; }
+#end-btn { background: #c62828; color: #fff; }
+
+#transcript { list-style: none; max-height: 45vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+#transcript li { background: #f7f9fb; border: 1px solid #e4ebf1; border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; }
