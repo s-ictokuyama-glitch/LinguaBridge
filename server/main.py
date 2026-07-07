@@ -28,6 +28,7 @@ from server.model_files import require_model_files
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
+from server.rate_limit import JoinRateLimiter
 from server.session import Client, Session, generate_join_code
 
 logger = logging.getLogger(__name__)
@@ -112,10 +113,12 @@ def create_app(
     asr_engine: ASREngine | None = None,
     mt_engine: TranslationEngine | None = None,
     join_code: str | None = None,
+    join_limiter: JoinRateLimiter | None = None,
 ) -> FastAPI:
     session = Session(
         join_code=join_code or generate_join_code(), history_len=config.history_resend
     )
+    limiter = join_limiter or JoinRateLimiter()
     pipeline = Pipeline(
         session,
         config,
@@ -169,11 +172,17 @@ def create_app(
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
     async def handle_join(
-        ws: WebSocket, current: Client | None, msg: proto.JoinMessage
+        ws: WebSocket, current: Client | None, msg: proto.JoinMessage, client_ip: str
     ) -> Client | None:
+        if limiter.is_blocked(client_ip):
+            # 総当たり対策（E-09）: コードの正誤にかかわらず一定時間拒否
+            await ws.send_json(proto.JoinRejected(reason="rate_limited").model_dump())
+            return current
         if not session.check_code(msg.code):
+            limiter.record_failure(client_ip)
             await ws.send_json(proto.JoinRejected(reason="bad_code").model_dump())
             return current
+        limiter.record_success(client_ip)
         if msg.role == "student" and msg.lang not in config.language_codes:
             await ws.send_json(proto.JoinRejected(reason="bad_lang").model_dump())
             return current
@@ -182,7 +191,7 @@ def create_app(
         if msg.role == "teacher":
             old = session.teacher()
             if old is not None:
-                # 後勝ち（E-08）。旧接続への通知UIは #13
+                # 後勝ち（E-08）: 旧接続を code 4000 で切断（クライアントは再接続しない）
                 session.remove_client(old.id)
                 if old.ws is not None:
                     with contextlib.suppress(Exception):
@@ -201,20 +210,32 @@ def create_app(
                 session_state=session.state,
             ).model_dump()
         )
-        if msg.role == "student" and msg.last_seq is not None:
-            for utt, translation in session.history_since(msg.last_seq, client.lang):
-                await ws.send_json(
-                    proto.Caption(
-                        seq=utt.seq,
-                        ja=utt.text_ja,
-                        text=translation.text,
-                        lang=translation.lang,
-                        delay_ms=0,
-                    ).model_dump()
-                )
+        if msg.role == "student" and msg.last_seq is not None and client.lang is not None:
+            # 差分復元（F-11）: 訳文があれば即時再送、無ければオンデマンド翻訳を依頼
+            # （切断中はアクティブ言語から外れて翻訳されていないことがある）
+            for utt in session.history_entries_since(msg.last_seq):
+                translation = utt.translations.get(client.lang)
+                if translation is not None:
+                    await ws.send_json(
+                        proto.Caption(
+                            seq=utt.seq,
+                            ja=utt.text_ja,
+                            text=translation.text,
+                            lang=translation.lang,
+                            delay_ms=0,
+                        ).model_dump()
+                    )
+                else:
+                    await pipeline.request_replay(utt, client.lang, client.id)
+        if msg.role == "teacher" and session.auto_paused:
+            # 先生切断による自動一時停止（E-07）は、先生の再接続で自動再開する
+            session.auto_paused = False
+            session.state = "live"
+            await pipeline.broadcast_session_state()
         return client
 
     async def handle_control(action: str) -> None:
+        session.auto_paused = False  # 明示操作は自動再開の対象にしない
         if action == "start":
             session.state = "live"
         elif action == "pause":
@@ -225,9 +246,19 @@ def create_app(
             await pipeline.flush_audio()
         await pipeline.broadcast_session_state()
 
+    async def handle_teacher_disconnect() -> None:
+        """先生切断（E-07）: 配信中なら自動一時停止し、生徒にバナーを出す。
+        後勝ち切断（新しい先生が既に接続済み）の場合は何もしない。"""
+        if session.teacher() is None and session.state == "live":
+            session.state = "paused"
+            session.auto_paused = True
+            await pipeline.flush_audio()
+            await pipeline.broadcast_session_state()
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
         await ws.accept()
+        client_ip = ws.client.host if ws.client else "unknown"
         client: Client | None = None
         try:
             while True:
@@ -250,7 +281,7 @@ def create_app(
                     )
                     continue
                 if isinstance(msg, proto.JoinMessage):
-                    client = await handle_join(ws, client, msg)
+                    client = await handle_join(ws, client, msg, client_ip)
                 elif client is None:
                     await ws.send_json(
                         proto.ErrorMsg(code="not_joined", message="先に join してください").model_dump()
@@ -276,6 +307,8 @@ def create_app(
         finally:
             if client is not None:
                 session.remove_client(client.id)
+                if client.role == "teacher":
+                    await handle_teacher_disconnect()
 
     return app
 

@@ -19,7 +19,7 @@ class ProtocolError(Exception):
 
 
 SessionState = Literal["idle", "live", "paused", "ended"]
-JoinRejectReason = Literal["bad_code", "bad_lang"]
+JoinRejectReason = Literal["bad_code", "bad_lang", "rate_limited"]
 
 
 # ---- クライアント → サーバー ----

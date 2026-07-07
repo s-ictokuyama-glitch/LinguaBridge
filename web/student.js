@@ -1,6 +1,9 @@
 // 生徒ページ: コード入力（QRクエリで自動入力）→ 言語選択 → 字幕カード表示
 "use strict";
 
+const RETRY_BASE_MS = 1000;
+const RETRY_MAX_MS = 15000;
+
 const state = {
   code: "",
   lang: null,
@@ -10,6 +13,7 @@ const state = {
   joined: false,
   ended: false,
   languages: [],
+  retryDelayMs: RETRY_BASE_MS,
 };
 
 const el = {
@@ -97,8 +101,9 @@ function connect(lastSeq) {
   ws.addEventListener("close", () => {
     if (!state.joined || state.ended) return;
     setBanner("disconnected");
-    // 最小限の自動再接続。指数バックオフ等の堅牢化は #13
-    setTimeout(() => connect(state.lastSeq), 2000);
+    // 指数バックオフで自動再接続し、last_seq で欠落分を差分復元する（E-06）
+    setTimeout(() => connect(state.lastSeq), state.retryDelayMs);
+    state.retryDelayMs = Math.min(state.retryDelayMs * 2, RETRY_MAX_MS);
   });
 }
 
@@ -106,6 +111,7 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "joined":
       state.joined = true;
+      state.retryDelayMs = RETRY_BASE_MS; // 再接続成功でバックオフをリセット
       el.joinScreen.hidden = true;
       el.captionScreen.hidden = false;
       el.langSelect.value = state.lang;
@@ -115,7 +121,9 @@ function handleMessage(msg) {
       el.joinError.textContent =
         msg.reason === "bad_code"
           ? "参加コードが違います / Wrong code / 参加码错误"
-          : "この言語には対応していません / Unsupported language";
+          : msg.reason === "rate_limited"
+            ? "試行回数が多すぎます。1分ほど待ってください / Too many attempts"
+            : "この言語には対応していません / Unsupported language";
       el.joinError.hidden = false;
       break;
     case "caption":
@@ -137,10 +145,12 @@ function handleMessage(msg) {
 }
 
 function addCard(msg) {
+  if (el.cards.querySelector(`[data-seq="${msg.seq}"]`)) return; // 再送の重複防御
   const nearBottom =
     el.cards.scrollHeight - el.cards.scrollTop - el.cards.clientHeight < 120;
   const card = document.createElement("div");
   card.className = "card";
+  card.dataset.seq = msg.seq;
   const text = document.createElement("p");
   text.className = "text";
   text.textContent = msg.text;
@@ -148,7 +158,13 @@ function addCard(msg) {
   ja.className = "ja";
   ja.textContent = msg.ja;
   card.append(text, ja);
-  el.cards.appendChild(card);
+  // 再接続復元と新着が交錯しても表示は発話順を保つ（seq昇順の位置に挿入）
+  let ref = null;
+  for (let node = el.cards.lastElementChild; node; node = node.previousElementSibling) {
+    if (Number(node.dataset.seq) < msg.seq) break;
+    ref = node;
+  }
+  el.cards.insertBefore(card, ref);
   // 最下部付近を見ている時だけ自動スクロール（履歴を遡っている間は追従しない）
   if (nearBottom) el.cards.scrollTop = el.cards.scrollHeight;
 }

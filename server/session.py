@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 from server.ws_protocol import SessionState
 
 if TYPE_CHECKING:
-    from server.pipeline import Translation, Utterance
+    from server.pipeline import Utterance
 
 
 class ClientSocket(Protocol):
@@ -44,6 +44,7 @@ class Session:
         self.join_code = join_code
         self.started_at = datetime.now(timezone.utc)
         self.state: SessionState = "idle"
+        self.auto_paused = False  # 先生切断による自動一時停止か（再接続で自動再開する）
         self.recording = False  # F-10。書き出しは #18
         self.clients: dict[str, Client] = {}
         self.history: deque[Utterance] = deque(maxlen=history_len)
@@ -82,15 +83,7 @@ class Session:
     def add_history(self, utterance: Utterance) -> None:
         self.history.append(utterance)
 
-    def history_since(self, last_seq: int, lang: str | None) -> list[tuple[Utterance, Translation]]:
-        """再接続時の差分再送（F-11）: last_seq より後で、該当言語の訳文があるもの。"""
-        out: list[tuple[Utterance, Translation]] = []
-        if lang is None:
-            return out
-        for utt in self.history:
-            if utt.seq <= last_seq:
-                continue
-            translation = utt.translations.get(lang)
-            if translation is not None:
-                out.append((utt, translation))
-        return out
+    def history_entries_since(self, last_seq: int) -> list[Utterance]:
+        """再接続時の差分再送（F-11）: last_seq より後の発話（訳文の有無を問わない。
+        訳文が無いものは呼び出し側がオンデマンド翻訳を依頼する）。"""
+        return [utt for utt in self.history if utt.seq > last_seq]

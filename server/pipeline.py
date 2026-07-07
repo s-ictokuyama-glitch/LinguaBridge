@@ -52,6 +52,8 @@ class MTJob:
     utterance: Utterance
     lang: str
     closed_at: float  # 発話確定時刻（monotonic）。delay_ms の起点
+    # 再接続時の差分復元（F-11）用: 指定時はこのクライアントにのみ届ける
+    target_client_id: str | None = None
 
 
 class Pipeline:
@@ -155,29 +157,45 @@ class Pipeline:
         loop = asyncio.get_running_loop()
         while True:
             job = await self._mt_queue.get()
-            started = time.monotonic()
-            try:
-                text = await loop.run_in_executor(
-                    self._mt_executor,
-                    self._mt.translate,
-                    job.utterance.text_ja,
-                    job.lang,
+            translation = job.utterance.translations.get(job.lang)
+            if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
+                started = time.monotonic()
+                try:
+                    text = await loop.run_in_executor(
+                        self._mt_executor,
+                        self._mt.translate,
+                        job.utterance.text_ja,
+                        job.lang,
+                    )
+                except Exception:
+                    logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
+                    continue
+                translation = Translation(
+                    lang=job.lang,
+                    text=text,
+                    engine=self._mt_engine_name,
+                    mt_ms=int((time.monotonic() - started) * 1000),
                 )
-            except Exception:
-                logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
-                continue
-            mt_ms = int((time.monotonic() - started) * 1000)
-            job.utterance.translations[job.lang] = Translation(
-                lang=job.lang, text=text, engine=self._mt_engine_name, mt_ms=mt_ms
-            )
+                job.utterance.translations[job.lang] = translation
             caption = proto.Caption(
                 seq=job.utterance.seq,
                 ja=job.utterance.text_ja,
-                text=text,
+                text=translation.text,
                 lang=job.lang,
                 delay_ms=max(0, int((time.monotonic() - job.closed_at) * 1000)),
             )
-            await self.broadcast_caption(caption)
+            if job.target_client_id is not None:
+                client = self._session.clients.get(job.target_client_id)
+                if client is not None and client.lang == job.lang:
+                    await self._safe_send(client, caption.model_dump())
+            else:
+                await self.broadcast_caption(caption)
+
+    async def request_replay(self, utterance: Utterance, lang: str, client_id: str) -> None:
+        """再接続した生徒への差分復元。訳文が無ければMTワーカーが翻訳してから届ける。"""
+        await self._mt_queue.put(
+            MTJob(utterance, lang, time.monotonic(), target_client_id=client_id)
+        )
 
     # ---- 配信 ----
 

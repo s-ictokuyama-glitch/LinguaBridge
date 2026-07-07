@@ -38,19 +38,15 @@ def test_active_langs_reflects_students_only():
     assert s.active_langs() == {"en"}
 
 
-def test_history_since_filters_by_seq_and_lang():
+def test_history_entries_since_filters_by_seq():
     s = make_session()
     s.add_history(make_utterance(1, "一", {"en": "[en] 一"}))
     s.add_history(make_utterance(2, "二", {"en": "[en] 二", "zh": "[zh] 二"}))
-    s.add_history(make_utterance(3, "三", {"zh": "[zh] 三"}))
+    s.add_history(make_utterance(3, "三", {}))  # 訳文なし（切断中の発話）も対象
 
-    en_since_1 = s.history_since(1, "en")
-    assert [(u.seq, tr.text) for u, tr in en_since_1] == [(2, "[en] 二")]
-
-    zh_all = s.history_since(0, "zh")
-    assert [u.seq for u, _ in zh_all] == [2, 3]
-
-    assert s.history_since(3, "zh") == []
+    assert [u.seq for u in s.history_entries_since(1)] == [2, 3]
+    assert [u.seq for u in s.history_entries_since(0)] == [1, 2, 3]
+    assert s.history_entries_since(3) == []
 
 
 def test_next_seq_monotonic():
