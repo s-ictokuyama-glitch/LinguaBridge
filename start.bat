@@ -1,17 +1,8 @@
-﻿@echo off
-chcp 65001 >nul
-rem LinguaBridge 起動（毎授業・ダブルクリック）
-rem サーバーを起動し、モデルのロード完了後に先生ページを既定ブラウザで開く。
-rem 参加コードと生徒用URLはこのウィンドウに表示されます。授業中は閉じないでください。
+@echo off
+rem LinguaBridge launcher (double-click). Kept pure-ASCII on purpose:
+rem cmd.exe's batch parser can misparse non-ASCII text depending on the
+rem active codepage at parse time, so all logic and Japanese messages
+rem live in scripts\run.ps1 (PowerShell handles UTF-8 reliably).
 cd /d "%~dp0"
-
-if not exist ".venv\Scripts\python.exe" (
-    echo [エラー] .venv が見つかりません。最初に setup.ps1 を実行してください。
-    pause
-    exit /b 1
-)
-
-.venv\Scripts\python.exe -m server.main --open-browser
-echo.
-echo サーバーが停止しました。
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run.ps1"
 pause
