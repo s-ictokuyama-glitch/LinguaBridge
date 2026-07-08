@@ -1,8 +1,10 @@
 # LinguaBridge 設定（plan.md §5 のスキーマ骨子に準拠）
 server:
   http_port: 8000            # 生徒用（平文HTTP）
-  https_port: 8443           # 先生用（自己署名TLS。#16 運用パッケージで有効化）
-  cert_dir: certs/
+  https_port: 8443           # 先生用（自己署名TLS）
+  cert_dir: certs/           # scripts/make_cert.py の出力先。証明書があればHTTPSも起動
+  cert_file: cert.pem
+  key_file: key.pem
 
 models:
   # OneDrive同期の影響を受けない場所に置く（plan.md R-08）。環境変数は展開される

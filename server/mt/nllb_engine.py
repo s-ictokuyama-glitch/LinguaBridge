@@ -40,6 +40,8 @@ class NllbEngine(TranslationEngine):
         import ctranslate2
         from transformers import AutoTokenizer
 
+        if self._translator is not None:
+            return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("NLLBモデルをロード中: %s", self._model_dir.name)
         self._translator = ctranslate2.Translator(str(self._model_dir), device="cpu")
         self._tokenizer = AutoTokenizer.from_pretrained(

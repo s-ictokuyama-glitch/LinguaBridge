@@ -13,6 +13,17 @@ class ServerConfig(BaseModel):
     http_port: int = 8000
     https_port: int = 8443
     cert_dir: str = "certs/"
+    cert_file: str = "cert.pem"  # cert_dir 配下
+    key_file: str = "key.pem"
+
+    def cert_path(self) -> Path:
+        return Path(self.cert_dir) / self.cert_file
+
+    def key_path(self) -> Path:
+        return Path(self.cert_dir) / self.key_file
+
+    def tls_ready(self) -> bool:
+        return self.cert_path().exists() and self.key_path().exists()
 
 
 class ModelsConfig(BaseModel):

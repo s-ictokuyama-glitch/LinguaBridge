@@ -35,9 +35,11 @@ class FasterWhisperEngine(ASREngine):
         self._model: Any = None
 
     def warmup(self) -> None:
-        """モデルロード＋ダミー推論。初回発話の遅延スパイクを防ぐ（起動時に呼ぶ）。"""
+        """モデルロード＋ダミー推論。初回発話の遅延スパイクを防ぐ（起動時に呼ぶ）。冪等。"""
         from faster_whisper import WhisperModel
 
+        if self._model is not None:
+            return  # 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("ASRモデルをロード中: %s (%s)", self._model_dir.name, self._compute_type)
         self._model = WhisperModel(
             str(self._model_dir), device="cpu", compute_type=self._compute_type

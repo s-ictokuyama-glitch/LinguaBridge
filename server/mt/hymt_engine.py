@@ -51,6 +51,8 @@ class HyMt2Engine(TranslationEngine):
     def warmup(self) -> None:
         from llama_cpp import Llama
 
+        if self._llm is not None:
+            return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("Hy-MT2モデルをロード中: %s", self._gguf_path.name)
         llm = Llama(
             model_path=str(self._gguf_path),

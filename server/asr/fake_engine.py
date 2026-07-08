@@ -7,9 +7,14 @@
 
 それ以外（実マイク音声など）は発話長に応じた汎用文を返すので、
 実機デモでも「話すと生徒画面にカードが出る」ことを確認できる。
+
+warmup_gate（threading.Event）を渡すと warmup がそれをセットされるまでブロックする。
+モデルロード中の /healthz 503 を決定的に検証するテスト用。
 """
 
 from __future__ import annotations
+
+import threading
 
 import numpy as np
 
@@ -24,8 +29,13 @@ class FakeASREngine(ASREngine):
         4000: "ご視聴ありがとうございました",  # 既知幻覚フレーズ（E-04テスト用）
     }
 
-    def __init__(self) -> None:
+    def __init__(self, warmup_gate: threading.Event | None = None) -> None:
         self.calls: list[ASRResult] = []  # テストからの検査用
+        self._warmup_gate = warmup_gate
+
+    def warmup(self) -> None:
+        if self._warmup_gate is not None:
+            self._warmup_gate.wait()  # gate がセットされるまでロード完了扱いにしない
 
     def transcribe(self, pcm16: np.ndarray, sample_rate: int) -> ASRResult:
         nonzero = pcm16[pcm16 != 0]

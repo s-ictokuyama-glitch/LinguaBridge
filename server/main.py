@@ -1,12 +1,13 @@
 """FastAPIエントリ。静的配信・HTTP API・WSエンドポイント。
 
-HTTPS二重リッスンと証明書まわりは #16（運用パッケージ）。
-#10 では先生ページを Windows 機の localhost で開く運用
-（getUserMedia のセキュアコンテキストを localhost で満たす）。
+平文HTTP(生徒用)と自己署名HTTPS(先生用)を同時リッスンする（#16）。
+先生ページは HTTPS で開けば別端末でも getUserMedia のセキュアコンテキストを
+満たす。証明書が無ければ HTTP 単独で起動し、先生は localhost で開く運用に退避する。
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import socket
@@ -35,10 +36,8 @@ logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
-# 参加コードを返すエンドポイントの許可元。コードは教室内掲示が前提の
-# ソフトな防御（R-10）だが、LAN内の他端末へ無条件に晒さないよう
-# ループバックに限定する。"testclient" は starlette TestClient の固定値。
-# 先生ページを別端末のHTTPSで開く構成は #16 でトークン方式にする。
+# 平文HTTP から参加コードを取れる送信元（先生がこのPCの localhost で開く場合）。
+# HTTPS からは常に許可する（先生ページの正規経路）。"testclient" は TestClient の固定値。
 _TEACHER_INFO_HOSTS = {"127.0.0.1", "::1", "testclient"}
 
 
@@ -146,10 +145,12 @@ def create_app(
         return FileResponse(WEB_DIR / "teacher.html")
 
     @app.get("/healthz")
-    async def healthz() -> dict:
-        # uvicorn は lifespan（モデルwarmup）完了後にしか応答しないため、
-        # 応答が返る時点でロード済み。明示的な503ゲートは #16（運用パッケージ）
-        return {"status": "ok"}
+    async def healthz() -> JSONResponse:
+        # モデルの事前ロード完了まで 503（E-13）。start.bat はこれが 200 になってから
+        # ブラウザを開く。ロード中でもサーバー自体は起動済みで応答する
+        if not pipeline.ready:
+            return JSONResponse({"status": "loading"}, status_code=503)
+        return JSONResponse({"status": "ok"})
 
     @app.get("/api/config")
     async def api_config() -> dict:
@@ -157,8 +158,10 @@ def create_app(
 
     @app.get("/api/teacher-info")
     async def teacher_info(request: Request) -> JSONResponse:
+        # 参加コードを晒す口。先生ページは HTTPS(8443) 側で開く運用なので https は許可、
+        # 平文HTTP(生徒用)からはループバックのみ許可し部外者のコード取得を抑止（R-10）
         host = request.client.host if request.client else None
-        if host not in _TEACHER_INFO_HOSTS:
+        if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
             return JSONResponse({"detail": "forbidden"}, status_code=403)
         join_url = f"http://{get_lan_ip()}:{config.server.http_port}/?code={session.join_code}"
         return JSONResponse(
@@ -301,32 +304,84 @@ def create_app(
     return app
 
 
+async def _open_teacher_page_when_ready(pipeline: Pipeline, url: str) -> None:
+    """モデルのロード完了（ready）を待ってから既定ブラウザで先生ページを開く。"""
+    import webbrowser
+
+    for _ in range(600):  # 最大60秒待つ
+        if pipeline.ready:
+            break
+        await asyncio.sleep(0.1)
+    webbrowser.open(url)
+
+
+async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None:
+    import uvicorn
+
+    server_configs = [
+        uvicorn.Config(
+            app, host="0.0.0.0", port=config.server.http_port, log_level="info"
+        )
+    ]
+    teacher_url = f"http://127.0.0.1:{config.server.http_port}/teacher"
+    if config.server.tls_ready():
+        server_configs.append(
+            uvicorn.Config(
+                app,
+                host="0.0.0.0",
+                port=config.server.https_port,
+                log_level="warning",
+                lifespan="off",  # lifespan(モデル起動)はHTTP側で1度だけ走らせる
+                ssl_certfile=str(config.server.cert_path()),
+                ssl_keyfile=str(config.server.key_path()),
+            )
+        )
+        teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
+
+    servers = [uvicorn.Server(c) for c in server_configs]
+    coros = [s.serve() for s in servers]
+    if open_browser:
+        coros.append(_open_teacher_page_when_ready(app.state.pipeline, teacher_url))
+    await asyncio.gather(*coros)
+
+
 def main() -> None:
     import argparse
 
-    import uvicorn
-
     parser = argparse.ArgumentParser(description="LinguaBridge サーバー")
     parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス")
+    parser.add_argument(
+        "--open-browser", action="store_true", help="起動後に先生ページを既定ブラウザで開く"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
     config = load_config(args.config)
     try:
         app = create_app(config)
-    except FileNotFoundError as exc:  # モデル未取得（E-13）。トレースバックを見せない
+    except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
     session: Session = app.state.session
     ip = get_lan_ip()
-    print("=" * 60)
+    https = config.server.tls_ready()
+    teacher_line = (
+        f"https://{ip}:{config.server.https_port}/teacher（別端末可・初回のみ証明書警告を承認）"
+        if https
+        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは要 setup.ps1）"
+    )
+    print("=" * 66)
     print("LinguaBridge サーバー起動")
     print(f"  参加コード : {session.join_code}")
     print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
-    print(f"  先生ページ : http://127.0.0.1:{config.server.http_port}/teacher")
-    print("    （マイクを使うため、先生ページはこのPCの localhost で開くこと）")
-    print("=" * 60)
-    uvicorn.run(app, host="0.0.0.0", port=config.server.http_port, log_level="info")
+    print(f"  先生ページ : {teacher_line}")
+    if not https:
+        print("    （マイクにはセキュアコンテキストが必要。証明書が無いため localhost 運用）")
+    print("=" * 66)
+    try:
+        asyncio.run(_serve(app, config, open_browser=args.open_browser))
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

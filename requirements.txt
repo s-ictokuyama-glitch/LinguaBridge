@@ -10,3 +10,4 @@ faster-whisper>=1.2       # 実ASR（#11）。Silero VAD (ONNX) と ctranslate2 
 llama-cpp-python>=0.2.85  # hy-mt2 翻訳エンジン（#12）
 transformers>=4.40        # NLLBトークナイザ（torch不要）
 sentencepiece>=0.2
+cryptography>=42          # 自己署名TLS証明書の生成（#16 scripts/make_cert.py）

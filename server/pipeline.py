@@ -95,6 +95,8 @@ class Pipeline:
         self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
         self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
         self._tasks: list[asyncio.Task[None]] = []
+        self._warmup_task: asyncio.Task[None] | None = None
+        self.ready = False  # モデルの事前ロード完了（/healthz が 200 を返す条件）
         # モニタリング（#15）: 統計の定期配信と無音警告（E-01）
         self._stats_interval_s = config.monitoring.stats_interval_s
         self._silence_warning_s = config.monitoring.silence_warning_s
@@ -104,20 +106,36 @@ class Pipeline:
         self._mic_silent_warned = False
 
     async def start(self) -> None:
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(self._asr_executor, self._asr.warmup)
-        await loop.run_in_executor(self._mt_executor, self._mt.warmup)
+        # ワーカーは即座に起動し、サーバーをすぐ応答可能にする（healthz 503 の窓を作る）。
+        # モデルの warmup は背後で走らせ、完了で ready を立てる（/healthz は #16 で 503→200）。
+        # ワーカーは同一の単一スレッドExecutorを使うため warmup と実推論は直列化される。
         self._tasks = [
             asyncio.create_task(self._asr_worker(), name="asr-worker"),
             asyncio.create_task(self._mt_worker(), name="mt-worker"),
             asyncio.create_task(self._stats_worker(), name="stats-worker"),
         ]
+        self._warmup_task = asyncio.create_task(self._run_warmup(), name="warmup")
+
+    async def _run_warmup(self) -> None:
+        loop = asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(self._asr_executor, self._asr.warmup)
+            await loop.run_in_executor(self._mt_executor, self._mt.warmup)
+        except Exception:
+            # warmup 失敗でも ready を立てる（初回推論の遅延ロードに委ねる）。原因はログに残す
+            logger.exception("モデルの事前ロードに失敗（初回発話でロードを再試行します）")
+        finally:
+            self.ready = True
 
     async def stop(self) -> None:
+        if self._warmup_task is not None:
+            self._warmup_task.cancel()
         for task in self._tasks:
             task.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        pending = [*self._tasks, *([self._warmup_task] if self._warmup_task else [])]
+        await asyncio.gather(*pending, return_exceptions=True)
         self._tasks = []
+        self._warmup_task = None
         self._asr_executor.shutdown(wait=False)
         self._mt_executor.shutdown(wait=False)
 
