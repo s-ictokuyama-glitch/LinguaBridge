@@ -218,25 +218,24 @@ class Pipeline:
             )
             if job.target_client_id is None:
                 self._delay_samples.append(caption.delay_ms)  # ライブ配信のみ統計対象
-            if job.target_client_id is not None:
-                client = self._session.clients.get(job.target_client_id)
-                if client is None:
-                    continue  # 復元待ちの間に再切断。次回rejoinのlast_seqで再復元される
-                if client.lang == job.lang:
-                    await self._safe_send(client, caption.model_dump())
-                elif client.lang is not None:
-                    # 復元待ちの間に言語変更: 新しい言語で翻訳し直して届ける
-                    await self._enqueue_mt(
-                        _REPLAY_PRIORITY,
-                        MTJob(
-                            job.utterance,
-                            client.lang,
-                            job.closed_at,
-                            target_client_id=client.id,
-                        ),
-                    )
-            else:
                 await self.broadcast_caption(caption)
+            else:
+                await self._deliver_replay(job, caption)
+
+    async def _deliver_replay(self, job: MTJob, caption: proto.Caption) -> None:
+        """再接続復元ジョブの成果を対象クライアントにのみ届ける。"""
+        assert job.target_client_id is not None
+        client = self._session.clients.get(job.target_client_id)
+        if client is None:
+            return  # 復元待ちの間に再切断。次回rejoinのlast_seqで再復元される
+        if client.lang == job.lang:
+            await self._safe_send(client, caption.model_dump())
+        elif client.lang is not None:
+            # 復元待ちの間に言語変更: 新しい言語で翻訳し直して届ける
+            await self._enqueue_mt(
+                _REPLAY_PRIORITY,
+                MTJob(job.utterance, client.lang, job.closed_at, target_client_id=client.id),
+            )
 
     async def replay_history(self, client: Client, last_seq: int) -> None:
         """再接続した生徒への差分復元（F-11）。
@@ -274,9 +273,17 @@ class Pipeline:
             # 無音警告（E-01）の基準を配信開始/再開時点にリセット
             self._live_since = time.monotonic()
             self._mic_silent_warned = False
+        else:
+            # 非live中はライブ遅延の指標を持ち越さない（一時停止・終了で古い値を出さない）
+            self._delay_samples.clear()
         payload = proto.SessionStateMsg(state=self._session.state).model_dump()
         for client in list(self._session.clients.values()):
             await self._safe_send(client, payload)
+
+    def on_teacher_joined(self) -> None:
+        """新しい先生が接続したとき、進行中の無音警告を再武装する。
+        live のまま先生が入れ替わった場合でも、新しい先生が継続中の無音を見られる（E-01）。"""
+        self._mic_silent_warned = False
 
     # ---- モニタリング（#15） ----
 

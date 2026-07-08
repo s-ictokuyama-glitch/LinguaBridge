@@ -213,11 +213,13 @@ def create_app(
         )
         if msg.role == "student" and msg.last_seq is not None:
             await pipeline.replay_history(client, msg.last_seq)
-        if msg.role == "teacher" and session.auto_paused:
-            # 先生切断による自動一時停止（E-07）は、先生の再接続で自動再開する
-            session.auto_paused = False
-            session.state = "live"
-            await pipeline.broadcast_session_state()
+        if msg.role == "teacher":
+            pipeline.on_teacher_joined()  # 継続中の無音警告を新しい先生にも出せるよう再武装
+            if session.auto_paused:
+                # 先生切断による自動一時停止（E-07）は、先生の再接続で自動再開する
+                session.auto_paused = False
+                session.state = "live"
+                await pipeline.broadcast_session_state()
         return client
 
     async def handle_control(action: str) -> None:

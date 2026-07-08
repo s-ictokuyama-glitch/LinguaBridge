@@ -175,3 +175,18 @@ class TestSilenceWarning:
                     not (m["type"] == "error" and m["code"] == "mic_silent") for m in seen
                 )
                 assert any(m["type"] == "stats" for m in seen)
+
+    def test_teacher_swap_during_silence_rearms_warning(self):
+        # live のまま先生が入れ替わっても、新しい先生が継続中の無音警告を見られる
+        app = make_app()
+        with TestClient(app) as client, client.websocket_connect("/ws") as teacher1:
+            join_teacher(teacher1)
+            start_session(teacher1)
+            drain_until(teacher1, lambda m: m["type"] == "error" and m["code"] == "mic_silent")
+            # 後勝ちで新しい先生に入れ替わる（state は live のまま）
+            with client.websocket_connect("/ws") as teacher2:
+                assert join_teacher(teacher2)["session_state"] == "live"
+                warn = drain_until(
+                    teacher2, lambda m: m["type"] == "error" and m["code"] == "mic_silent"
+                )
+                assert warn["code"] == "mic_silent"
