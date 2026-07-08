@@ -102,12 +102,12 @@ class AsrFinal(BaseModel):
 
 
 class Stats(BaseModel):
-    # 定期配信の実装は #15（先生モニタリング）。契約のみここで確立する
     type: Literal["stats"] = "stats"
     students: int
     langs: dict[str, int]
     queue_depth: int
     median_delay_ms: int
+    overloaded: bool = False  # キュー滞留による過負荷（E-05）。解消で False に戻る
 
 
 class ErrorMsg(BaseModel):

@@ -290,9 +290,9 @@ history_resend: 50
 
 ```jsonc
 { "type": "asr_final", "seq": 13, "ja": "...", "asr_ms": 1400 }
-{ "type": "stats", "students": 9, "langs": {"zh": 5, "en": 4},
-  "queue_depth": 1, "median_delay_ms": 4100 }   // 2秒ごと
-{ "type": "error", "code": "mic_silent" | "queue_overload", "message": "..." }
+{ "type": "stats", "students": 9, "langs": {"zh": 5, "en": 4}, "queue_depth": 1,
+  "median_delay_ms": 4100, "overloaded": false }   // 2秒ごと。overloadedは解消でfalseに戻る
+{ "type": "error", "code": "mic_silent", "message": "..." }   // 過負荷はstats.overloadedで通知
 ```
 
 エラー応答: 参加拒否は `{"type":"join_rejected", "reason":"bad_code" | "bad_lang" | "rate_limited"}` → クライアントは再入力UI。5回連続失敗で当該IPを60秒拒否（`rate_limited`、総当たり対策）。

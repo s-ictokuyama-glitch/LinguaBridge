@@ -136,6 +136,7 @@ class VoiceSegmenter:
         self._max_samples = max_utterance_s * sample_rate
         self._pending = np.zeros(0, dtype=np.int16)  # フレーム長未満の端数
         self._offset = 0  # 音声先頭からの処理済みサンプル数
+        self.last_speech_at: float | None = None  # 最後に音声を検出した時刻（無音警告 E-01 用）
         self._frames: list[np.ndarray] = []
         self._utt_start_sample = 0
         self._last_speech_end_sample = 0
@@ -183,6 +184,8 @@ class VoiceSegmenter:
         frame_start = self._offset
         self._offset += frame.size
         speech = self._vad.is_speech(frame)
+        if speech:
+            self.last_speech_at = time.monotonic()
 
         if not self._frames:
             if not speech:

@@ -1,6 +1,9 @@
-// 先生ページ: 参加情報（QR・コード）表示、マイク→AudioWorklet→WS送信、配信制御
+// 先生ページ: 参加情報（QR・コード）表示、マイク→AudioWorklet→WS送信、配信制御、
+// モニタリング（統計・入力レベル・無音/過負荷警告）。
 // #10 では localhost で開く運用（getUserMedia のセキュアコンテキスト要件）。
 "use strict";
+
+const MIC_LEVEL_FULL_SCALE = 3000; // このRMS(int16)でメーター満杯とみなす
 
 const state = {
   ws: null,
@@ -20,6 +23,13 @@ const el = {
   pauseBtn: document.getElementById("pause-btn"),
   endBtn: document.getElementById("end-btn"),
   micStatus: document.getElementById("mic-status"),
+  micMeterBar: document.getElementById("mic-meter-bar"),
+  silenceWarning: document.getElementById("silence-warning"),
+  overloadWarning: document.getElementById("overload-warning"),
+  statStudents: document.getElementById("stat-students"),
+  statLangs: document.getElementById("stat-langs"),
+  statQueue: document.getElementById("stat-queue"),
+  statDelay: document.getElementById("stat-delay"),
   transcript: document.getElementById("transcript"),
 };
 
@@ -84,7 +94,8 @@ function handleMessage(msg) {
       setButtons(true);
       break;
     case "join_rejected":
-      el.pageError.textContent = "サーバーへの参加が拒否されました。サーバーを再起動してページを開き直してください。";
+      el.pageError.textContent =
+        "サーバーへの参加が拒否されました。サーバーを再起動してページを開き直してください。";
       el.pageError.hidden = false;
       break;
     case "session":
@@ -96,17 +107,41 @@ function handleMessage(msg) {
       el.transcript.appendChild(li);
       while (el.transcript.children.length > 50) el.transcript.firstChild.remove();
       el.transcript.scrollTop = el.transcript.scrollHeight;
+      el.silenceWarning.hidden = true; // 発話が届いた＝マイクは生きている
       break;
     }
+    case "stats":
+      applyStats(msg);
+      break;
     case "error":
-      el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
+      if (msg.code === "mic_silent") {
+        el.silenceWarning.textContent = `⚠ ${msg.message}`;
+        el.silenceWarning.hidden = false;
+      } else {
+        el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
+      }
       break;
   }
+}
+
+function applyStats(msg) {
+  el.statStudents.textContent = String(msg.students);
+  const langs = Object.entries(msg.langs);
+  el.statLangs.textContent = langs.length
+    ? langs.map(([code, n]) => `${code}: ${n}`).join(" / ")
+    : "—";
+  el.statQueue.textContent = String(msg.queue_depth);
+  el.statDelay.textContent = String(msg.median_delay_ms);
+  el.overloadWarning.hidden = !msg.overloaded;
 }
 
 function applySessionState(s) {
   state.sessionState = s;
   el.sessionState.textContent = STATE_LABELS[s] || s;
+  if (s !== "live") {
+    el.silenceWarning.hidden = true;
+    el.overloadWarning.hidden = true;
+  }
 }
 
 function setButtons(enabled) {
@@ -119,6 +154,16 @@ function sendControl(action) {
   if (state.ws && state.ws.readyState === WebSocket.OPEN) {
     state.ws.send(JSON.stringify({ type: "control", action }));
   }
+}
+
+function updateMicMeter(buffer) {
+  const samples = new Int16Array(buffer);
+  let sumSq = 0;
+  for (let i = 0; i < samples.length; i++) sumSq += samples[i] * samples[i];
+  const rms = Math.sqrt(sumSq / samples.length);
+  const level = Math.min(1, rms / MIC_LEVEL_FULL_SCALE);
+  el.micMeterBar.style.width = `${(level * 100).toFixed(0)}%`;
+  el.micMeterBar.classList.toggle("silent", level < 0.02);
 }
 
 async function ensureMic() {
@@ -137,6 +182,7 @@ async function ensureMic() {
   const source = ctx.createMediaStreamSource(stream);
   const node = new AudioWorkletNode(ctx, "pcm16-downsampler");
   node.port.onmessage = (ev) => {
+    updateMicMeter(ev.data); // メーターは live 以外でも常時更新（無音の視認 E-01）
     // サーバー側でも live 以外は破棄するが、無駄な送信を避ける
     if (
       state.sessionState === "live" &&

@@ -37,6 +37,11 @@ languages: # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }
   - { code: zh, label: 中文（简体） }
 
+monitoring:
+  stats_interval_s: 2.0      # 先生ページへの統計配信間隔（#15）
+  silence_warning_s: 30      # 配信中の無音警告までの秒数（E-01）
+  overload_queue_depth: 3    # 過負荷警告のキュー深度閾値（E-05）
+
 recording:
   default_on: false
   out_dir: sessions/

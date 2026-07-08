@@ -14,7 +14,9 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+import statistics
 import time
+from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
@@ -62,6 +64,9 @@ class MTJob:
 _LIVE_PRIORITY = 0
 _REPLAY_PRIORITY = 1
 
+# 遅延中央値の算出に使う直近captionの件数（stats用）
+_DELAY_SAMPLE_SIZE = 20
+
 
 class Pipeline:
     def __init__(
@@ -90,6 +95,13 @@ class Pipeline:
         self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
         self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
         self._tasks: list[asyncio.Task[None]] = []
+        # モニタリング（#15）: 統計の定期配信と無音警告（E-01）
+        self._stats_interval_s = config.monitoring.stats_interval_s
+        self._silence_warning_s = config.monitoring.silence_warning_s
+        self._overload_queue_depth = config.monitoring.overload_queue_depth
+        self._delay_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
+        self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
+        self._mic_silent_warned = False
 
     async def start(self) -> None:
         loop = asyncio.get_running_loop()
@@ -98,6 +110,7 @@ class Pipeline:
         self._tasks = [
             asyncio.create_task(self._asr_worker(), name="asr-worker"),
             asyncio.create_task(self._mt_worker(), name="mt-worker"),
+            asyncio.create_task(self._stats_worker(), name="stats-worker"),
         ]
 
     async def stop(self) -> None:
@@ -203,6 +216,8 @@ class Pipeline:
                 lang=job.lang,
                 delay_ms=delay_ms,
             )
+            if job.target_client_id is None:
+                self._delay_samples.append(caption.delay_ms)  # ライブ配信のみ統計対象
             if job.target_client_id is not None:
                 client = self._session.clients.get(job.target_client_id)
                 if client is None:
@@ -247,15 +262,64 @@ class Pipeline:
             if client.lang == caption.lang:
                 await self._safe_send(client, payload)
 
-    async def send_to_teacher(self, message: proto.AsrFinal | proto.ErrorMsg) -> None:
+    async def send_to_teacher(
+        self, message: proto.AsrFinal | proto.ErrorMsg | proto.Stats
+    ) -> None:
         teacher = self._session.teacher()
         if teacher is not None:
             await self._safe_send(teacher, message.model_dump())
 
     async def broadcast_session_state(self) -> None:
+        if self._session.state == "live":
+            # 無音警告（E-01）の基準を配信開始/再開時点にリセット
+            self._live_since = time.monotonic()
+            self._mic_silent_warned = False
         payload = proto.SessionStateMsg(state=self._session.state).model_dump()
         for client in list(self._session.clients.values()):
             await self._safe_send(client, payload)
+
+    # ---- モニタリング（#15） ----
+
+    async def _stats_worker(self) -> None:
+        while True:
+            await asyncio.sleep(self._stats_interval_s)
+            if self._session.teacher() is None:
+                continue
+            await self.send_to_teacher(self.stats_snapshot())
+            await self._check_mic_silence()
+
+    def stats_snapshot(self) -> proto.Stats:
+        students = self._session.students()
+        depth = self.queue_depth
+        return proto.Stats(
+            students=len(students),
+            langs=dict(Counter(c.lang for c in students if c.lang)),
+            queue_depth=depth,
+            median_delay_ms=(
+                int(statistics.median(self._delay_samples)) if self._delay_samples else 0
+            ),
+            overloaded=depth >= self._overload_queue_depth,
+        )
+
+    async def _check_mic_silence(self) -> None:
+        """配信中に一定時間音声が検出されないとき、先生へ一度だけ警告する（E-01）。
+        音声が再開したら再武装する。マイク断（フレーム自体が来ない）も検出できる。"""
+        if self._session.state != "live" or self._live_since is None:
+            return
+        last_activity = max(self._live_since, self._segmenter.last_speech_at or 0.0)
+        silent_for = time.monotonic() - last_activity
+        if silent_for < self._silence_warning_s:
+            self._mic_silent_warned = False
+            return
+        if not self._mic_silent_warned:
+            self._mic_silent_warned = True
+            await self.send_to_teacher(
+                proto.ErrorMsg(
+                    code="mic_silent",
+                    message=f"{int(self._silence_warning_s)}秒以上音声がありません。"
+                    "マイクのミュートや接続を確認してください",
+                )
+            )
 
     @staticmethod
     async def _safe_send(client: Client, payload: dict) -> None:

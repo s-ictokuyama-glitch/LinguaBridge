@@ -5,7 +5,7 @@
 - 全体計画: [plan.md](plan.md)
 - PRD・実装スライス: [GitHub Issues](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues)（PRD は #8）
 
-## 現在の状態（イシュー #14 完了時点）
+## 現在の状態（イシュー #15 完了時点）
 
 **ASR・翻訳とも実エンジンで動作する**: マイクの日本語発話が faster-whisper
 （既定 whisper small int8、kotoba へ切替可）で文字起こしされ、
@@ -13,7 +13,9 @@
 `mt.engine: nllb` で切替）で英語・中国語（簡体字）へ実翻訳されて生徒カードに届く。
 実測遅延は発話終了→表示で約1.7〜2.0秒（開発機、docs/bench 参照）。
 
-- 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、文字起こしライブ表示）
+- 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、
+  文字起こしライブ表示、**モニタリング**（2秒ごとの統計＝接続数・言語内訳・キュー深度・
+  遅延中央値、マイク入力レベルメーター、30秒無音警告、キュー滞留の過負荷警告））
 - サーバー（4桁コードの単一ルーム、**Silero VAD** 発話セグメンテーション（無音500ms確定・
   30s強制分割・プリロール240ms）、**幻覚フィルタ**（E-04: no_speech_prob /
   compression_ratio / avg_logprob / 既知フレーズ辞書）、起動時warmup、

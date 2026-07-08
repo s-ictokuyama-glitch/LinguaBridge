@@ -72,6 +72,12 @@ class Language(BaseModel):
     label: str
 
 
+class MonitoringConfig(BaseModel):
+    stats_interval_s: float = 2.0  # 先生ページへの統計配信間隔
+    silence_warning_s: float = 30.0  # 配信中の無音警告までの秒数（E-01）
+    overload_queue_depth: int = 3  # 過負荷警告のキュー深度閾値（E-05, plan.md §6.3）
+
+
 class RecordingConfig(BaseModel):
     default_on: bool = False
     out_dir: str = "sessions/"
@@ -89,6 +95,7 @@ class AppConfig(BaseModel):
             Language(code="zh", label="中文（简体）"),
         ]
     )
+    monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     recording: RecordingConfig = Field(default_factory=RecordingConfig)
     history_resend: int = 50
 

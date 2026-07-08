@@ -28,7 +28,25 @@
         <button id="pause-btn" disabled>一時停止</button>
         <button id="end-btn" disabled>終了</button>
       </div>
+
+      <div class="meter-row">
+        <span class="meter-label">マイク入力</span>
+        <div id="mic-meter"><div id="mic-meter-bar"></div></div>
+      </div>
       <p id="mic-status" class="hint">「開始」を押すとマイクの許可を求めます。</p>
+      <p id="silence-warning" class="warn" hidden></p>
+      <p id="overload-warning" class="warn" hidden>
+        処理が追いついていません。ゆっくり話すか、一呼吸置いてください。
+      </p>
+
+      <h2>状況</h2>
+      <ul id="stats">
+        <li>接続生徒数: <span id="stat-students">0</span></li>
+        <li>言語内訳: <span id="stat-langs">—</span></li>
+        <li>処理キュー深度: <span id="stat-queue">0</span></li>
+        <li>遅延中央値: <span id="stat-delay">0</span> ms</li>
+      </ul>
+
       <h2>文字起こし（日本語）</h2>
       <ul id="transcript"></ul>
     </section>

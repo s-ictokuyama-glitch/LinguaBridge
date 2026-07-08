@@ -21,5 +21,21 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 #pause-btn { background: #e0a812; color: #fff; }
 #end-btn { background: #c62828; color: #fff; }
 
+/* マイク入力レベルメーター（E-01: ミュートのまま話す事故を防ぐ常設表示） */
+.meter-row { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; }
+.meter-label { font-size: 0.85rem; color: #5a6b7c; white-space: nowrap; }
+#mic-meter { flex: 1; height: 14px; background: #e7edf2; border-radius: 999px; overflow: hidden; }
+#mic-meter-bar { width: 0%; height: 100%; background: #1d7a2c; border-radius: 999px; transition: width 0.08s linear; }
+#mic-meter-bar.silent { background: #c3ced9; }
+
+/* 警告（無音・過負荷） */
+.warn { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; background: #fdf3d7; color: #92650a; border: 1px solid #f0dca0; }
+.warn[hidden] { display: none; }
+
+/* 状況（統計） */
+#stats { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; font-size: 0.95rem; }
+#stats li { color: #40556a; }
+#stats span { font-weight: 700; color: #1c2733; }
+
 #transcript { list-style: none; max-height: 45vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 #transcript li { background: #f7f9fb; border: 1px solid #e4ebf1; border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; }
