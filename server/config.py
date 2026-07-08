@@ -8,6 +8,13 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+# リポジトリルート（config.py は server/ 配下）。相対パスの証明書を cwd に依存せず解決する
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _under_root(p: Path) -> Path:
+    return p if p.is_absolute() else _PROJECT_ROOT / p
+
 
 class ServerConfig(BaseModel):
     http_port: int = 8000
@@ -17,10 +24,11 @@ class ServerConfig(BaseModel):
     key_file: str = "key.pem"
 
     def cert_path(self) -> Path:
-        return Path(self.cert_dir) / self.cert_file
+        # cwd 非依存: 相対 cert_dir はリポジトリルート基準で解決する
+        return _under_root(Path(self.cert_dir) / self.cert_file)
 
     def key_path(self) -> Path:
-        return Path(self.cert_dir) / self.key_file
+        return _under_root(Path(self.cert_dir) / self.key_file)
 
     def tls_ready(self) -> bool:
         return self.cert_path().exists() and self.key_path().exists()

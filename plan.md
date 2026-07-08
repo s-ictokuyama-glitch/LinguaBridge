@@ -119,7 +119,7 @@ LinguaBridge/
 ├── .gitignore                    # models/ sessions/ certs/ venv/ を除外
 ├── scripts/
 │   ├── download_models.py        # ASR/翻訳モデルの事前ダウンロード
-│   ├── make_cert.ps1             # 自己署名証明書生成
+│   ├── make_cert.py              # 自己署名証明書生成（SAN・825日・残存期間はサーバ起動時に確認）
 │   ├── make_fixture_audio.ps1    # SAPIでベンチ用日本語音声を合成（#9）
 │   ├── bench.py                  # Phase 0 実機ベンチ（ASR RTF・翻訳遅延計測）
 │   └── replay_client.py          # 録音済み音声の再生＋擬似生徒10名の負荷試験
@@ -365,7 +365,7 @@ class TranslationEngine(ABC):
 ### Phase 1 — MVP（音声→字幕の一気通貫）
 
 7. `server/config.py`＋`config.yaml` ロード（pydantic検証）
-8. `server/main.py`: FastAPI起動、HTTP(8000)/HTTPS(8443)二重リッスン、静的配信、`/healthz`。`scripts/make_cert.ps1` で証明書生成
+8. `server/main.py`: FastAPI起動、HTTP(8000)/HTTPS(8443)二重リッスン、静的配信、`/healthz`。`scripts/make_cert.py` で証明書生成
 9. `server/ws_protocol.py`＋`server/session.py`: WSスキーマ、参加コード検証、クライアント管理、履歴re-send
 10. `web/audio-worklet.js`＋先生ページのマイク取得〜PCM送信（まずローカルループバックで波形確認）
 11. `server/audio/ingest.py`＋`server/audio/vad.py`: PCM受信→Silero VADで発話セグメント化（fixture WAVでユニットテスト）

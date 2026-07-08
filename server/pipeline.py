@@ -122,10 +122,11 @@ class Pipeline:
             await loop.run_in_executor(self._asr_executor, self._asr.warmup)
             await loop.run_in_executor(self._mt_executor, self._mt.warmup)
         except Exception:
-            # warmup 失敗でも ready を立てる（初回推論の遅延ロードに委ねる）。原因はログに残す
-            logger.exception("モデルの事前ロードに失敗（初回発話でロードを再試行します）")
-        finally:
-            self.ready = True
+            # warmup失敗時は ready を立てない（/healthz は 503 のまま = 異常を正直に返す）。
+            # 実推論側の遅延ロードで復旧する可能性はあるが、健全性としては未ロード扱い
+            logger.exception("モデルの事前ロードに失敗。/healthz は 503 のままになります")
+            return
+        self.ready = True
 
     async def stop(self) -> None:
         if self._warmup_task is not None:

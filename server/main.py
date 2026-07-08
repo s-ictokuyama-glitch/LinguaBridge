@@ -13,6 +13,7 @@ import logging
 import socket
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -315,13 +316,24 @@ async def _open_teacher_page_when_ready(pipeline: Pipeline, url: str) -> None:
     webbrowser.open(url)
 
 
+def cert_days_remaining(cert_path: Path) -> int | None:
+    """証明書の残存有効日数（E-15）。読めなければ None。"""
+    try:
+        from cryptography import x509
+
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+        return (cert.not_valid_after_utc - datetime.now(timezone.utc)).days
+    except Exception:
+        return None
+
+
 async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None:
+    import signal
+
     import uvicorn
 
     server_configs = [
-        uvicorn.Config(
-            app, host="0.0.0.0", port=config.server.http_port, log_level="info"
-        )
+        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info")
     ]
     teacher_url = f"http://127.0.0.1:{config.server.http_port}/teacher"
     if config.server.tls_ready():
@@ -339,10 +351,31 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
         teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
 
     servers = [uvicorn.Server(c) for c in server_configs]
-    coros = [s.serve() for s in servers]
-    if open_browser:
-        coros.append(_open_teacher_page_when_ready(app.state.pipeline, teacher_url))
-    await asyncio.gather(*coros)
+    # 2サーバーが個別にSIGINTを奪い合うと、片方（lifespanを持つHTTP側）が終了せず
+    # pipeline.stop() が走らない。各サーバーの個別ハンドラを抑止し、共有ハンドラで
+    # 全サーバーに終了を伝える（Windowsは Ctrl+C=SIGINT）
+    for server in servers:
+        server.install_signal_handlers = lambda: None  # type: ignore[attr-defined]
+
+    def _request_shutdown(*_: object) -> None:
+        for server in servers:
+            server.should_exit = True
+
+    with contextlib.suppress(ValueError):  # signal はメインスレッドでのみ設定可
+        signal.signal(signal.SIGINT, _request_shutdown)
+        signal.signal(signal.SIGTERM, _request_shutdown)
+
+    browser_task = (
+        asyncio.create_task(_open_teacher_page_when_ready(app.state.pipeline, teacher_url))
+        if open_browser
+        else None
+    )
+    try:
+        await asyncio.gather(*(server.serve() for server in servers))
+    finally:
+        if browser_task is not None:
+            browser_task.cancel()
+            await asyncio.gather(browser_task, return_exceptions=True)
 
 
 def main() -> None:
@@ -377,6 +410,12 @@ def main() -> None:
     print(f"  先生ページ : {teacher_line}")
     if not https:
         print("    （マイクにはセキュアコンテキストが必要。証明書が無いため localhost 運用）")
+    else:
+        days = cert_days_remaining(config.server.cert_path())
+        if days is not None and days < 30:
+            state = "期限切れ" if days < 0 else f"残り{days}日"
+            print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
+            print("    python scripts\\make_cert.py --force で再生成してください。")
     print("=" * 66)
     try:
         asyncio.run(_serve(app, config, open_browser=args.open_browser))

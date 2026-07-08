@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, AsrConfig, ModelsConfig, MtConfig
-from server.main import build_asr_engine, create_app
+from server.main import build_asr_engine, cert_days_remaining, create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
 
@@ -72,3 +72,49 @@ class TestModelValidation:
         )
         with pytest.raises(FileNotFoundError, match="download_models"):
             build_asr_engine(config)
+
+
+def _write_cert(path, days_valid: int) -> None:
+    """指定日数だけ有効な自己署名証明書を書き出す（E-15の残存期間チェック検証用）。"""
+    import datetime
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        # not_valid_before は常に after より前（days_valid が負=期限切れでも成立させる）
+        .not_valid_before(now - datetime.timedelta(days=400))
+        .not_valid_after(now + datetime.timedelta(days=days_valid))
+        .sign(key, hashes.SHA256())
+    )
+    path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+
+
+class TestCertExpiry:
+    def test_remaining_days_for_fresh_cert(self, tmp_path):
+        cert = tmp_path / "cert.pem"
+        _write_cert(cert, days_valid=100)
+        days = cert_days_remaining(cert)
+        assert days is not None and 98 <= days <= 100
+
+    def test_expired_cert_reports_negative(self, tmp_path):
+        cert = tmp_path / "cert.pem"
+        _write_cert(cert, days_valid=-5)
+        days = cert_days_remaining(cert)
+        assert days is not None and days < 0
+
+    def test_missing_or_bogus_cert_returns_none(self, tmp_path):
+        assert cert_days_remaining(tmp_path / "nope.pem") is None
+        bogus = tmp_path / "bogus.pem"
+        bogus.write_text("not a certificate")
+        assert cert_days_remaining(bogus) is None

@@ -85,8 +85,8 @@ def main() -> int:
         return 1
 
     config = load_config(args.config)
-    cert_path = ROOT / config.server.cert_path()
-    key_path = ROOT / config.server.key_path()
+    cert_path = config.server.cert_path()  # config 側でリポジトリルート基準に解決済み
+    key_path = config.server.key_path()
     if cert_path.exists() and key_path.exists() and not args.force:
         print(f"証明書は既に存在します: {cert_path}（再生成は --force）")
         return 0
