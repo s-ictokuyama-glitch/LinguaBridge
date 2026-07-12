@@ -98,7 +98,10 @@ class Results:
 
     def record_caption(self, msg: dict) -> None:
         key = (msg["seq"], msg["lang"])
-        # 同一(seq,lang)は5生徒に配信されるが遅延は同一。初回のみ採る
+        # 同一(seq,lang)は5生徒に同じ delay_ms で配信される。加えて再接続復元の
+        # caption は delay_ms=0（歴史的再送、pipeline側で0固定）で届きうる。ライブ配信は
+        # 復元ジョブより優先度が高く必ず先に届くため、setdefault(初回優先)で
+        # ライブの実遅延を採り、後着の復元0で過小評価しない。
         self.captions.setdefault(key, msg["delay_ms"])
 
 
@@ -140,10 +143,16 @@ async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -
 
 
 async def run_student(port: int, code: str, lang: str, results: Results) -> None:
+    """擬似生徒。切断されたら last_seq で再接続して復元する（N-08）。
+
+    disconnects: 確立済み接続が想定外に切れた回数。
+    reconnect_failures: 切断後の再接続（本接続）に失敗した回数（＝復元失敗）。
+    """
     import websockets
 
     last_seq = 0
     backoff = 1.0
+    need_reconnect = False  # 直前に切断された＝この接続試行は「復元」
     while not results.stop.is_set():
         try:
             async with websockets.connect(ws_url(port), **_WS_KW) as ws:
@@ -152,6 +161,7 @@ async def run_student(port: int, code: str, lang: str, results: Results) -> None
                     join["last_seq"] = last_seq
                 await ws.send(json.dumps(join))
                 backoff = 1.0  # 接続成功でバックオフ回復
+                need_reconnect = False  # 復元成功
                 async for raw in ws:
                     if results.stop.is_set():
                         return
@@ -162,31 +172,40 @@ async def run_student(port: int, code: str, lang: str, results: Results) -> None
                     elif msg["type"] == "join_rejected":
                         results.errors.append(f"student {lang}: join_rejected {msg['reason']}")
                         return
+            # 例外なしで async-for を抜けた＝サーバーが接続を閉じた（想定外の切断）
+            if results.stop.is_set():
+                return
+            results.disconnects += 1
+            need_reconnect = True
         except Exception:
             if results.stop.is_set():
                 return
-            # 想定外の切断。再接続を試みる（N-08 の切断復元）
-            results.disconnects += 1
-            await asyncio.sleep(backoff)
-            backoff = min(backoff * 2, 15.0)
-            try:
-                import websockets as _ws
+            if need_reconnect:
+                results.reconnect_failures += 1  # 切断後の再接続に失敗＝復元失敗
+            else:
+                results.disconnects += 1
+                need_reconnect = True
+        await asyncio.sleep(backoff)
+        backoff = min(backoff * 2, 15.0)
 
-                async with _ws.connect(ws_url(port), **_WS_KW):
-                    pass  # 疎通確認のみ（本接続は次ループ）
-            except Exception:
-                results.reconnect_failures += 1
+
+def proc_tree(root: psutil.Process) -> list[psutil.Process] | None:
+    """root＋子孫のプロセス一覧。rootが既に消えていれば None。
+
+    venv の python ランチャや実行環境によっては `-m server.main` の実体が
+    子プロセスになるため、メモリ計測も終了もツリー全体を対象にする
+    （親stubだけを見ると過小評価・取りこぼしになる）。
+    """
+    try:
+        return [root, *root.children(recursive=True)]
+    except psutil.NoSuchProcess:
+        return None
 
 
 def tree_rss_mb(root: psutil.Process) -> float | None:
-    """プロセスツリー全体（root＋子孫）の常駐メモリ合計MB。rootが消えていれば None。
-
-    venv の python ランチャや実行環境によっては `-m server.main` の実体が
-    子プロセスになるため、ツリー合計で測る（親stubだけ測ると過小評価する）。
-    """
-    try:
-        procs = [root, *root.children(recursive=True)]
-    except psutil.NoSuchProcess:
+    """プロセスツリー全体の常駐メモリ合計MB。rootが消えていれば None。"""
+    procs = proc_tree(root)
+    if procs is None:
         return None
     total = 0
     for p in procs:
@@ -282,8 +301,10 @@ def _terminate_tree(proc: subprocess.Popen) -> None:
     """サーバーのプロセスツリー全体を終了する（実体が子プロセスの場合の取りこぼし防止）。"""
     try:
         root = psutil.Process(proc.pid)
-        procs = [root, *root.children(recursive=True)]
     except psutil.NoSuchProcess:
+        return
+    procs = proc_tree(root)
+    if procs is None:
         return
     for p in procs:
         with contextlib.suppress(psutil.NoSuchProcess):
@@ -350,7 +371,7 @@ def build_report(results: list[dict], system: dict) -> str:
     add = lines.append
     add(f"# 性能受け入れ試験レポート（イシュー#17） — {system['date']}")
     add("")
-    add(f"- 計測機: **{system['cpu']}**（{system['cores']}C/{system['threads']}T, RAM {system['ram_gb']}GB, {system['os']}）")
+    add(f"- 計測機: **{system['cpu']}**（{system['cores']}C/{system['threads']}T, RAM {system['ram_gb']}GB, {system['os']}, Python {system.get('python', '?')}）")
     add(f"- 試験長: {results[0]['minutes']}分 / 擬似生徒 {results[0]['students']}名（en/zh 半々）")
     add("- 遅延指標は caption の `delay_ms`（発話終了→送出）。ローカル同居クライアントのため受信までの差は無視できる")
     add("")
@@ -385,6 +406,18 @@ def build_report(results: list[dict], system: dict) -> str:
             for reason in r["verdict"]["reasons"]:
                 add(f"- {reason}")
             add("")
+    # エラー明細（N-08 の切断・拒否・先生切断の内訳。件数は上表、内容はここ）
+    if any(r["errors"] for r in results):
+        add("## エラー明細")
+        add("")
+        for r in results:
+            if r["errors"]:
+                add(f"- **{r['engine']}**（{len(r['errors'])}件）")
+                for err in r["errors"][:20]:
+                    add(f"  - {err}")
+                if len(r["errors"]) > 20:
+                    add(f"  - …ほか {len(r['errors']) - 20} 件（詳細は .json 参照）")
+        add("")
     add("## 結論")
     add("")
     passed = [r for r in results if r["verdict"]["passed"]]
@@ -411,28 +444,42 @@ def system_info() -> dict:
             cpu = out.stdout.strip()
     except Exception:
         pass
+    import platform
+
     return {
         "cpu": cpu,
         "cores": psutil.cpu_count(logical=False),
         "threads": psutil.cpu_count(logical=True),
         "ram_gb": round(psutil.virtual_memory().total / 1e9, 1),
-        "os": f"Windows",
+        "os": f"{platform.system()} {platform.release()}",
+        "python": platform.python_version(),
         "date": datetime.date.today().isoformat(),
     }
 
 
 def update_config_default(engine: str) -> None:
-    """合格したエンジンを config.yaml の既定 mt.engine に反映する。"""
+    """合格したエンジンを config.yaml の既定 mt.engine に反映する。
+
+    値が hy-mt2/nllb の engine 行（＝mt.engine）だけを対象にする（asr=faster-whisper,
+    vad=silero は値が違うため一致しない）。mt.engine が fake 等でこの正規表現に
+    一致しない場合は書き換えられないので、その旨を警告する。
+    """
     import re
 
     path = ROOT / "config.yaml"
     text = path.read_text(encoding="utf-8")
-    new = re.sub(
+    new, n = re.subn(
         r'(?m)^(\s*engine:\s*)("?)(hy-mt2|nllb)("?)(\s*(?:#.*)?)$',
         lambda m: f"{m.group(1)}{engine}{m.group(5)}",
         text,
         count=1,
     )
+    if n == 0:
+        print(
+            f"警告: config.yaml の mt.engine を自動更新できませんでした"
+            f"（現在の値が hy-mt2/nllb でない可能性）。手動で mt.engine: {engine} に設定してください。"
+        )
+        return
     if new != text:
         path.write_text(new, encoding="utf-8")
         print(f"config.yaml の mt.engine を {engine} に更新しました。")

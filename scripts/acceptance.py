@@ -55,8 +55,8 @@ def memory_trend(rss_mb: list[float], warmup_frac: float = 0.1) -> MemoryTrend |
     """RSS推移の前半/後半の中央値を比べ、リーク傾向とピークを判定する。"""
     if len(rss_mb) < 4:
         return None
-    start = int(len(rss_mb) * warmup_frac)  # 起動直後のロード変動を除外
-    usable = rss_mb[start:] or rss_mb
+    start = int(len(rss_mb) * warmup_frac)  # 起動直後のロード変動を除外（len>=4 で start<len）
+    usable = rss_mb[start:]
     half = len(usable) // 2
     baseline = statistics.median(usable[:half])
     final = statistics.median(usable[half:])
