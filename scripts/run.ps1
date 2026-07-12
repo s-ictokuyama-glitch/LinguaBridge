@@ -6,12 +6,17 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 $venvPython = "$root\.venv\Scripts\python.exe"
+# セットアップ要否は「.venvの有無」ではなく「完了マーカーの有無」で判定する。
+# モデルDL（数GB）の途中で中断されると .venv だけ残るため、.venv基準だと
+# 次回起動でセットアップをスキップしてしまい start.bat だけでは復旧できない。
+$setupComplete = "$root\.venv\.setup-complete"
 
-if (-not (Test-Path $venvPython)) {
+if (-not (Test-Path $setupComplete)) {
     Write-Host "============================================================" -ForegroundColor Yellow
-    Write-Host "  初回起動を検出しました。セットアップを自動で行います。" -ForegroundColor Yellow
-    Write-Host "  モデルのダウンロード等で数分から数十分かかることがあります。" -ForegroundColor Yellow
-    Write-Host "  このPCがインターネットに接続されている必要があります。" -ForegroundColor Yellow
+    Write-Host "  セットアップが未完了です。自動で行います（前回が途中まで進んで" -ForegroundColor Yellow
+    Write-Host "  いれば続きから再開します）。モデルのダウンロード等で数分から" -ForegroundColor Yellow
+    Write-Host "  数十分かかることがあります。このPCがインターネットに接続されて" -ForegroundColor Yellow
+    Write-Host "  いる必要があります。" -ForegroundColor Yellow
     Write-Host "============================================================" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  ファイアウォール許可とスリープ無効化まで自動化したい場合は、"
@@ -22,8 +27,8 @@ if (-not (Test-Path $venvPython)) {
     & "$root\setup.ps1"
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
-        Write-Host "[エラー] セットアップに失敗しました。上のメッセージを確認して、" -ForegroundColor Red
-        Write-Host "解決してから start.bat をもう一度実行してください。" -ForegroundColor Red
+        Write-Host "[エラー] セットアップに失敗しました。上のメッセージを確認して原因を" -ForegroundColor Red
+        Write-Host "取り除いた後、start.bat をもう一度実行してください（続きから再開します）。" -ForegroundColor Red
         exit 1
     }
     Write-Host ""
@@ -31,8 +36,9 @@ if (-not (Test-Path $venvPython)) {
     Write-Host ""
 }
 
-if (-not (Test-Path $venvPython)) {
-    Write-Host "[エラー] セットアップ後も .venv が見つかりません。setup.ps1 の出力を確認してください。" -ForegroundColor Red
+if (-not (Test-Path $setupComplete) -or -not (Test-Path $venvPython)) {
+    Write-Host "[エラー] セットアップが完了していません。start.bat をもう一度実行してください。" -ForegroundColor Red
+    Write-Host "（それでも直らない場合は setup.ps1 の出力を確認してください）" -ForegroundColor Red
     exit 1
 }
 
@@ -41,8 +47,9 @@ $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
     Write-Host ""
     Write-Host "[エラー] サーバーが起動できませんでした。上のメッセージを確認してください。" -ForegroundColor Red
-    Write-Host "モデルの欠損や破損が原因の場合は、setup.ps1 を再実行すると復旧できます" -ForegroundColor Red
-    Write-Host "（powershell -ExecutionPolicy Bypass -File setup.ps1）。" -ForegroundColor Red
+    Write-Host "モデルの欠損や破損が疑われる場合は、まず start.bat をもう一度実行してください。" -ForegroundColor Red
+    Write-Host "直らないときは .venv フォルダ内の .setup-complete を削除してから start.bat を" -ForegroundColor Red
+    Write-Host "実行すると、セットアップ（モデル再取得を含む）をやり直せます。" -ForegroundColor Red
 }
 Write-Host ""
 Write-Host "サーバーが停止しました。"

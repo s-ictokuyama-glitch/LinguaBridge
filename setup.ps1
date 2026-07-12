@@ -93,4 +93,9 @@ if ($isAdmin) {
 }
 
 Section "完了"
+# セットアップ完了マーカー。start.bat / run.ps1 はこのファイルの有無で再セットアップの
+# 要否を判定する。ここに到達＝venv・依存・モデル・証明書がすべて揃った状態。
+# 途中で失敗した場合は Assert-ExitOk が exit するためマーカーは書かれず、次回の
+# start.bat がセットアップを（ダウンロード済み分はスキップして）自動で続きから行う。
+"completed $(Get-Date -Format o)" | Set-Content -Encoding UTF8 "$root\.venv\.setup-complete"
 Write-Host "セットアップが完了しました。毎授業は start.bat をダブルクリックで起動します。" -ForegroundColor Green

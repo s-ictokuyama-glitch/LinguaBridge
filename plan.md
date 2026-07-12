@@ -118,7 +118,9 @@ LinguaBridge/
 ├── start.bat                     # 起動（ダブルクリックのみ・N-09）。純ASCIIの薄いシムで scripts/run.ps1 に委譲
 ├── .gitignore                    # models/ sessions/ certs/ venv/ を除外
 ├── scripts/
-│   ├── run.ps1                   # start.bat の実処理（初回はsetup.ps1を自動実行→サーバー起動）。
+│   ├── run.ps1                   # start.bat の実処理（未完了ならsetup.ps1を自動実行→サーバー起動）。
+│   │                              # 再セットアップ要否は .venv\.setup-complete マーカーの有無で判定
+│   │                              # （モデルDL中断で.venvだけ残っても次回start.batで自動再開）。
 │   │                              # 日本語メッセージはcmd.exeのコードページ依存パースを避けここに集約
 │   ├── download_models.py        # ASR/翻訳モデルの事前ダウンロード
 │   ├── make_cert.py              # 自己署名証明書生成（SAN・825日・残存期間はサーバ起動時に確認）
