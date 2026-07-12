@@ -118,6 +118,7 @@ def create_app(
     session = Session(
         join_code=join_code or generate_join_code(), history_len=config.history_resend
     )
+    session.recording = config.recording.default_on  # 既定OFF（F-10）
     limiter = join_limiter or JoinRateLimiter()
     pipeline = Pipeline(
         session,
@@ -130,6 +131,9 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await pipeline.start()
         yield
+        # 終了操作(end)なしで停止した場合の保険（既に書き出し済みなら no-op）
+        with contextlib.suppress(Exception):
+            await pipeline.finalize_recording()
         await pipeline.stop()
 
     app = FastAPI(lifespan=lifespan)
@@ -213,6 +217,7 @@ def create_app(
                 history_from=session.history_from,
                 languages=config.languages,
                 session_state=session.state,
+                recording=session.recording,
             ).model_dump()
         )
         if msg.role == "student" and msg.last_seq is not None:
@@ -237,6 +242,11 @@ def create_app(
             session.state = "ended"
             await pipeline.flush_audio()
         await pipeline.broadcast_session_state()
+        if action == "end":
+            # 記録ON中なら排出完了を待って書き出す（F-10。既定OFFなら no-op）
+            saved = await pipeline.finalize_recording()
+            if saved is not None:
+                logger.info("授業記録を保存しました: %s", saved)
 
     async def handle_teacher_disconnect() -> None:
         """先生切断（E-07）: 配信中なら自動一時停止し、生徒にバナーを出す。
@@ -293,7 +303,8 @@ def create_app(
                         await handle_control(msg.action)
                 elif isinstance(msg, proto.RecordingMessage):
                     if client.role == "teacher":
-                        session.recording = msg.on  # 書き出しとインジケーターは #18
+                        session.recording = msg.on
+                        await pipeline.broadcast_recording()  # 双方の記録中インジケーター（F-10）
         except WebSocketDisconnect:
             pass
         finally:

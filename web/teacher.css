@@ -28,6 +28,12 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 #mic-meter-bar { width: 0%; height: 100%; background: #1d7a2c; border-radius: 999px; transition: width 0.08s linear; }
 #mic-meter-bar.silent { background: #c3ced9; }
 
+/* 記録トグルとインジケーター */
+.record-toggle { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.85rem; color: #40556a; cursor: pointer; }
+.record-toggle input { width: 16px; height: 16px; }
+.record-indicator { margin-top: 6px; font-weight: 700; color: #c62828; }
+.record-indicator[hidden] { display: none; }
+
 /* 警告（無音・過負荷） */
 .warn { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; background: #fdf3d7; color: #92650a; border: 1px solid #f0dca0; }
 .warn[hidden] { display: none; }

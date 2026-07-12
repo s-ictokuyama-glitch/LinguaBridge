@@ -23,6 +23,8 @@ const el = {
   pauseBtn: document.getElementById("pause-btn"),
   endBtn: document.getElementById("end-btn"),
   micStatus: document.getElementById("mic-status"),
+  recordToggle: document.getElementById("record-toggle"),
+  recordIndicator: document.getElementById("record-indicator"),
   micMeterBar: document.getElementById("mic-meter-bar"),
   silenceWarning: document.getElementById("silence-warning"),
   overloadWarning: document.getElementById("overload-warning"),
@@ -61,6 +63,16 @@ async function init() {
   });
   el.pauseBtn.addEventListener("click", () => sendControl("pause"));
   el.endBtn.addEventListener("click", () => sendControl("end"));
+  el.recordToggle.addEventListener("change", () => {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      state.ws.send(JSON.stringify({ type: "recording", on: el.recordToggle.checked }));
+    }
+  });
+}
+
+function applyRecording(on) {
+  el.recordIndicator.hidden = !on;
+  el.recordToggle.checked = on; // サーバーの状態を正とする
 }
 
 function connect(code) {
@@ -91,7 +103,11 @@ function handleMessage(msg) {
     case "joined":
       state.joined = true;
       applySessionState(msg.session_state);
+      applyRecording(msg.recording);
       setButtons(true);
+      break;
+    case "recording":
+      applyRecording(msg.on);
       break;
     case "join_rejected":
       el.pageError.textContent =

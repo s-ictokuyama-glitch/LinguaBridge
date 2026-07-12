@@ -44,6 +44,7 @@ const el = {
   joinBtn: document.getElementById("join-btn"),
   joinError: document.getElementById("join-error"),
   banner: document.getElementById("session-banner"),
+  recordIndicator: document.getElementById("record-indicator"),
   langSelect: document.getElementById("lang-select"),
   cards: document.getElementById("cards"),
   jaToggle: document.getElementById("ja-toggle"),
@@ -225,6 +226,10 @@ function handleMessage(msg) {
       el.langSelect.value = state.lang;
       applyI18n();
       setBanner(msg.session_state);
+      el.recordIndicator.hidden = !msg.recording;
+      break;
+    case "recording":
+      el.recordIndicator.hidden = !msg.on;
       break;
     case "join_rejected": {
       if (state.joined && msg.reason === "rate_limited") {

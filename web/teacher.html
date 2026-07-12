@@ -34,6 +34,13 @@
         <div id="mic-meter"><div id="mic-meter-bar"></div></div>
       </div>
       <p id="mic-status" class="hint">「開始」を押すとマイクの許可を求めます。</p>
+
+      <label class="record-toggle">
+        <input type="checkbox" id="record-toggle">
+        <span>授業を記録する（既定OFF・終了時にこのPCへ保存。生徒情報は含みません）</span>
+      </label>
+      <p id="record-indicator" class="record-indicator" hidden>● 記録中</p>
+
       <p id="silence-warning" class="warn" hidden></p>
       <p id="overload-warning" class="warn" hidden>
         処理が追いついていません。ゆっくり話すか一呼吸置いてください

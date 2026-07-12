@@ -101,6 +101,11 @@ class RecordingConfig(BaseModel):
     default_on: bool = False
     out_dir: str = "sessions/"
 
+    @property
+    def resolved_out_dir(self) -> Path:
+        # cwd 非依存: 相対 out_dir はリポジトリルート基準で解決する
+        return _under_root(Path(self.out_dir))
+
 
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)

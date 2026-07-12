@@ -19,6 +19,8 @@ import time
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
@@ -27,6 +29,7 @@ from server.audio.ingest import pcm16_from_bytes
 from server.audio.vad import Segment, VoiceSegmenter, build_frame_vad
 from server.config import AppConfig
 from server.mt.base import TranslationEngine
+from server.recorder import SessionRecorder
 from server.session import Client, Session
 
 logger = logging.getLogger(__name__)
@@ -47,6 +50,7 @@ class Utterance:
     t_end: float
     text_ja: str
     asr_ms: int
+    created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
     translations: dict[str, Translation] = field(default_factory=dict)
 
 
@@ -102,6 +106,10 @@ class Pipeline:
         self._silence_warning_s = config.monitoring.silence_warning_s
         self._overload_queue_depth = config.monitoring.overload_queue_depth
         self._delay_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
+        # 記録（#18）: 記録ON中に確定した発話を蓄積し、終了時に書き出す
+        self._recorder = SessionRecorder(
+            config.recording.resolved_out_dir, config.language_codes
+        )
         self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
         self._mic_silent_warned = False
 
@@ -164,35 +172,46 @@ class Pipeline:
         loop = asyncio.get_running_loop()
         while True:
             segment = await self._asr_queue.get()
-            started = time.monotonic()
             try:
-                result = await loop.run_in_executor(
-                    self._asr_executor,
-                    self._asr.transcribe,
-                    segment.pcm,
-                    self._segmenter.sample_rate,
-                )
-            except Exception:
-                logger.exception("ASR failed; utterance dropped")
-                continue
-            asr_ms = int((time.monotonic() - started) * 1000)
-            reason = hallucination_reason(result)
-            if reason is not None:
-                logger.info("発話を破棄（幻覚フィルタ: %s）", reason)
-                continue
-            utterance = Utterance(
-                seq=self._session.next_seq(),
-                t_start=segment.t_start,
-                t_end=segment.t_end,
-                text_ja=result.text,
-                asr_ms=asr_ms,
+                await self._process_segment(loop, segment)
+            finally:
+                # finalize_recording の join() が排出完了を検知できるよう必ず1回呼ぶ
+                self._asr_queue.task_done()
+
+    async def _process_segment(
+        self, loop: asyncio.AbstractEventLoop, segment: Segment
+    ) -> None:
+        started = time.monotonic()
+        try:
+            result = await loop.run_in_executor(
+                self._asr_executor,
+                self._asr.transcribe,
+                segment.pcm,
+                self._segmenter.sample_rate,
             )
-            self._session.add_history(utterance)
-            await self.send_to_teacher(
-                proto.AsrFinal(seq=utterance.seq, ja=utterance.text_ja, asr_ms=asr_ms)
-            )
-            for lang in sorted(self._session.active_langs()):
-                await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, segment.closed_at))
+        except Exception:
+            logger.exception("ASR failed; utterance dropped")
+            return
+        asr_ms = int((time.monotonic() - started) * 1000)
+        reason = hallucination_reason(result)
+        if reason is not None:
+            logger.info("発話を破棄（幻覚フィルタ: %s）", reason)
+            return
+        utterance = Utterance(
+            seq=self._session.next_seq(),
+            t_start=segment.t_start,
+            t_end=segment.t_end,
+            text_ja=result.text,
+            asr_ms=asr_ms,
+        )
+        self._session.add_history(utterance)
+        if self._session.recording:  # 記録ON中の発話のみ蓄積（F-10）
+            self._recorder.add(utterance)
+        await self.send_to_teacher(
+            proto.AsrFinal(seq=utterance.seq, ja=utterance.text_ja, asr_ms=asr_ms)
+        )
+        for lang in sorted(self._session.active_langs()):
+            await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, segment.closed_at))
 
     async def _enqueue_mt(self, priority: int, job: MTJob) -> None:
         await self._mt_queue.put((priority, next(self._mt_counter), job))
@@ -201,45 +220,51 @@ class Pipeline:
         loop = asyncio.get_running_loop()
         while True:
             _, _, job = await self._mt_queue.get()
-            translation = job.utterance.translations.get(job.lang)
-            if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
-                started = time.monotonic()
-                try:
-                    text = await loop.run_in_executor(
-                        self._mt_executor,
-                        self._mt.translate,
-                        job.utterance.text_ja,
-                        job.lang,
-                    )
-                except Exception:
-                    logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
-                    continue
-                translation = Translation(
-                    lang=job.lang,
-                    text=text,
-                    engine=self._mt_engine_name,
-                    mt_ms=int((time.monotonic() - started) * 1000),
+            try:
+                await self._process_mt_job(loop, job)
+            finally:
+                self._mt_queue.task_done()
+
+    async def _process_mt_job(self, loop: asyncio.AbstractEventLoop, job: MTJob) -> None:
+        translation = job.utterance.translations.get(job.lang)
+        if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
+            started = time.monotonic()
+            try:
+                text = await loop.run_in_executor(
+                    self._mt_executor,
+                    self._mt.translate,
+                    job.utterance.text_ja,
+                    job.lang,
                 )
-                job.utterance.translations[job.lang] = translation
-            # delay_ms は「ライブ配信の処理遅延」の指標（E-05）。再接続復元の字幕は
-            # 歴史的な再送なので 0 とし、生徒側の「遅延中」表示を誤発火させない
-            delay_ms = (
-                0
-                if job.target_client_id is not None
-                else max(0, int((time.monotonic() - job.closed_at) * 1000))
-            )
-            caption = proto.Caption(
-                seq=job.utterance.seq,
-                ja=job.utterance.text_ja,
-                text=translation.text,
+            except Exception:
+                logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
+                return
+            translation = Translation(
                 lang=job.lang,
-                delay_ms=delay_ms,
+                text=text,
+                engine=self._mt_engine_name,
+                mt_ms=int((time.monotonic() - started) * 1000),
             )
-            if job.target_client_id is None:
-                self._delay_samples.append(caption.delay_ms)  # ライブ配信のみ統計対象
-                await self.broadcast_caption(caption)
-            else:
-                await self._deliver_replay(job, caption)
+            job.utterance.translations[job.lang] = translation
+        # delay_ms は「ライブ配信の処理遅延」の指標（E-05）。再接続復元の字幕は
+        # 歴史的な再送なので 0 とし、生徒側の「遅延中」表示を誤発火させない
+        delay_ms = (
+            0
+            if job.target_client_id is not None
+            else max(0, int((time.monotonic() - job.closed_at) * 1000))
+        )
+        caption = proto.Caption(
+            seq=job.utterance.seq,
+            ja=job.utterance.text_ja,
+            text=translation.text,
+            lang=job.lang,
+            delay_ms=delay_ms,
+        )
+        if job.target_client_id is None:
+            self._delay_samples.append(caption.delay_ms)  # ライブ配信のみ統計対象
+            await self.broadcast_caption(caption)
+        else:
+            await self._deliver_replay(job, caption)
 
     async def _deliver_replay(self, job: MTJob, caption: proto.Caption) -> None:
         """再接続復元ジョブの成果を対象クライアントにのみ届ける。"""
@@ -303,6 +328,28 @@ class Pipeline:
         """新しい先生が接続したとき、進行中の無音警告を再武装する。
         live のまま先生が入れ替わった場合でも、新しい先生が継続中の無音を見られる（E-01）。"""
         self._mic_silent_warned = False
+
+    # ---- 記録（#18） ----
+
+    async def broadcast_recording(self) -> None:
+        """記録ON/OFFを全クライアントへ通知（先生・生徒双方のインジケーター F-10）。"""
+        payload = proto.RecordingState(on=self._session.recording).model_dump()
+        for client in list(self._session.clients.values()):
+            await self._safe_send(client, payload)
+
+    async def finalize_recording(self) -> Path | None:
+        """記録があれば全キューを排出して訳文を確定させ、ファイルへ書き出す。
+
+        セッション終了時に呼ぶ。書き出したフォルダ、記録なしなら None を返す。
+        """
+        if not self._recorder.has_entries:
+            return None
+        try:
+            await asyncio.wait_for(self._asr_queue.join(), timeout=30)
+            await asyncio.wait_for(self._mt_queue.join(), timeout=30)
+        except asyncio.TimeoutError:
+            logger.warning("記録の書き出し前のキュー排出がタイムアウト。現時点の内容で書き出します")
+        return self._recorder.write(self._session.started_at)
 
     # ---- モニタリング（#15） ----
 

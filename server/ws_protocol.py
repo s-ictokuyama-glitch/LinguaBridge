@@ -73,6 +73,13 @@ class Joined(BaseModel):
     history_from: int
     languages: list[Language]
     session_state: SessionState
+    recording: bool = False  # 参加時点の記録状態（記録中インジケーター表示用 F-10）
+
+
+class RecordingState(BaseModel):
+    # 記録ON/OFFの切替を全クライアントへ通知（先生・生徒双方のインジケーター用 F-10）
+    type: Literal["recording"] = "recording"
+    on: bool
 
 
 class JoinRejected(BaseModel):

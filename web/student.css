@@ -23,6 +23,8 @@ body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", s
 .banner.paused { background: #fdf3d7; color: #92650a; }
 .banner.ended { background: #e9e9ee; color: #555; }
 .banner.idle, .banner.disconnected { background: #fde3e0; color: #b3362a; }
+.record-indicator { font-size: 0.8rem; font-weight: 700; color: #c62828; white-space: nowrap; }
+.record-indicator[hidden] { display: none; }
 
 .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ja-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: #40556a; cursor: pointer; white-space: nowrap; }
