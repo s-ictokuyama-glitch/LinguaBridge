@@ -126,7 +126,8 @@ LinguaBridge/
 │   ├── make_cert.py              # 自己署名証明書生成（SAN・825日・残存期間はサーバ起動時に確認）
 │   ├── make_fixture_audio.ps1    # SAPIでベンチ用日本語音声を合成（#9）
 │   ├── bench.py                  # Phase 0 実機ベンチ（ASR RTF・翻訳遅延計測）
-│   └── replay_client.py          # 録音済み音声の再生＋擬似生徒10名の負荷試験
+│   ├── replay_client.py          # 録音済み音声の再生＋擬似生徒10名の負荷試験（受け入れ試験）
+│   └── acceptance.py             # 受け入れ判定の純粋ロジック（N-01/N-05/N-08、ユニットテスト対象）
 ├── server/
 │   ├── main.py                   # FastAPIエントリ。HTTP/HTTPS二重リッスン、静的配信
 │   ├── config.py                 # config.yaml のロード・検証（pydantic）

@@ -14,6 +14,9 @@ sessions/
 # 生成フィクスチャ（scripts/make_fixture_audio.ps1 で再生成可能）
 tests/fixtures/ja/*.wav
 
+# 受け入れ試験の作業ディレクトリ（サーバーログ・一時config）。レポート本体(.md/.json)は残す
+docs/accept/_work/
+
 # OS
 Thumbs.db
 .DS_Store
