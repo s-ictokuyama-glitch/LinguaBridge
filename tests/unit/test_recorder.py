@@ -16,7 +16,10 @@ ALLOWED_TR_KEYS = {"text", "engine", "mt_ms"}
 
 
 def make_utterance(seq: int, ja: str, langs: dict[str, str]) -> Utterance:
-    utt = Utterance(seq=seq, t_start=float(seq), t_end=seq + 1.0, text_ja=ja, asr_ms=10)
+    # created_at は固定（フォルダ名＝最初の発話時刻の決定性のため）
+    utt = Utterance(
+        seq=seq, t_start=float(seq), t_end=seq + 1.0, text_ja=ja, asr_ms=10, created_at=STARTED
+    )
     for lang, text in langs.items():
         utt.translations[lang] = Translation(lang=lang, text=text, engine="fake", mt_ms=5)
     return utt
@@ -25,7 +28,7 @@ def make_utterance(seq: int, ja: str, langs: dict[str, str]) -> Utterance:
 def test_empty_recorder_writes_nothing(tmp_path):
     rec = SessionRecorder(tmp_path, ["en", "zh"])
     assert not rec.has_entries
-    assert rec.write(STARTED) is None
+    assert rec.write() is None
     assert list(tmp_path.iterdir()) == []
 
 
@@ -34,7 +37,7 @@ def test_writes_jsonl_and_per_language_markdown(tmp_path):
     rec.add(make_utterance(1, "おはよう。", {"en": "[en] おはよう。", "zh": "[zh] おはよう。"}))
     rec.add(make_utterance(2, "光合成の話。", {"en": "[en] 光合成の話。"}))  # zhは無し
 
-    out = rec.write(STARTED)
+    out = rec.write()
     assert out is not None
     assert out.name == "2026-09-01_1030"
     assert (out / "transcript.jsonl").exists()
@@ -60,7 +63,7 @@ def test_writes_jsonl_and_per_language_markdown(tmp_path):
 def test_language_with_no_translation_gets_no_file(tmp_path):
     rec = SessionRecorder(tmp_path, ["en", "zh"])
     rec.add(make_utterance(1, "英語だけ。", {"en": "[en] 英語だけ。"}))  # zh訳は一度も無い
-    out = rec.write(STARTED)
+    out = rec.write()
     assert out is not None
     assert (out / "transcript.en.md").exists()
     assert not (out / "transcript.zh.md").exists()  # zh訳ゼロ → ファイル作らない
@@ -69,7 +72,7 @@ def test_language_with_no_translation_gets_no_file(tmp_path):
 def test_no_student_or_connection_info_in_output(tmp_path):
     rec = SessionRecorder(tmp_path, ["en", "zh"])
     rec.add(make_utterance(1, "テスト。", {"en": "[en] テスト。"}))
-    out = rec.write(STARTED)
+    out = rec.write()
     assert out is not None
     entry = json.loads((out / "transcript.jsonl").read_text(encoding="utf-8").splitlines()[0])
     # キー集合が発話由来のものだけであること（client/ws/ip等が無い）
@@ -80,8 +83,8 @@ def test_no_student_or_connection_info_in_output(tmp_path):
 def test_write_is_idempotent(tmp_path):
     rec = SessionRecorder(tmp_path, ["en"])
     rec.add(make_utterance(1, "一度きり。", {"en": "[en] 一度きり。"}))
-    assert rec.write(STARTED) is not None
-    assert rec.write(STARTED) is None  # 二度目は書かない
+    assert rec.write() is not None
+    assert rec.write() is None  # 二度目は書かない
 
 
 def test_uncapped_beyond_history_limit(tmp_path):
@@ -89,7 +92,7 @@ def test_uncapped_beyond_history_limit(tmp_path):
     rec = SessionRecorder(tmp_path, ["en"])
     for i in range(1, 61):
         rec.add(make_utterance(i, f"発話{i}", {"en": f"[en] 発話{i}"}))
-    out = rec.write(STARTED)
+    out = rec.write()
     assert out is not None
     lines = (out / "transcript.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) == 60

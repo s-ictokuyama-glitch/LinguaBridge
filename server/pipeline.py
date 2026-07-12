@@ -320,7 +320,10 @@ class Pipeline:
         else:
             # 非live中はライブ遅延の指標を持ち越さない（一時停止・終了で古い値を出さない）
             self._delay_samples.clear()
-        payload = proto.SessionStateMsg(state=self._session.state).model_dump()
+        await self._broadcast_all(proto.SessionStateMsg(state=self._session.state).model_dump())
+
+    async def _broadcast_all(self, payload: dict) -> None:
+        """接続中の全クライアント（先生・生徒）へ同一メッセージを送る。"""
         for client in list(self._session.clients.values()):
             await self._safe_send(client, payload)
 
@@ -333,9 +336,7 @@ class Pipeline:
 
     async def broadcast_recording(self) -> None:
         """記録ON/OFFを全クライアントへ通知（先生・生徒双方のインジケーター F-10）。"""
-        payload = proto.RecordingState(on=self._session.recording).model_dump()
-        for client in list(self._session.clients.values()):
-            await self._safe_send(client, payload)
+        await self._broadcast_all(proto.RecordingState(on=self._session.recording).model_dump())
 
     async def finalize_recording(self) -> Path | None:
         """記録があれば全キューを排出して訳文を確定させ、ファイルへ書き出す。
@@ -349,7 +350,7 @@ class Pipeline:
             await asyncio.wait_for(self._mt_queue.join(), timeout=30)
         except asyncio.TimeoutError:
             logger.warning("記録の書き出し前のキュー排出がタイムアウト。現時点の内容で書き出します")
-        return self._recorder.write(self._session.started_at)
+        return self._recorder.write()
 
     # ---- モニタリング（#15） ----
 

@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -25,6 +24,11 @@ class SessionRecorder:
 
     session.history は再送用に直近K件へ丸められるため、記録はここで
     独立に全件を保持する（長い授業でも欠落しない）。
+
+    記録する訳文は「その授業で実際に配信された言語」（アクティブ言語）。
+    plan.md §6.3「アクティブ言語のみ翻訳」の方針に従い、記録ON中に接続していた
+    生徒が誰も選ばなかった言語は翻訳されないため記録にも含まれない
+    （全設定言語を無条件に翻訳すると N-01 の遅延予算を圧迫するため、この設計とする）。
     """
 
     def __init__(self, out_dir: Path, languages: list[str]) -> None:
@@ -56,12 +60,16 @@ class SessionRecorder:
             },
         }
 
-    def write(self, started_at: datetime) -> Path | None:
-        """蓄積した発話を started_at 名のフォルダに書き出す。空なら None（何も書かない）。"""
+    def write(self) -> Path | None:
+        """蓄積した発話を書き出す。空なら None（何も書かない）。
+
+        フォルダ名は最初の記録発話の時刻（＝実際に授業内容が始まった時刻・ローカル）。
+        サーバー起動時刻ではなく授業時刻になり、エントリの created_at とも一致する。
+        """
         if self._written or not self._utterances:
             return None
         self._written = True
-        session_dir = self._out_dir / started_at.strftime("%Y-%m-%d_%H%M")
+        session_dir = self._out_dir / self._utterances[0].created_at.strftime("%Y-%m-%d_%H%M")
         session_dir.mkdir(parents=True, exist_ok=True)
 
         with (session_dir / "transcript.jsonl").open("w", encoding="utf-8") as f:

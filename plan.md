@@ -242,8 +242,13 @@ history_resend: 50
 
 ### 記録ファイル（recording ON時 / F-10）
 
-- `sessions/2026-09-01_1030/transcript.jsonl` — 1行1 Utterance（上記モデルのJSON）
-- `sessions/2026-09-01_1030/transcript.ja.md`, `transcript.en.md`, `transcript.zh.md` — 人が読む用
+- `sessions/<最初の記録発話の日時>/transcript.jsonl` — 1行1発話。整形済み投影
+  `{seq, created_at(ISO), t_start, t_end, ja, asr_ms, translations{lang:{text,engine,mt_ms}}}`
+  （生徒情報は一切含めない）。フォルダ名は最初の記録発話のローカル時刻＝授業時刻
+- `transcript.ja.md`＋言語別 `transcript.<lang>.md` — 人が読む用
+- 記録される訳文は**その授業で実際に配信された言語（アクティブ言語）**のみ。
+  §6.3「アクティブ言語のみ翻訳」の方針上、記録中に接続していた生徒が誰も選ばなかった
+  言語は翻訳されないため記録にも含まれない（全設定言語の無条件翻訳は N-01 を圧迫するため）
 
 ---
 
