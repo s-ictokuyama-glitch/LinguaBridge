@@ -206,3 +206,63 @@ class TestTurnIdForPartials:
         asm = make("simple")
         turn = asm.add_segment(part("はい"))
         assert turn is not None and turn.turn_id == 1
+
+
+class TestTaigenIsNotSplit:
+    """体言止めで文中を割らない（#34 の不変条件）。
+
+    ベンチ音源 `taigen-01` の実際の書き起こしを流す。VAD は 700/800ms の間で
+    Segment を3つに割るので、**文中で割らないかどうかは分類器だけが決めている**。
+    ここが赤い = 名詞止めが確定側へ動いた = 「じゃあ次」で字幕が1枚出てしまう。
+
+    体言止めを確定側へ寄せると `taigen-01` で2件割れる、というのが #34 で
+    案C を採らなかった理由（プロトタイプ実測）。この関係を機械判定にしておく。
+    """
+
+    def test_noun_final_fragments_merge_into_one_turn(self):
+        asm = make("morph")
+        # ReazonSpeech の実出力（句読点なし）
+        assert asm.add_segment(part("じゃあ次", t_start=0.0, t_end=0.67)) is None
+        assert asm.add_segment(part("教科書", t_start=1.22, t_end=2.05)) is None
+        turn = asm.add_segment(part("四重にページを開いて下さい", t_start=2.69, t_end=4.80))
+        assert turn is not None
+        assert turn.parts == 3
+        assert turn.reason == "predicate_end"
+        assert turn.text == "じゃあ次教科書四重にページを開いて下さい"
+
+    def test_completed_noun_final_waits_for_the_timeout(self):
+        """完結した体言止め（`taigen-02`）は文法では確定できず、無音の経過を待つ。
+
+        これは取りこぼしだが、上のテストと**同じ文字列の形**なので表層では選べない。
+        待ちの代償は docs/bench/2026-08-24-surface-classifier.md に数字で出してある。
+        """
+        asm = make("morph")
+        assert asm.add_segment(part("じゃあ次教科書")) is None
+        turn = asm.on_boundary()
+        assert turn is not None
+        assert turn.reason == "boundary"
+
+
+class TestPlainFormConfirmsImmediately:
+    """常体の言い切りは即確定する（#34）。
+
+    #34 以前はここが継続扱いで、次の発話と連結して1枚の字幕になっていた
+    （ベンチ実測: `joutai-01..03` が 1枚 → 2枚）。
+    """
+
+    @pytest.mark.parametrize(
+        ("text", "expected_reason"),
+        [
+            ("これが光合成だ", "predicate_end"),
+            ("ここが大事だな", "predicate_end"),
+            ("よしはじめるぞ", "predicate_end"),
+            ("分かったか", "predicate_end"),
+            ("準備ができた班から前に出てきて下さい", "predicate_end"),
+        ],
+    )
+    def test_plain_form_ends_the_turn(self, text, expected_reason):
+        asm = make("morph")
+        turn = asm.add_segment(part(text))
+        assert turn is not None
+        assert turn.reason == expected_reason
+        assert not asm.has_pending

@@ -615,6 +615,20 @@ def phase_segmentation(
 
     per_clip: list[dict] = []
     endpoint_latencies: list[float] = []
+    # #34: 取りこぼしの代償を数字で言うための指標。`endpoint_latency_ms` は音源終端で
+    # 確定した Turn を数えていないので、**文法で確定できなかった Turn の待ちが指標に
+    # 出てこない**（#27 の申し送り）。音源はそこで終わるが、実授業では無音が続くので
+    # その Turn は force_silence_ms 待たされる。**確定理由から実待ちを引き当てる**:
+    #   strong_end / predicate_end / segment … Segment が閉じた時点 = min_silence_ms
+    #   boundary / flush                   … 文法が確定させられず timeout = force_silence_ms
+    turn_waits: list[float] = []
+    timeout_turns = 0
+    _kwargs = turn_config.segmenter_kwargs(config.vad)
+    _force_ms = _kwargs["force_silence_ms"]
+    force_silence_s = None if _force_ms is None else _force_ms / 1000.0
+    min_silence_s = _kwargs["min_silence_ms"] / 1000.0
+    # 文法ではなく無音の経過で確定した Turn（= 取りこぼし）
+    TIMEOUT_REASONS = ("boundary", "flush")
     card_chars: list[int] = []
     unnatural = 0
     natural_hits = 0
@@ -639,15 +653,26 @@ def phase_segmentation(
             counted=False は「無音待ちで確定したのではない」ケース（音源の終端）。
             #24 と同じ定義を保つため endpoint latency には数えない。
             """
-            nonlocal merged_turns
+            nonlocal merged_turns, timeout_turns
             latency_s = at_s - turn.t_end
             if counted:
                 endpoint_latencies.append(latency_s)
+            # 実授業での待ち（#34）。音源終端で切れた Turn は計測値が短く出るので、
+            # 確定理由に対応する無音長を代わりに計上する
+            if turn.reason in TIMEOUT_REASONS:
+                timeout_turns += 1
+                wait_s = force_silence_s if force_silence_s is not None else latency_s
+            elif counted:
+                wait_s = latency_s
+            else:
+                wait_s = min_silence_s
+            turn_waits.append(wait_s)
             card = {
                 "t_start": round(turn.t_start, 2),
                 "t_end": round(turn.t_end, 2),
                 "closed_at_s": round(at_s, 2),
                 "endpoint_latency_ms": round(latency_s * 1000),
+                "wait_ms": round(wait_s * 1000),  # #34: 実授業での実待ち相当
                 "segments": turn.parts,
                 "reason": turn.reason,
             }
@@ -718,6 +743,7 @@ def phase_segmentation(
     return {
         "vad": config.vad.engine,
         "strategy": turn_config.strategy,
+        "classifier": turn_config.classifier,  # #34 の A/B はここで before/after が分かれる
         "min_silence_ms": turn_config.segmenter_kwargs(config.vad)["min_silence_ms"],
         "start_speech_ms": turn_config.segmenter_kwargs(config.vad)["start_speech_ms"],
         "force_silence_ms": turn_config.segmenter_kwargs(config.vad)["force_silence_ms"],
@@ -742,6 +768,16 @@ def phase_segmentation(
         "endpoint_latency_ms_max": (
             round(max(endpoint_latencies) * 1000) if endpoint_latencies else None
         ),
+        # #34: 文法で確定できず無音の経過で確定した Turn（= 取りこぼし）と、その待ちの合計。
+        # `endpoint_latency_ms_*` は定義を変えていない（#24/#27/#28 との比較可能性のため）
+        "timeout_turns": timeout_turns,
+        "timeout_wait_ms_total": (
+            round(timeout_turns * force_silence_s * 1000) if force_silence_s is not None else 0
+        ),
+        "turn_wait_ms_median": (
+            round(statistics.median(turn_waits) * 1000) if turn_waits else None
+        ),
+        "turn_wait_ms_max": round(max(turn_waits) * 1000) if turn_waits else None,
         "card_chars_mean": round(statistics.mean(card_chars), 1) if card_chars else None,
         "card_chars_median": round(statistics.median(card_chars)) if card_chars else None,
         # 生徒が全言語を使っている前提の呼び出し回数（1発話 × 提供言語数）
@@ -1061,11 +1097,14 @@ def phase_threads(asr_threads: int, mt_threads: int, models_dir: Path, config) -
     }
 
 
-def _turn(strategy: str, **morph):
-    """A/B 用の TurnConfig。config.yaml を書き換えずに戦略だけ差し替える。"""
+def _turn(strategy: str, classifier: str = "surface", **morph):
+    """A/B 用の TurnConfig。config.yaml を書き換えずに戦略だけ差し替える。
+
+    `classifier` は #34 の A/B 用。`surface-polite-only` が #34 以前の分類器。
+    """
     from server.config import TurnConfig, TurnMorphConfig
 
-    return TurnConfig(strategy=strategy, morph=TurnMorphConfig(**morph))
+    return TurnConfig(strategy=strategy, classifier=classifier, morph=TurnMorphConfig(**morph))
 
 
 PHASES = {
@@ -1131,6 +1170,12 @@ PHASES = {
     # 消えたときに PredicateEnd だけで区切りが保てるかを、#27 と同じ土俵で測る
     "turn:simple:reazon": lambda d, c: phase_segmentation("reazon", d, c, _turn("simple")),
     "turn:morph:reazon": lambda d, c: phase_segmentation("reazon", d, c, _turn("morph")),
+    # #34 の A/B。before は #34 以前の分類器（敬体しか言い切りと認めない）。
+    # after は出荷既定の `turn:morph:reazon` そのもの — 別フェーズを作らないのは、
+    # 「既定の構成でそのまま良くなった」ことを同じ数値で示すため
+    "turn:morph-politeonly:reazon": lambda d, c: phase_segmentation(
+        "reazon", d, c, _turn("morph", classifier="surface-polite-only")
+    ),
     # #26 Hy-MT2 の使い方の最適化。threads:<ASR>x<MT> の 0 は cpu_threads 未指定（現状）
     "mt-decoding:hy-mt2": lambda d, c: phase_mt_decoding(d, c),
     # #28: 句読点の有無だけを変えて Hy-MT2 の訳文の変化を見る

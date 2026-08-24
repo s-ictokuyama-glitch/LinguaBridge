@@ -47,6 +47,19 @@ CONDITIONS = [
     ("turn:morph-c320-f1000:small", "C f1000", "morph: check320 / force1000"),
     ("turn:morph-nostart:small", "D nostart", "morph: check500 / start0 / force1000"),
 ]
+
+# #34 の A/B。**出荷既定の ReazonSpeech で測る**（#28 で既定が替わったため、
+# whisper small の CONDITIONS とは土俵が違う）。simple を並べるのは、
+# 分類器を触った変更が「無音長だけで切る」に対する優位を保っているかの確認
+CLASSIFIER_CONDITIONS = [
+    ("turn:simple:reazon", "A simple", "現行の対照。無音500msのみで切る"),
+    (
+        "turn:morph-politeonly:reazon",
+        "B before",
+        "morph + surface-polite-only（#34 以前。敬体しか言い切りと認めない）",
+    ),
+    ("turn:morph:reazon", "C after", "morph + surface（#34。常体・漢字表記の敬語を足した既定）"),
+]
 DEFAULT_REPEAT = 2
 
 # E2E の before/after。config.yaml のこの1箇所だけを切り替えて撮る。
@@ -277,6 +290,129 @@ def build_report(info: dict, results: dict, e2e: dict | None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_classifier_report(info: dict, results: dict) -> str:
+    """#34 の A/B レポート。問いが「取りこぼしを埋めて分割を増やしていないか」なので、
+    #27 のレポートとは見る列が違う（分割の件数と**待ちの代償**を並べる）。"""
+    lines: list[str] = []
+
+    def add(line: str = "") -> None:
+        lines.append(line)
+
+    rows = [
+        (label, note, results[key])
+        for key, label, note in CLASSIFIER_CONDITIONS
+        if results.get(key)
+    ]
+
+    add("# 表層分類器: 常体・漢字表記を足した A/B 実測（#34）")
+    add()
+    add(f"- 機材: {info['cpu']} / {info['cores']}C{info['threads']}T / RAM {info['ram_gb']}GB")
+    add(f"- 日時: {info['date']}")
+    add(
+        "- 音源: `tests/fixtures/ja_ext/`（#22 の17クリップ + #34 で足した"
+        " `taigen-01..03` / `joutai-01..03`）"
+    )
+    add("- ASR: sherpa-onnx + ReazonSpeech K2 v2（#28 の出荷既定）")
+    add("- 再現: `python scripts/tune_turn.py --classifier-ab`")
+    add()
+    if not rows:
+        add("計測失敗。")
+        return "\n".join(lines) + "\n"
+
+    add("## 1. 分割を増やさずに取りこぼしを減らせたか")
+    add()
+    add(
+        "| 条件 | カード数 | 不自然な分割 | 本当の切れ目 | 文法で確定できず | "
+        "その待ちの合計 | 全turnの待ち 中央/最大 |"
+    )
+    add("|---|---|---|---|---|---|---|")
+    for label, _note, r in rows:
+        add(
+            f"| {label} | {r['cards']} | **{r['unnatural_splits']}** | "
+            f"{r['natural_breaks_hit']}/{r['natural_breaks_total']} | "
+            f"{r['timeout_turns']} | {r['timeout_wait_ms_total']}ms | "
+            f"{r['turn_wait_ms_median']}ms / {r['turn_wait_ms_max']}ms |"
+        )
+    add()
+    add(
+        "**「不自然な分割」が1件でも増えたら不採用**（#27 の不変条件「文中の境界では"
+        "絶対に分割しない」）。「文法で確定できず」は末尾のクラスで Turn を確定できず、"
+        f"無音の経過（`boundary` / `flush`）で確定した Turn の数。1件につき "
+        f"{rows[-1][2]['force_silence_ms']}ms 待つので、字幕がそのぶん遅れる。"
+    )
+    add()
+    add(
+        "`turn_wait_ms_*` は #34 で足した指標。`endpoint_latency_ms` は音源終端の "
+        "flush 確定を数えていないため、**取りこぼしの代償がそこに出てこなかった**"
+        "（#27 の申し送り）。定義を変えると #24/#27/#28 と比較できなくなるので、"
+        "既存の指標はそのままに別の列を足してある。"
+    )
+    add()
+
+    add("## 2. 代償（ASR呼び出しとデコード時間）")
+    add()
+    add("| 条件 | ASR呼び出し | decode合計(中央値) | endpoint latency 中央/最大 | Hy-MT2呼び出し |")
+    add("|---|---|---|---|---|")
+    for label, _note, r in rows:
+        add(
+            f"| {label} | {r['asr_calls']} | {r['asr_decode_s_median']}s | "
+            f"{r['endpoint_latency_ms_median']}ms / {r['endpoint_latency_ms_max']}ms | "
+            f"{r['mt_calls']} |"
+        )
+    add()
+    add(
+        "分類器は ASR の後段なので **ASR 呼び出しは変わらないのが正しい**"
+        "（変わっていたら Segment の切り方に手が入っている）。"
+    )
+    add()
+
+    add("## 3. クリップごとに何が変わったか（before → after）")
+    add()
+    before = results.get("turn:morph-politeonly:reazon")
+    after = results.get("turn:morph:reazon")
+    if before and after:
+
+        def total_wait(clip: dict) -> int:
+            return sum(c["wait_ms"] for c in clip["detail"])
+
+        for b, a in zip(before["per_clip"], after["per_clip"]):
+            # **待ちだけが変わったクリップも出す**。#34 の発端（`前に出てきて下さい`）は
+            # カード数も分割数も変わらず、待ちが 1000→500ms になっただけなので、
+            # 枚数の差分だけを見ていると本題が表に出てこない
+            if (b["cards"], b["unnatural_splits"], total_wait(b)) == (
+                a["cards"],
+                a["unnatural_splits"],
+                total_wait(a),
+            ):
+                continue
+            verdict = "悪化" if a["unnatural_splits"] > b["unnatural_splits"] else "改善"
+            add(
+                f"- **{a['id']}**（{verdict}）: {b['cards']}枚/{b['unnatural_splits']}件"
+                f"/待ち{total_wait(b)}ms → "
+                f"{a['cards']}枚/{a['unnatural_splits']}件/待ち{total_wait(a)}ms"
+            )
+            for card in a["detail"]:
+                add(
+                    f"    - `{card['reason']}` seg={card['segments']} "
+                    f"wait={card['wait_ms']}ms: {card.get('text', '')}"
+                )
+        add()
+    add("### 分類の内訳")
+    add()
+    add("| 条件 | 確定理由の内訳 |")
+    add("|---|---|")
+    for label, _note, r in rows:
+        add(f"| {label} | `{r['turn_reasons']}` |")
+    add()
+    add(
+        "ReazonSpeech は句読点を出さないので `strong_end` は**構造的に0件**（#21/#28）。"
+        "評価は `predicate_end` / `normal_end` / `reject` の3クラスで見る。"
+    )
+    add()
+
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repeat", type=int, default=DEFAULT_REPEAT, help="各条件の周回数（既定2）")
@@ -291,13 +427,25 @@ def main() -> int:
     )
     parser.add_argument("--out-dir", default=str(ROOT / "docs" / "bench"))
     parser.add_argument("--report-from", default=None, help="既存の生JSONからレポートのみ再生成")
+    parser.add_argument(
+        "--classifier-ab",
+        action="store_true",
+        help="#34 の分類器 A/B を測る（ReazonSpeech・before/after）",
+    )
     args = parser.parse_args()
+
+    conditions = CLASSIFIER_CONDITIONS if args.classifier_ab else CONDITIONS
+    report = build_classifier_report if args.classifier_ab else build_report
+    stem = "surface-classifier" if args.classifier_ab else "turn-detection"
 
     if args.report_from:
         raw = json.loads(Path(args.report_from).read_text(encoding="utf-8"))
         md_path = Path(args.report_from).with_suffix(".md")
         md_path.write_text(
-            build_report(raw["system"], raw["results"], raw.get("e2e")), encoding="utf-8"
+            build_classifier_report(raw["system"], raw["results"])
+            if args.classifier_ab
+            else build_report(raw["system"], raw["results"], raw.get("e2e")),
+            encoding="utf-8",
         )
         print(f"レポート再生成: {md_path}")
         return 0
@@ -307,10 +455,10 @@ def main() -> int:
     info = system_info()
     print(f"machine: {info['cpu']} / {info['cores']}C{info['threads']}T / {info['ram_gb']}GB")
 
-    rounds: dict[str, list[dict]] = {key: [] for key, _, _ in CONDITIONS}
+    rounds: dict[str, list[dict]] = {key: [] for key, _, _ in conditions}
     for index in range(max(1, args.repeat)):
         print(f"########## round {index + 1}/{args.repeat} ##########", flush=True)
-        for key, _label, _note in CONDITIONS:
+        for key, _label, _note in conditions:
             result = run_phase_subprocess(key, models_dir)
             if result is not None:
                 rounds[key].append(result)
@@ -327,7 +475,7 @@ def main() -> int:
         e2e.append({"label": label or directory, "runs": load_e2e_runs(Path(directory), "after")})
 
     stamp = info["date"]
-    json_path = out_dir / f"{stamp}-turn-detection.json"
+    json_path = out_dir / f"{stamp}-{stem}.json"
     json_path.write_text(
         json.dumps(
             {"system": info, "results": results, "e2e": e2e or None},
@@ -336,8 +484,11 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    md_path = out_dir / f"{stamp}-turn-detection.md"
-    md_path.write_text(build_report(info, results, e2e), encoding="utf-8")
+    md_path = out_dir / f"{stamp}-{stem}.md"
+    md_path.write_text(
+        report(info, results) if args.classifier_ab else report(info, results, e2e),
+        encoding="utf-8",
+    )
     print(f"\n生JSON: {json_path}\nレポート: {md_path}")
     return 0
 

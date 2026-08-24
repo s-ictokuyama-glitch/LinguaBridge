@@ -142,6 +142,67 @@
       "segments": [{ "text": "はい、えーと、それでは" }]
     },
     {
+      "id": "taigen-01",
+      "category": "taigen",
+      "rate": 0,
+      "note": "続きがある体言止め。名詞で止まっただけで文は終わっていない。ここで切ったら不自然な分割。体言止めを確定側へ寄せる案（#34 の案C）を採ると必ず割れる、この表の中で唯一の検出器。間を 700/800ms にしてあるのは意味がある: check_silence_ms(500) より長くしないと Segment が割れず分類器に問いが渡らない（250/300ms では1発話として素通りし、検出器として働かない）。force_silence_ms(1000) より短くしないと文法を見る前に確定してしまう。",
+      "segments": [
+        { "text": "じゃあ次", "pause_ms": 700, "natural_break": false },
+        { "text": "教科書", "pause_ms": 800, "natural_break": false },
+        { "text": "四十二ページを開いてください。" }
+      ]
+    },
+    {
+      "id": "taigen-02",
+      "category": "taigen",
+      "rate": 0,
+      "note": "完結する体言止め。taigen-01 と同じ語で終わるのに、こちらは切ってよい。表層では区別できないことの実物。間を 1200ms にしてあるのは force_silence_ms(1000) を超えさせるためで、文法で確定できないぶんの待ちがそのまま計測に出る。",
+      "segments": [
+        { "text": "じゃあ次、教科書。", "pause_ms": 1200, "natural_break": true },
+        { "text": "四十二ページを開いてください。" }
+      ]
+    },
+    {
+      "id": "taigen-03",
+      "category": "taigen",
+      "rate": 0,
+      "note": "助詞に見える体言止め。「ここまで」の末尾が助詞「で」なので Reject に落ちる。taigen-02 と同じく間は 1200ms。",
+      "segments": [
+        { "text": "今日の授業はここまで。", "pause_ms": 1200, "natural_break": true },
+        { "text": "次回は呼吸との違いについて学びます。" }
+      ]
+    },
+    {
+      "id": "joutai-01",
+      "category": "plain_form",
+      "rate": 0,
+      "note": "常体の言い切り。間は pause-03 と同じ 900ms で、force_silence_ms(1000) より短い。文法で確定できなければ次の断片と連結してしまうので、この間が「文法が効いたか」の判定になる。",
+      "segments": [
+        { "text": "これが光合成だ。", "pause_ms": 900, "natural_break": true },
+        { "text": "よく覚えておくように。" }
+      ]
+    },
+    {
+      "id": "joutai-02",
+      "category": "plain_form",
+      "rate": 0,
+      "note": "常体（終助詞つき）。「だな」「ぞ」。読点の後の「よし」は名詞・感動詞なので、SAPI が読点に入れる無音で割れても連結されたままになるはず。",
+      "segments": [
+        { "text": "ここが大事だな。", "pause_ms": 900, "natural_break": true },
+        { "text": "よし、始めるぞ。" }
+      ]
+    },
+    {
+      "id": "joutai-03",
+      "category": "plain_form",
+      "rate": 0,
+      "note": "常体の疑問形。「分かったか」の末尾「か」は助詞止めの表にあるので、疑問形を先に見ないと Reject に落ちる。",
+      "segments": [
+        { "text": "分かったか。", "pause_ms": 900, "natural_break": true },
+        { "text": "分からない人は手を挙げてください。" }
+      ]
+    },
+    {
       "id": "noise-snr20-base04",
       "category": "noise",
       "source": "base-04",

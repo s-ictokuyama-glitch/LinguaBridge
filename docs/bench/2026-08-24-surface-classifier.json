@@ -1,0 +1,1843 @@
+{
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-08-24"
+  },
+  "results": {
+    "turn:simple:reazon": {
+      "vad": "silero",
+      "strategy": "simple",
+      "classifier": "surface",
+      "min_silence_ms": 500,
+      "start_speech_ms": 0,
+      "force_silence_ms": null,
+      "frame_ms": 32,
+      "asr": "reazon",
+      "clips": 23,
+      "audio_s_total": 130.2,
+      "cards": 35,
+      "expected_turns": 30,
+      "cards_per_expected_turn": 1.17,
+      "unnatural_splits": 5,
+      "natural_breaks_total": 8,
+      "natural_breaks_hit": 8,
+      "merged_turns": 0,
+      "turn_reasons": {
+        "segment": 35
+      },
+      "asr_calls": 35,
+      "asr_decode_s_total": 4.62,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 512,
+      "timeout_turns": 0,
+      "timeout_wait_ms_total": 0,
+      "turn_wait_ms_median": 500,
+      "turn_wait_ms_max": 512,
+      "card_chars_mean": 17.6,
+      "card_chars_median": 18,
+      "mt_calls": 70,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 2,
+          "unnatural_splits": 1,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.87,
+              "closed_at_s": 4.38,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で",
+              "chars": 14
+            },
+            {
+              "t_start": 4.38,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "原子の数が同じになっていることを確認しましょう",
+              "chars": 23
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+              "chars": 41
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "教科書の四十二ページの下の方にある図を見てください",
+              "chars": 25
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができた班から前に出てきて下さい",
+              "chars": 18
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この実験でいちばん大事なのは温度をきちんと管理することです",
+              "chars": 29
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "今日の内容はここまでなんですけれども次回はですね",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この部分がですねちょっと分かりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 3,
+          "unnatural_splits": 2,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 0.42,
+              "closed_at_s": 0.93,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "はい",
+              "chars": 2
+            },
+            {
+              "t_start": 0.93,
+              "t_end": 1.63,
+              "closed_at_s": 2.14,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "えっと",
+              "chars": 3
+            },
+            {
+              "t_start": 2.14,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "それでは",
+              "chars": 4
+            }
+          ]
+        },
+        {
+          "id": "taigen-01",
+          "category": "taigen",
+          "audio_s": 4.83,
+          "expected_turns": 1,
+          "cards": 3,
+          "unnatural_splits": 2,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 0.67,
+              "closed_at_s": 1.18,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "じゃあ次",
+              "chars": 4
+            },
+            {
+              "t_start": 1.22,
+              "t_end": 2.05,
+              "closed_at_s": 2.56,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "教科書",
+              "chars": 3
+            },
+            {
+              "t_start": 2.69,
+              "t_end": 4.8,
+              "closed_at_s": 4.83,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "四重にページを開いて下さい",
+              "chars": 13
+            }
+          ]
+        },
+        {
+          "id": "taigen-02",
+          "category": "taigen",
+          "audio_s": 4.93,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.76,
+              "closed_at_s": 2.27,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "じゃあ次教科書",
+              "chars": 7
+            },
+            {
+              "t_start": 2.78,
+              "t_end": 4.93,
+              "closed_at_s": 4.93,
+              "endpoint_latency_ms": 2,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "四重にページを開いてください",
+              "chars": 14
+            }
+          ]
+        },
+        {
+          "id": "taigen-03",
+          "category": "taigen",
+          "audio_s": 5.29,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.44,
+              "closed_at_s": 1.95,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "今日の授業はここまで",
+              "chars": 10
+            },
+            {
+              "t_start": 2.43,
+              "t_end": 5.28,
+              "closed_at_s": 5.29,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "次回は呼吸との違いについて学びます",
+              "chars": 17
+            }
+          ]
+        },
+        {
+          "id": "joutai-01",
+          "category": "plain_form",
+          "audio_s": 3.5,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.18,
+              "closed_at_s": 1.7,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "これが光合成だ",
+              "chars": 7
+            },
+            {
+              "t_start": 1.89,
+              "t_end": 3.49,
+              "closed_at_s": 3.5,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "よく覚えておくように",
+              "chars": 10
+            }
+          ]
+        },
+        {
+          "id": "joutai-02",
+          "category": "plain_form",
+          "audio_s": 3.47,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.02,
+              "closed_at_s": 1.54,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "ここが大事だな",
+              "chars": 7
+            },
+            {
+              "t_start": 1.76,
+              "t_end": 3.46,
+              "closed_at_s": 3.47,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "よしはじめるぞ",
+              "chars": 7
+            }
+          ]
+        },
+        {
+          "id": "joutai-03",
+          "category": "plain_form",
+          "audio_s": 3.72,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 0.74,
+              "closed_at_s": 1.25,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "分かったか",
+              "chars": 5
+            },
+            {
+              "t_start": 1.47,
+              "t_end": 3.71,
+              "closed_at_s": 3.72,
+              "endpoint_latency_ms": 8,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "分からない人は手を挙げて下さい",
+              "chars": 15
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができた班から前に出てきてください",
+              "chars": 19
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができたもんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ],
+      "runs": 2,
+      "asr_decode_s_median": 4.62,
+      "asr_decode_s_all": [
+        4.62,
+        4.62
+      ]
+    },
+    "turn:morph-politeonly:reazon": {
+      "vad": "silero",
+      "strategy": "morph",
+      "classifier": "surface-polite-only",
+      "min_silence_ms": 500,
+      "start_speech_ms": 96,
+      "force_silence_ms": 1000,
+      "frame_ms": 32,
+      "asr": "reazon",
+      "clips": 23,
+      "audio_s_total": 130.2,
+      "cards": 27,
+      "expected_turns": 30,
+      "cards_per_expected_turn": 0.9,
+      "unnatural_splits": 0,
+      "natural_breaks_total": 8,
+      "natural_breaks_hit": 5,
+      "merged_turns": 6,
+      "turn_reasons": {
+        "predicate_end": 17,
+        "flush": 8,
+        "boundary": 2
+      },
+      "asr_calls": 35,
+      "asr_decode_s_total": 4.63,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 1024,
+      "timeout_turns": 10,
+      "timeout_wait_ms_total": 10000,
+      "turn_wait_ms_median": 500,
+      "turn_wait_ms_max": 1000,
+      "card_chars_mean": 22.8,
+      "card_chars_median": 20,
+      "mt_calls": 54,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "wait_ms": 500,
+              "segments": 2,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+              "chars": 41
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "教科書の四十二ページの下の方にある図を見てください",
+              "chars": 25
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "準備ができた班から前に出てきて下さい",
+              "chars": 18
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この実験でいちばん大事なのは温度をきちんと管理することです",
+              "chars": 29
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "今日の内容はここまでなんですけれども次回はですね",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "この部分がですねちょっと分かりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 1000,
+              "segments": 3,
+              "reason": "flush",
+              "text": "はいえっとそれでは",
+              "chars": 9
+            }
+          ]
+        },
+        {
+          "id": "taigen-01",
+          "category": "taigen",
+          "audio_s": 4.83,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.8,
+              "closed_at_s": 4.83,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 1000,
+              "segments": 3,
+              "reason": "flush",
+              "text": "じゃあ次教科書四重にページを開いて下さい",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "taigen-02",
+          "category": "taigen",
+          "audio_s": 4.93,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.76,
+              "closed_at_s": 2.78,
+              "endpoint_latency_ms": 1024,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "boundary",
+              "text": "じゃあ次教科書",
+              "chars": 7
+            },
+            {
+              "t_start": 2.78,
+              "t_end": 4.93,
+              "closed_at_s": 4.93,
+              "endpoint_latency_ms": 2,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "四重にページを開いてください",
+              "chars": 14
+            }
+          ]
+        },
+        {
+          "id": "taigen-03",
+          "category": "taigen",
+          "audio_s": 5.29,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.44,
+              "closed_at_s": 2.46,
+              "endpoint_latency_ms": 1024,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "boundary",
+              "text": "今日の授業はここまで",
+              "chars": 10
+            },
+            {
+              "t_start": 2.43,
+              "t_end": 5.28,
+              "closed_at_s": 5.29,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "次回は呼吸との違いについて学びます",
+              "chars": 17
+            }
+          ]
+        },
+        {
+          "id": "joutai-01",
+          "category": "plain_form",
+          "audio_s": 3.5,
+          "expected_turns": 2,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.49,
+              "closed_at_s": 3.5,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 1000,
+              "segments": 2,
+              "reason": "flush",
+              "text": "これが光合成だよく覚えておくように",
+              "chars": 17
+            }
+          ]
+        },
+        {
+          "id": "joutai-02",
+          "category": "plain_form",
+          "audio_s": 3.47,
+          "expected_turns": 2,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.46,
+              "closed_at_s": 3.47,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 1000,
+              "segments": 2,
+              "reason": "flush",
+              "text": "ここが大事だなよしはじめるぞ",
+              "chars": 14
+            }
+          ]
+        },
+        {
+          "id": "joutai-03",
+          "category": "plain_form",
+          "audio_s": 3.72,
+          "expected_turns": 2,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.72,
+              "endpoint_latency_ms": 8,
+              "wait_ms": 1000,
+              "segments": 2,
+              "reason": "flush",
+              "text": "分かったか分からない人は手を挙げて下さい",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができた班から前に出てきてください",
+              "chars": 19
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができたもんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ],
+      "runs": 2,
+      "asr_decode_s_median": 4.62,
+      "asr_decode_s_all": [
+        4.63,
+        4.61
+      ]
+    },
+    "turn:morph:reazon": {
+      "vad": "silero",
+      "strategy": "morph",
+      "classifier": "surface",
+      "min_silence_ms": 500,
+      "start_speech_ms": 96,
+      "force_silence_ms": 1000,
+      "frame_ms": 32,
+      "asr": "reazon",
+      "clips": 23,
+      "audio_s_total": 130.2,
+      "cards": 30,
+      "expected_turns": 30,
+      "cards_per_expected_turn": 1.0,
+      "unnatural_splits": 0,
+      "natural_breaks_total": 8,
+      "natural_breaks_hit": 8,
+      "merged_turns": 3,
+      "turn_reasons": {
+        "predicate_end": 24,
+        "flush": 4,
+        "boundary": 2
+      },
+      "asr_calls": 35,
+      "asr_decode_s_total": 4.6,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 1024,
+      "timeout_turns": 6,
+      "timeout_wait_ms_total": 6000,
+      "turn_wait_ms_median": 500,
+      "turn_wait_ms_max": 1000,
+      "card_chars_mean": 20.5,
+      "card_chars_median": 20,
+      "mt_calls": 60,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "wait_ms": 500,
+              "segments": 2,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+              "chars": 41
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "教科書の四十二ページの下の方にある図を見てください",
+              "chars": 25
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができた班から前に出てきて下さい",
+              "chars": 18
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この実験でいちばん大事なのは温度をきちんと管理することです",
+              "chars": 29
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "今日の内容はここまでなんですけれども次回はですね",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "この部分がですねちょっと分かりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 1000,
+              "segments": 3,
+              "reason": "flush",
+              "text": "はいえっとそれでは",
+              "chars": 9
+            }
+          ]
+        },
+        {
+          "id": "taigen-01",
+          "category": "taigen",
+          "audio_s": 4.83,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.8,
+              "closed_at_s": 4.83,
+              "endpoint_latency_ms": 30,
+              "wait_ms": 500,
+              "segments": 3,
+              "reason": "predicate_end",
+              "text": "じゃあ次教科書四重にページを開いて下さい",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "taigen-02",
+          "category": "taigen",
+          "audio_s": 4.93,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.76,
+              "closed_at_s": 2.78,
+              "endpoint_latency_ms": 1024,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "boundary",
+              "text": "じゃあ次教科書",
+              "chars": 7
+            },
+            {
+              "t_start": 2.78,
+              "t_end": 4.93,
+              "closed_at_s": 4.93,
+              "endpoint_latency_ms": 2,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "四重にページを開いてください",
+              "chars": 14
+            }
+          ]
+        },
+        {
+          "id": "taigen-03",
+          "category": "taigen",
+          "audio_s": 5.29,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.44,
+              "closed_at_s": 2.46,
+              "endpoint_latency_ms": 1024,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "boundary",
+              "text": "今日の授業はここまで",
+              "chars": 10
+            },
+            {
+              "t_start": 2.43,
+              "t_end": 5.28,
+              "closed_at_s": 5.29,
+              "endpoint_latency_ms": 10,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "次回は呼吸との違いについて学びます",
+              "chars": 17
+            }
+          ]
+        },
+        {
+          "id": "joutai-01",
+          "category": "plain_form",
+          "audio_s": 3.5,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.18,
+              "closed_at_s": 1.7,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "これが光合成だ",
+              "chars": 7
+            },
+            {
+              "t_start": 1.89,
+              "t_end": 3.49,
+              "closed_at_s": 3.5,
+              "endpoint_latency_ms": 12,
+              "wait_ms": 1000,
+              "segments": 1,
+              "reason": "flush",
+              "text": "よく覚えておくように",
+              "chars": 10
+            }
+          ]
+        },
+        {
+          "id": "joutai-02",
+          "category": "plain_form",
+          "audio_s": 3.47,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 1.02,
+              "closed_at_s": 1.54,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "ここが大事だな",
+              "chars": 7
+            },
+            {
+              "t_start": 1.76,
+              "t_end": 3.46,
+              "closed_at_s": 3.47,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "よしはじめるぞ",
+              "chars": 7
+            }
+          ]
+        },
+        {
+          "id": "joutai-03",
+          "category": "plain_form",
+          "audio_s": 3.72,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 0.74,
+              "closed_at_s": 1.25,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "分かったか",
+              "chars": 5
+            },
+            {
+              "t_start": 1.47,
+              "t_end": 3.71,
+              "closed_at_s": 3.72,
+              "endpoint_latency_ms": 8,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "分からない人は手を挙げて下さい",
+              "chars": 15
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができた班から前に出てきてください",
+              "chars": 19
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "wait_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができたもんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "wait_ms": 500,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ],
+      "runs": 2,
+      "asr_decode_s_median": 4.61,
+      "asr_decode_s_all": [
+        4.6,
+        4.61
+      ]
+    }
+  },
+  "e2e": null
+}

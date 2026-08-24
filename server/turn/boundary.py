@@ -126,6 +126,14 @@ _FILLERS = (
     "ええ",
 )
 
+# 末尾が「だ」の副詞・接続詞（#34）。**常体の言い切り「〜だ」を足した副作用の穴埋め**で、
+# 先に抜かないと「ただ」「まだ」が言い切りと誤判定され、続きがあるのに確定してしまう。
+# `plain_forms` が真のときだけ効く（「〜だ」を足していなければ塞ぐ穴も無い）
+_PLAIN_FILLERS = (
+    "ただ",
+    "まだ",
+)
+
 # 疑問の終止形。末尾の「か」は助詞止め判定より先に見ないと Reject に落ちる
 _INTERROGATIVE_TAILS = (
     "ますか",
@@ -136,6 +144,11 @@ _INTERROGATIVE_TAILS = (
     "ませんか",
     "ましょうか",
 )
+
+# 常体の疑問形（#34）。「分かったか」の「か」は `_REJECT_PARTICLES` にあるので、
+# **助詞止め判定より前**にこれを見ないと Reject に落ちる。ひらがな1文字の一致は
+# 採らない（「とか」「何人か」「いくつか」を疑問形と読ませないため）
+_PLAIN_INTERROGATIVE = re.compile(r"[ぁ-んァ-ヴ一-龠々]{2,}(?:た|る|い|の|ん)か$")
 
 # 終止形（用言の言い切り）。ここで切ってよい
 _PREDICATE_TAILS = (
@@ -157,6 +170,25 @@ _PREDICATE_TAILS = (
     "ない",
     "ます",
 )
+
+# 常体（〜だ調）の終止形（#34）。敬体で終わらない発話を取りこぼしていた。
+# **体言止め（NormalEnd）はここに入れない** — 「じゃあ次、教科書」（完結）と
+# 「教科書」（言いよどみ）は表層では区別できず、確定側に寄せると文中で割れる。
+# 長い順に並べる必要はない（一致判定は最長のものを採る）
+_PLAIN_PREDICATE_TAILS = (
+    # 漢字表記の敬語。ReazonSpeech は「前に出てきて下さい」と漢字で書くことがあり、
+    # ひらがなだけを表に載せていたせいで1件取りこぼしていた
+    "下さい",
+    "下さる",
+    # 常体（〜だ調）
+    "だろう",
+    "だろ",
+    "だな",
+    "だぞ",
+    "だよ",
+    "ぞ",
+    "だ",
+)
 # 動詞の終止形（ウ段で終わる漢字＋かな、または「する」「した」など）。
 # 形態素解析器なしの近似なので、ひらがな1文字だけの一致は採らない
 _VERB_FINAL = re.compile(r"(?:[ぁ-んァ-ヴ一-龠々]{2,})(?:する|した|しない|なる|なった|いる|いた|ある|あった)$")
@@ -174,7 +206,16 @@ class SurfaceBoundaryClassifier:
     句読点を出さないので StrongEnd が1件も取れないが（#28 実測: strong_end 0回）、
     日本語の敬体が `〜です`/`〜ます`/`〜ください` で終わるため PredicateEnd(15回) が
     その役目を引き受け、区切りの結果は whisper 版と1件も違わなかった。
+
+    `plain_forms=False` は **#34 以前の挙動**（敬体しか言い切りと認めない）を再現する。
+    A/B の対照群としてだけ使うもので、出荷既定は `True`。
     """
+
+    def __init__(self, *, plain_forms: bool = True) -> None:
+        # 常体（〜だ調）と漢字表記の敬語を言い切りと認めるか（#34）。
+        # 表を差し替えるのではなくフラグ1つにしてあるのは、対照群が
+        # 「#34 の追加ぶんだけを外したもの」であることをコードで保証するため
+        self._plain_forms = plain_forms
 
     def classify(self, text: str) -> BoundaryClass:
         raw = text.strip()
@@ -190,9 +231,18 @@ class SurfaceBoundaryClassifier:
         # 0) フィラー（感動詞・接続詞）。助詞止めに誤分類されないよう先に抜く
         if stem in _FILLERS:
             return BoundaryClass.NORMAL_END
+        if self._plain_forms and stem in _PLAIN_FILLERS:
+            return BoundaryClass.NORMAL_END
 
         # 1) 疑問の終止形。「〜ますか」の「か」を助詞止めと読ませない
         if stem.endswith(_INTERROGATIVE_TAILS):
+            return (
+                BoundaryClass.STRONG_END
+                if raw[-1] in _SENTENCE_FINAL
+                else BoundaryClass.PREDICATE_END
+            )
+        # 常体の疑問形（#34）。ここも助詞止め判定より前でなければ「か」で Reject に落ちる
+        if self._plain_forms and _PLAIN_INTERROGATIVE.search(stem):
             return (
                 BoundaryClass.STRONG_END
                 if raw[-1] in _SENTENCE_FINAL
@@ -214,8 +264,15 @@ class SurfaceBoundaryClassifier:
         # 4) 用言の終止形
         if stem.endswith(_PREDICATE_TAILS) or _VERB_FINAL.search(stem):
             return BoundaryClass.PREDICATE_END
+        # 常体の言い切りと漢字表記の敬語（#34）
+        if self._plain_forms and stem.endswith(_PLAIN_PREDICATE_TAILS):
+            return BoundaryClass.PREDICATE_END
 
-        # 5) 名詞・感動詞など。morph 戦略では継続側に置く
+        # 5) 名詞・感動詞など。morph 戦略では継続側に置く。
+        # **体言止めをここから確定側へ動かさないこと**（#34 の判断）。「じゃあ次、教科書」
+        # （完結）と「教科書」（言いよどみ）は表層では区別できず、確定側に寄せると
+        # 文中で割れる（プロトタイプ実測: 追加台本 taigen-01 で2件）。
+        # 体言止めを扱うには形態素解析器が要る＝別の問い
         return BoundaryClass.NORMAL_END
 
 
@@ -223,4 +280,8 @@ def build_boundary_classifier(kind: str = "surface") -> BoundaryClassifier:
     """設定から分類器を作る。形態素解析器版が要るようになればここに増える。"""
     if kind == "surface":
         return SurfaceBoundaryClassifier()
+    if kind == "surface-polite-only":
+        # #34 の A/B 用の対照群（敬体しか言い切りと認めない = #34 以前の挙動）。
+        # **出荷既定は `surface`**。config.yaml でこちらを選ぶ理由は無い
+        return SurfaceBoundaryClassifier(plain_forms=False)
     raise ValueError(f"未知の境界分類器: {kind}")
