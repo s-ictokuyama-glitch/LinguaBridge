@@ -262,13 +262,13 @@ class TestHttpEndpoints:
         res = client.get("/teacher")
         assert res.status_code == 200
 
-    def test_healthz_ok(self, client):
+    def test_ready_ok(self, client):
         # warmup は背後で走るため、ロード完了(200)までポーリングする
         for _ in range(200):
-            if client.get("/healthz").status_code == 200:
+            if client.get("/ready").status_code == 200:
                 break
             time.sleep(0.02)
-        assert client.get("/healthz").status_code == 200
+        assert client.get("/ready").status_code == 200
 
     def test_teacher_info_returns_join_code(self, client):
         res = client.get("/api/teacher-info")
