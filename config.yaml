@@ -11,13 +11,36 @@ models:
   dir: "%LOCALAPPDATA%/LinguaBridge/models"
 
 asr:
-  engine: faster-whisper     # "faster-whisper" | "fake"（テスト・デモ用）
+  # 既定 sherpa は判断ゲート②で確定（docs/bench/2026-08-24-asr-gate.md）。
+  # ReazonSpeech K2 v2 が CER・速度の両軸で whisper 系に勝った
+  # （CER 9.62%→2.09% / E2E 遅延中央値 2.27s→0.54s / CPU中央値 93%→2.3%）。
+  # faster-whisper に戻すならこの1行を faster-whisper にする（実装は残してある）
+  engine: sherpa             # "sherpa" | "faster-whisper" | "fake"（テスト・デモ用）
+  # 以下 model / compute_type は engine: faster-whisper のときだけ効く。
   # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUではデコードに
-  # 発話長によらず約6秒かかり予算超過のため、既定は small。
+  # 発話長によらず約6秒かかり予算超過のため、whisper 側の既定は small。
   # 値は models.dir 配下のディレクトリ名（切替: kotoba-whisper-v2.0-faster）
   model: faster-whisper-small
   compute_type: int8
   language: ja
+  # CTranslate2 の内部スレッド数。0 = ライブラリ既定（全論理コア）。
+  # #26 B-6 で組合せを実測した結果、開発機では合計の遅延が動かなかったので 0 のまま。
+  # ただしASR単体では 6〜8 に絞ると競合下のデコードが縮む（空いたCPUはMTが食う）。
+  # ASRの尾が制約になったらここを 6〜8 にする。docs/bench/2026-08-23-hymt-tuning.md
+  cpu_threads: 0
+  # engine: sherpa のときだけ効く（#28）
+  sherpa:
+    model: reazonspeech-k2-v2
+    # 発話の先頭に足す無音の長さ。**精度を支配する**（#28 実測: 0ms で CER 19.70% /
+    # 600ms で 3.48%。600ms 付近からプラトー）。上流の vad.pre_roll_ms(240) では足りない
+    lead_in_ms: 600
+    # greedy より modified_beam_search の方が CER 3.48%→2.09% と良く、
+    # decode 中央値は 0.11s→0.13s しか増えない（#28）。hotwords も beam でしか効かない
+    decoding_method: modified_beam_search
+    # 教科用語の contextual biasing。機構は動作確認済みだが（「原子の風」→「原子の数」）、
+    # 既定の語彙では直す対象が無かったので未使用。実授業の誤りを見てから決める（map の fog）
+    hotwords_file: null
+    hotwords_score: 1.5
 
 vad:
   engine: silero             # "silero" | "energy"（energyはテスト・フォールバック用）
@@ -26,14 +49,54 @@ vad:
   max_utterance_s: 30        # 強制分割（plan.md E-03）
   pre_roll_ms: 240           # 発話開始前の音声を含める長さ（語頭の欠け防止）
 
+# Segment（ASRに投げる音声1単位）を Turn（字幕カード1枚）へ束ねる戦略（#27）
+turn:
+  # 既定 morph は #27 の実測で確定（不自然な分割 3→0件 / Hy-MT2 44→38回 / ASR回数は据置）。
+  # docs/bench/2026-08-23-turn-detection.md。simple に戻せば #27 以前と同一の挙動
+  strategy: morph            # "morph"（文法境界で連結・既定） | "simple"（無音長のみ）
+  classifier: surface        # 文法境界の判定器。surface = 形態素解析器なしの表層判定
+  # strategy: morph のときだけ有効。vad.min_silence_ms の代わりにこの3つが効く。
+  # 既定は docs/bench/2026-08-23-turn-detection.md の実測の勝者
+  # （Parapper の 320/96/640 ではない。320ms は ASR 呼び出しを 22→35 に増やし、
+  #  文中で切らない効果は無音長ではなく文法境界の側から出ていた）
+  morph:
+    check_silence_ms: 500    # Segment を確定する無音長（現行と同じ＝ASR回数を増やさない）
+    start_speech_ms: 96      # 発話開始に必要な連続音声（VAD誤検知1枚で立ち上げない）
+    force_silence_ms: 1000   # 文法が継続と言っても無条件に Turn を確定する無音長
+    max_turn_s: 30.0         # 1 Turn の音声長の上限
+    max_segments: 12         # 1 Turn に連結する Segment 数の上限
+
+# partial字幕（先生のみ）と生徒の「発話中」インジケーター（#29）
+partial:
+  # 先生の partial 字幕。true にすると発話の途中で interim ASR が走る。
+  # 既定 false の根拠は docs/bench/2026-08-24-partial.md
+  enabled: false
+  # 発話の**途中**でこの長さの無音に達したら interim を発火（Parapper の息継ぎ駆動）。
+  # turn.morph.check_silence_ms(500) よりフレーム単位で短いこと
+  interim_silence_ms: 96
+  # これ未満の音声では interim を出さない。#28 でリードインが精度を支配していたため
+  min_interim_audio_s: 0.6
+  # 生徒の「発話中」表示。ASR を1回も増やさないので既定 ON。
+  # 生徒に見せるのはインジケーターだけで、未翻訳の日本語は1文字も出さない
+  speaking_indicator: true
+
 mt:
   # 既定 hy-mt2 は判断ゲート①で確定（docs/bench/2026-07-07-bench.md:
   # 品質・ライセンスで優位、遅延+164ms・メモリ+1.2GBはいずれも予算内）。
   # 学校実機(i5)の再計測で予算を破る場合は nllb へ切替（非商用ライセンス注意）
   engine: hy-mt2             # "hy-mt2" | "nllb" | "fake"（テスト・デモ用）
   # パスは models.dir からの相対
-  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4, temperature: 0.7 }
+  # temperature 0 = 貪欲デコード（#26 B-5 で確定: 品質差なし・遅延差なし・出力が安定）。
+  # モデルカードの推奨は 0.7。戻すなら temperature を 0.7 にする
+  hy_mt2:
+    gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf
+    threads: 4
+    temperature: 0.0
+    max_tokens_cap: 512    # 出力上限の頭打ち（#26 B-7）。実上限は入力長から算出される
   nllb: { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
+  # 発話をまたぐ翻訳キャッシュの上限件数（#26 B-4）。0 = 無効。
+  # 「はい」「もう一度言います」のような繰り返しで Hy-MT2 を叩かない
+  cache_size: 512
 
 languages: # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }
@@ -42,7 +105,24 @@ languages: # 生徒が選択可能な言語（F-12）
 monitoring:
   stats_interval_s: 2.0      # 先生ページへの統計配信間隔（#15）
   silence_warning_s: 30      # 配信中の無音警告までの秒数（E-01）
-  overload_queue_depth: 3    # 過負荷警告のキュー深度閾値（E-05）
+  overload_queue_depth: 3    # 翻訳キューの件数による過負荷判定（E-05）
+  overload_audio_seconds: 10 # ASR滞留の秒数による過負荷判定（#25 A-5）。
+                             # 健全時でも最大8秒程度まで振れる（#24 ベースライン）ので、その上に置く
+
+# 過負荷・不正入力に対する境界（#25）。授業では踏まない値にしてあるが、
+# 上限に達したときの振る舞いが定義されていることが本質
+limits:
+  asr_queue_seconds: 30      # ASR待ち音声の上限（秒）。超過分は捨て、先生へ通知する
+  mt_queue_max: 256          # 翻訳キューの件数上限（確定発話は捨てず、満杯なら待つ）
+  mt_replay_watermark: 128   # ここを超えたら再接続復元ジョブの投入を止める
+  send_queue_max: 64         # クライアント1人あたりの送信キュー（遅い端末の隔離）
+  send_timeout_s: 5.0        # 1メッセージの送信タイムアウト。超えたらその接続を切る
+  max_students: 64           # 生徒の同時接続上限
+  max_text_bytes: 8192       # テキストフレームの受信上限
+  max_audio_bytes: 32000     # バイナリフレームの受信上限（1秒 @16kHz PCM16）
+  asr_timeout_s: 60          # 1発話のASR推論タイムアウト
+  mt_timeout_s: 60           # 1件の翻訳のタイムアウト
+  allowed_origins: []        # 空 = 接続先と同一ホストのみ許可（Originなしは常に許可）
 
 recording:
   default_on: false

@@ -36,6 +36,12 @@ class NllbEngine(TranslationEngine):
         self._translator: Any = None
         self._tokenizer: Any = None
 
+    @property
+    def model_version(self) -> str:
+        """モデルディレクトリ名＋ビーム幅。ビーム幅が変われば訳文も変わるので
+        翻訳キャッシュ（#26）のキー空間を分ける。"""
+        return f"{self._model_dir.name}@beam{self._beam_size}"
+
     def warmup(self) -> None:
         import ctranslate2
         from transformers import AutoTokenizer

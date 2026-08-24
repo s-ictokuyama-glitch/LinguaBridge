@@ -1,0 +1,1539 @@
+{
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-08-23"
+  },
+  "results": {
+    "mt-decoding:hy-mt2": {
+      "sentences": 10,
+      "sampling_runs": 3,
+      "greedy": {
+        "ms_median": {
+          "en": 526,
+          "zh": 394
+        },
+        "ms_max": {
+          "en": 814,
+          "zh": 516
+        },
+        "chars_median": {
+          "en": 84,
+          "zh": 19
+        },
+        "deterministic_rate": 1.0,
+        "cer_roundtrip": 0.3436
+      },
+      "sampling": {
+        "ms_median": {
+          "en": 528,
+          "zh": 363
+        },
+        "ms_max": {
+          "en": 818,
+          "zh": 545
+        },
+        "chars_median": {
+          "en": 82,
+          "zh": 19
+        },
+        "deterministic_rate": 0.55,
+        "cer_roundtrip": 0.32
+      },
+      "sample_spread_mean": 0.0912,
+      "greedy_vs_sampling_mean": 0.0589,
+      "items": [
+        {
+          "ja": "今日は植物の光合成について勉強します。",
+          "lang": "en",
+          "greedy": "Today, we will study about plant photosynthesis.",
+          "greedy_repeat": "Today, we will study about plant photosynthesis.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            307,
+            307
+          ],
+          "greedy_chars": 48,
+          "samples": [
+            "Today, we will study about plant photosynthesis.",
+            "Today, we will study about plant photosynthesis.",
+            "Today, we will study about plant photosynthesis."
+          ],
+          "sample_ms": [
+            307,
+            308,
+            311
+          ],
+          "sample_chars": [
+            48,
+            48,
+            48
+          ],
+          "roundtrip_greedy": "今日は、植物の光合成について学びます。",
+          "roundtrip_samples": [
+            "今日は、植物の光合成について学びます。",
+            "今日は、植物の光合成について学びます。",
+            "今日は、植物の光合成について学びます。"
+          ],
+          "cer_roundtrip_greedy": 0.1667,
+          "cer_roundtrip_samples": [
+            0.1667,
+            0.1667,
+            0.1667
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "今日は植物の光合成について勉強します。",
+          "lang": "zh",
+          "greedy": "今天我们将学习关于植物的光合作用。",
+          "greedy_repeat": "今天我们将学习关于植物的光合作用。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            247,
+            245
+          ],
+          "greedy_chars": 17,
+          "samples": [
+            "今天我们将学习关于植物的光合作用。",
+            "今天我们将学习关于植物的光合作用。",
+            "今天我们将学习关于植物的光合作用。"
+          ],
+          "sample_ms": [
+            243,
+            246,
+            245
+          ],
+          "sample_chars": [
+            17,
+            17,
+            17
+          ],
+          "roundtrip_greedy": "今日は植物の光合成について学びます。",
+          "roundtrip_samples": [
+            "今日は植物の光合成について学びます。",
+            "今日は植物の光合成について学びます。",
+            "今日は植物の光合成について学びます。"
+          ],
+          "cer_roundtrip_greedy": 0.1667,
+          "cer_roundtrip_samples": [
+            0.1667,
+            0.1667,
+            0.1667
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "lang": "en",
+          "greedy": "Photosynthesis requires sunlight, water, and carbon dioxide.",
+          "greedy_repeat": "Photosynthesis requires sunlight, water, and carbon dioxide.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            366,
+            369
+          ],
+          "greedy_chars": 60,
+          "samples": [
+            "Photosynthesis requires sunlight, water, and carbon dioxide.",
+            "Photosynthesis requires sunlight, water, and carbon dioxide.",
+            "Photosynthesis requires sunlight, water, and carbon dioxide."
+          ],
+          "sample_ms": [
+            368,
+            365,
+            372
+          ],
+          "sample_chars": [
+            60,
+            60,
+            60
+          ],
+          "roundtrip_greedy": "光合成には日光、水、二酸化炭素が必要です。",
+          "roundtrip_samples": [
+            "光合成には日光、水、二酸化炭素が必要です。",
+            "光合成には日光、水、二酸化炭素が必要です。",
+            "光合成には日光、水、二酸化炭素が必要です。"
+          ],
+          "cer_roundtrip_greedy": 0.1,
+          "cer_roundtrip_samples": [
+            0.1,
+            0.1,
+            0.1
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "lang": "zh",
+          "greedy": "光合作用需要阳光、水和二氧化碳。",
+          "greedy_repeat": "光合作用需要阳光、水和二氧化碳。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            247,
+            250
+          ],
+          "greedy_chars": 16,
+          "samples": [
+            "光合作用需要阳光、水和二氧化碳。",
+            "光合作用需要阳光、水和二氧化碳。",
+            "光合作用需要阳光、水和二氧化碳。"
+          ],
+          "sample_ms": [
+            246,
+            247,
+            250
+          ],
+          "sample_chars": [
+            16,
+            16,
+            16
+          ],
+          "roundtrip_greedy": "光合成には太陽光、水、二酸化炭素が必要です。",
+          "roundtrip_samples": [
+            "光合成には太陽光、水、二酸化炭素が必要です。",
+            "光合成には太陽光、水、二酸化炭素が必要です。",
+            "光合成には太陽光、水、二酸化炭素が必要です。"
+          ],
+          "cer_roundtrip_greedy": 0.2,
+          "cer_roundtrip_samples": [
+            0.2,
+            0.2,
+            0.2
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "教科書の四十二ページを開いてください。",
+          "lang": "en",
+          "greedy": "Please open page 42 of the textbook.",
+          "greedy_repeat": "Please open page 42 of the textbook.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            297,
+            306
+          ],
+          "greedy_chars": 36,
+          "samples": [
+            "Please open page 42 of the textbook.",
+            "Please open page 42 of the textbook.",
+            "Please open page 42 of the textbook."
+          ],
+          "sample_ms": [
+            299,
+            303,
+            300
+          ],
+          "sample_chars": [
+            36,
+            36,
+            36
+          ],
+          "roundtrip_greedy": "教科書の42ページを開いてください。",
+          "roundtrip_samples": [
+            "教科書の42ページを開いてください。",
+            "教科書の42ページを開いてください。",
+            "教科書の42ページを開いてください。"
+          ],
+          "cer_roundtrip_greedy": 0.1667,
+          "cer_roundtrip_samples": [
+            0.1667,
+            0.1667,
+            0.1667
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "教科書の四十二ページを開いてください。",
+          "lang": "zh",
+          "greedy": "请打开教科书的第四十二页。",
+          "greedy_repeat": "请打开教科书的第四十二页。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            272,
+            272
+          ],
+          "greedy_chars": 13,
+          "samples": [
+            "请打开教科书的第四十二页。",
+            "请打开教科书第四十二页。",
+            "请打开教科书第四十二页。"
+          ],
+          "sample_ms": [
+            273,
+            240,
+            241
+          ],
+          "sample_chars": [
+            13,
+            12,
+            12
+          ],
+          "roundtrip_greedy": "教科書の42ページを開いてください。",
+          "roundtrip_samples": [
+            "教科書の42ページを開いてください。",
+            "教科書の42ページを開いてください。",
+            "教科書の42ページを開いてください。"
+          ],
+          "cer_roundtrip_greedy": 0.1667,
+          "cer_roundtrip_samples": [
+            0.1667,
+            0.1667,
+            0.1667
+          ],
+          "sample_spread": 0.0556,
+          "greedy_vs_sampling": 0.0556
+        },
+        {
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "lang": "en",
+          "greedy": "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+          "greedy_repeat": "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            627,
+            633
+          ],
+          "greedy_chars": 101,
+          "samples": [
+            "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+            "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+            "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch."
+          ],
+          "sample_ms": [
+            633,
+            632,
+            632
+          ],
+          "sample_chars": [
+            101,
+            101,
+            101
+          ],
+          "roundtrip_greedy": "クロロプラストは植物細胞内に存在する小さな器官で、光エネルギーが利用されてデンプンが生成されます。",
+          "roundtrip_samples": [
+            "クロロプラストは植物細胞内に存在する小さな器官で、光エネルギーが利用されてデンプンが生成されます。",
+            "クロロプラストは植物細胞内に存在する小さな器官で、光エネルギーが利用されてデンプンが生成されます。",
+            "クロロプラストは植物細胞内に存在する小さな器官で、光エネルギーが利用されてデンプンが生成されます。"
+          ],
+          "cer_roundtrip_greedy": 0.5682,
+          "cer_roundtrip_samples": [
+            0.5682,
+            0.5682,
+            0.5682
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "lang": "zh",
+          "greedy": "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+          "greedy_repeat": "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            510,
+            514
+          ],
+          "greedy_chars": 27,
+          "samples": [
+            "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+            "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+            "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。"
+          ],
+          "sample_ms": [
+            511,
+            516,
+            508
+          ],
+          "sample_chars": [
+            27,
+            27,
+            27
+          ],
+          "roundtrip_greedy": "葉緑体は植物細胞内の小器官であり、ここで光エネルギーを利用してデンプンを合成する。",
+          "roundtrip_samples": [
+            "葉緑体は植物細胞内の小器官であり、ここで光エネルギーを利用してデンプンを合成する。",
+            "葉緑体は植物細胞内の小器官であり、ここで光エネルギーを利用してデンプンを合成する。",
+            "葉緑体は植物細胞内の小器官であり、ここで光エネルギーを利用してデンプンを合成する。"
+          ],
+          "cer_roundtrip_greedy": 0.4545,
+          "cer_roundtrip_samples": [
+            0.4545,
+            0.4545,
+            0.4545
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "lang": "en",
+          "greedy": "We will have each group present the results of yesterday’s experiment.",
+          "greedy_repeat": "We will have each group present the results of yesterday’s experiment.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            451,
+            454
+          ],
+          "greedy_chars": 70,
+          "samples": [
+            "We will have each group present the results of yesterday’s experiment.",
+            "We will have each group present the results of yesterday’s experiment.",
+            "The results of yesterday’s experiment will be presented by group."
+          ],
+          "sample_ms": [
+            452,
+            456,
+            419
+          ],
+          "sample_chars": [
+            70,
+            70,
+            65
+          ],
+          "roundtrip_greedy": "各グループが昨日の実験結果を発表します。",
+          "roundtrip_samples": [
+            "各グループが昨日の実験結果を発表します。",
+            "各グループが昨日の実験結果を発表します。",
+            "昨日の実験結果はグループごとに発表されます。"
+          ],
+          "cer_roundtrip_greedy": 0.72,
+          "cer_roundtrip_samples": [
+            0.72,
+            0.72,
+            0.28
+          ],
+          "sample_spread": 0.5517,
+          "greedy_vs_sampling": 0.2759
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "lang": "zh",
+          "greedy": "将按小组分别汇报昨天的实验结果。",
+          "greedy_repeat": "将按小组分别汇报昨天的实验结果。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            335,
+            333
+          ],
+          "greedy_chars": 16,
+          "samples": [
+            "将按小组分别公布昨天的实验结果。",
+            "将按小组分别汇报昨天的实验结果。",
+            "请按小组分别汇报昨天的实验结果。"
+          ],
+          "sample_ms": [
+            334,
+            332,
+            331
+          ],
+          "sample_chars": [
+            16,
+            16,
+            16
+          ],
+          "roundtrip_greedy": "昨日の実験結果は、グループごとに報告される。",
+          "roundtrip_samples": [
+            "昨日の実験結果は、グループごとに発表されます。",
+            "昨日の実験結果は、グループごとに報告されます。",
+            "各グループで昨日の実験結果を報告してください。"
+          ],
+          "cer_roundtrip_greedy": 0.44,
+          "cer_roundtrip_samples": [
+            0.28,
+            0.36,
+            0.84
+          ],
+          "sample_spread": 0.1333,
+          "greedy_vs_sampling": 0.0667
+        },
+        {
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "lang": "en",
+          "greedy": "There will be a mini-test on Tuesday next week, so please review the material from today thoroughly.",
+          "greedy_repeat": "There will be a mini-test on Tuesday next week, so please review the material from today thoroughly.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            634,
+            630
+          ],
+          "greedy_chars": 100,
+          "samples": [
+            "There will be a mini-test on Tuesday next week, so please review the content from today thoroughly.",
+            "There will be a mini-test on Tuesday next week, so please review the content from today thoroughly.",
+            "There will be a mini-test on Tuesday next week, so please review the content from today thoroughly."
+          ],
+          "sample_ms": [
+            637,
+            632,
+            634
+          ],
+          "sample_chars": [
+            99,
+            99,
+            99
+          ],
+          "roundtrip_greedy": "来週の火曜日にはミニテストがありますので、今日の内容をしっかり復習してください。",
+          "roundtrip_samples": [
+            "来週の火曜日にはミニテストがありますので、今日の内容をしっかり復習してください。",
+            "来週の火曜日にはミニテストがありますので、今日の内容をしっかり復習してください。",
+            "来週の火曜日にはミニテストがありますので、今日の内容をしっかり復習してください。"
+          ],
+          "cer_roundtrip_greedy": 0.4286,
+          "cer_roundtrip_samples": [
+            0.4286,
+            0.4286,
+            0.4286
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0864
+        },
+        {
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "lang": "zh",
+          "greedy": "下周星期二会进行小测试，请好好复习今天的内容。",
+          "greedy_repeat": "下周星期二会进行小测试，请好好复习今天的内容。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            461,
+            454
+          ],
+          "greedy_chars": 23,
+          "samples": [
+            "下周二会进行小测试，请好好复习今天的内容。",
+            "下周二会进行小测试，请好好复习今天的内容。",
+            "下周星期二会有小测试，请好好复习今天的内容。"
+          ],
+          "sample_ms": [
+            426,
+            439,
+            440
+          ],
+          "sample_chars": [
+            21,
+            21,
+            22
+          ],
+          "roundtrip_greedy": "来週の火曜日には小テストがありますので、今日の内容をしっかり復習してください。",
+          "roundtrip_samples": [
+            "来週の火曜日には小テストがありますので、今日の内容をしっかり復習してください。",
+            "来週の火曜日には小テストがありますので、今日の内容をしっかり復習してください。",
+            "来週の火曜日には小さなテストがありますので、今日の内容をしっかり復習してください。"
+          ],
+          "cer_roundtrip_greedy": 0.3714,
+          "cer_roundtrip_samples": [
+            0.3714,
+            0.3714,
+            0.4286
+          ],
+          "sample_spread": 0.1404,
+          "greedy_vs_sampling": 0.0952
+        },
+        {
+          "ja": "質問がある人は手を挙げてください。",
+          "lang": "en",
+          "greedy": "Those with questions, please raise your hands.",
+          "greedy_repeat": "Those with questions, please raise your hands.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            306,
+            305
+          ],
+          "greedy_chars": 46,
+          "samples": [
+            "Those with questions, please raise your hands.",
+            "Those with questions, please raise your hands.",
+            "Those with questions, please raise your hands."
+          ],
+          "sample_ms": [
+            300,
+            304,
+            303
+          ],
+          "sample_chars": [
+            46,
+            46,
+            46
+          ],
+          "roundtrip_greedy": "質問がある人は、手を挙げてください。",
+          "roundtrip_samples": [
+            "質問がある人は、手を挙げてください。",
+            "質問がある人は、手を挙げてください。",
+            "質問がある人は、手を挙げてください。"
+          ],
+          "cer_roundtrip_greedy": 0.0,
+          "cer_roundtrip_samples": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "質問がある人は手を挙げてください。",
+          "lang": "zh",
+          "greedy": "有问题的请举手。",
+          "greedy_repeat": "有问题的请举手。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            183,
+            181
+          ],
+          "greedy_chars": 8,
+          "samples": [
+            "有问题的请举手。",
+            "有问题的请举手。",
+            "有疑问的人请举手。"
+          ],
+          "sample_ms": [
+            183,
+            182,
+            209
+          ],
+          "sample_chars": [
+            8,
+            8,
+            9
+          ],
+          "roundtrip_greedy": "問題がある人は手を挙げてください。",
+          "roundtrip_samples": [
+            "問題がある人は手を挙げてください。",
+            "問題がある人は手を挙げてください。",
+            "疑問がある人は手を挙げてください。"
+          ],
+          "cer_roundtrip_greedy": 0.125,
+          "cer_roundtrip_samples": [
+            0.125,
+            0.125,
+            0.0625
+          ],
+          "sample_spread": 0.2857,
+          "greedy_vs_sampling": 0.1429
+        },
+        {
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "lang": "en",
+          "greedy": "Let’s check that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+          "greedy_repeat": "Let’s check that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            786,
+            785
+          ],
+          "greedy_chars": 117,
+          "samples": [
+            "Let’s check that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+            "Let’s check that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+            "Let’s confirm that the number of atoms is the same on both the left and right sides of this chemical reaction equation."
+          ],
+          "sample_ms": [
+            779,
+            785,
+            778
+          ],
+          "sample_chars": [
+            117,
+            117,
+            119
+          ],
+          "roundtrip_greedy": "この化学反応式の左右両側で原子数が同じであるかどうかを確認しましょう。",
+          "roundtrip_samples": [
+            "この化学反応式の左右両側で原子数が同じであるか確認してみましょう。",
+            "この化学反応式の左右両側で原子数が同じであるか確認してみましょう。",
+            "この化学反応式の左右両側で原子数が同じであることを確認しましょう。"
+          ],
+          "cer_roundtrip_greedy": 0.3243,
+          "cer_roundtrip_samples": [
+            0.3784,
+            0.3784,
+            0.2432
+          ],
+          "sample_spread": 0.0426,
+          "greedy_vs_sampling": 0.0213
+        },
+        {
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "lang": "zh",
+          "greedy": "请确认该化学反应式的左侧和右侧，原子的数量是否相同。",
+          "greedy_repeat": "请确认该化学反应式的左侧和右侧，原子的数量是否相同。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            482,
+            484
+          ],
+          "greedy_chars": 26,
+          "samples": [
+            "请确认该化学反应式左边和右边原子的数量相同。",
+            "请确认该化学反应式的左边和右边，原子的数量都是相同的。",
+            "请确认该化学反应式左侧和右侧的原子数相同。"
+          ],
+          "sample_ms": [
+            392,
+            481,
+            449
+          ],
+          "sample_chars": [
+            22,
+            27,
+            21
+          ],
+          "roundtrip_greedy": "この化学反応式の左側と右側の原子数が同じかどうかを確認してください。",
+          "roundtrip_samples": [
+            "この反応式の左側と右側の原子数が同じであるか確認してください。",
+            "この化学反応式の左側と右側の原子数が同じであることを確認してください。",
+            "この化学反応式の左側と右側の原子数が同じであるか確認してください。"
+          ],
+          "cer_roundtrip_greedy": 0.4054,
+          "cer_roundtrip_samples": [
+            0.4595,
+            0.3243,
+            0.4054
+          ],
+          "sample_spread": 0.2629,
+          "greedy_vs_sampling": 0.2222
+        },
+        {
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "lang": "en",
+          "greedy": "After using the experimental equipment, wash it with water and put it back in its original place.",
+          "greedy_repeat": "After using the experimental equipment, wash it with water and put it back in its original place.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            598,
+            604
+          ],
+          "greedy_chars": 97,
+          "samples": [
+            "After using the laboratory equipment, wash it with water and put it back in its original place.",
+            "After using the experimental apparatus, wash it with water and put it back in its original place.",
+            "After using the experimental equipment, wash it with water and put it back in its original place."
+          ],
+          "sample_ms": [
+            600,
+            602,
+            600
+          ],
+          "sample_chars": [
+            95,
+            97,
+            97
+          ],
+          "roundtrip_greedy": "実験装置を使用した後は、水で洗い、元の場所に戻してください。",
+          "roundtrip_samples": [
+            "実験室機器を使用した後は、水で洗い、元の場所に戻してください。",
+            "実験装置を使用した後は、水で洗浄し、元の場所に戻してください。",
+            "実験装置を使用した後は、水で洗い、元の場所に戻してください。"
+          ],
+          "cer_roundtrip_greedy": 0.3793,
+          "cer_roundtrip_samples": [
+            0.4138,
+            0.3793,
+            0.3793
+          ],
+          "sample_spread": 0.1635,
+          "greedy_vs_sampling": 0.0844
+        },
+        {
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "lang": "zh",
+          "greedy": "实验器具用完后，请用水清洗，然后放回原处。",
+          "greedy_repeat": "实验器具用完后，请用水清洗，然后放回原处。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            477,
+            454
+          ],
+          "greedy_chars": 21,
+          "samples": [
+            "实验器具用完后，请用水清洗，然后放回原处。",
+            "实验器具用完后，请用水清洗，然后放回原处。",
+            "实验器具用完后，请用水清洗，然后放回原处。"
+          ],
+          "sample_ms": [
+            454,
+            455,
+            466
+          ],
+          "sample_chars": [
+            21,
+            21,
+            21
+          ],
+          "roundtrip_greedy": "実験器具を使用後は、水で洗浄してから元の場所に戻してください。",
+          "roundtrip_samples": [
+            "実験器具を使い終わったら、水で洗ってから元の場所に戻してください。",
+            "実験器具を使い終わったら、水で洗ってから元の場所に戻してください。",
+            "実験器具を使い終わったら、水で洗ってから元の場所に戻してください。"
+          ],
+          "cer_roundtrip_greedy": 0.3793,
+          "cer_roundtrip_samples": [
+            0.1034,
+            0.1034,
+            0.1034
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "lang": "en",
+          "greedy": "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+          "greedy_repeat": "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            812,
+            814
+          ],
+          "greedy_chars": 106,
+          "samples": [
+            "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+            "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+            "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing."
+          ],
+          "sample_ms": [
+            815,
+            817,
+            818
+          ],
+          "sample_chars": [
+            106,
+            106,
+            106
+          ],
+          "roundtrip_greedy": "それで、今日の授業はこれで終わりです。次回は、それと呼吸の違いについて学びます。",
+          "roundtrip_samples": [
+            "それで、今日の授業はこれで終わりです。次回は、それと呼吸の違いについて学びます。",
+            "それで、今日の授業はこれで終わりです。次回は、それと呼吸の違いについて学びます。",
+            "それで、今日の授業はこれで終わりです。次回は、それと呼吸の違いについて学びます。"
+          ],
+          "cer_roundtrip_greedy": 0.303,
+          "cer_roundtrip_samples": [
+            0.303,
+            0.303,
+            0.303
+          ],
+          "sample_spread": 0.0,
+          "greedy_vs_sampling": 0.0
+        },
+        {
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "lang": "zh",
+          "greedy": "那么，今天的课程就到这里。下期我们将学习与呼吸不同的特点。",
+          "greedy_repeat": "那么，今天的课程就到这里。下期我们将学习与呼吸不同的特点。",
+          "greedy_deterministic": true,
+          "greedy_ms": [
+            515,
+            516
+          ],
+          "greedy_chars": 29,
+          "samples": [
+            "那么，今天的课程就到这里。下次我们将学习与呼吸的区别。",
+            "那么，今天的课程就到这里。下次我们将学习与呼吸不同的特点。",
+            "那么，今天的课程就到这里。下期我们将学习与呼吸的不同之处。"
+          ],
+          "sample_ms": [
+            485,
+            484,
+            545
+          ],
+          "sample_chars": [
+            27,
+            29,
+            29
+          ],
+          "roundtrip_greedy": "では、今日の授業はここまでです。次回は、呼吸の異なる特徴について学びます。",
+          "roundtrip_samples": [
+            "では、今日の授業はここまでです。次回は呼吸の違いについて学びます。",
+            "では、今日の授業はここまでです。次回は呼吸の異なる特徴について学びます。",
+            "では、今日の授業はここまでです。次回は呼吸の違いについて学びます。"
+          ],
+          "cer_roundtrip_greedy": 0.2424,
+          "cer_roundtrip_samples": [
+            0.0909,
+            0.2424,
+            0.0909
+          ],
+          "sample_spread": 0.1891,
+          "greedy_vs_sampling": 0.1282
+        }
+      ]
+    },
+    "threads:0x4": {
+      "asr_threads": 0,
+      "mt_threads": 4,
+      "rounds": 3,
+      "pipeline_s": 4.3,
+      "pipeline_s_each": [
+        4.3,
+        4.37,
+        3.93
+      ],
+      "pipeline_s_spread": 0.44,
+      "pipeline_tail_s": 6.11,
+      "asr_decode_s_median": 2.6,
+      "asr_decode_s_max": 3.36,
+      "mt_ms_median": 853,
+      "peak_rss_mb": 2619,
+      "wall_s": 22.7,
+      "runs": [
+        {
+          "asr_threads": 0,
+          "mt_threads": 4,
+          "wall_s": 22.6,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.6,
+          "asr_decode_s_max": 3.3,
+          "mt_ms_median": 853,
+          "mt_ms_max": 1395,
+          "pipeline_s": 4.3,
+          "pipeline_tail_s": 6.09
+        },
+        {
+          "asr_threads": 0,
+          "mt_threads": 4,
+          "wall_s": 22.7,
+          "peak_rss_mb": 2618,
+          "asr_decode_s_median": 2.64,
+          "asr_decode_s_max": 3.36,
+          "mt_ms_median": 866,
+          "mt_ms_max": 1374,
+          "pipeline_s": 4.37,
+          "pipeline_tail_s": 6.11
+        },
+        {
+          "asr_threads": 0,
+          "mt_threads": 4,
+          "wall_s": 25.1,
+          "peak_rss_mb": 2618,
+          "asr_decode_s_median": 2.3,
+          "asr_decode_s_max": 3.99,
+          "mt_ms_median": 814,
+          "mt_ms_max": 1279,
+          "pipeline_s": 3.93,
+          "pipeline_tail_s": 6.55
+        }
+      ]
+    },
+    "threads:4x4": {
+      "asr_threads": 4,
+      "mt_threads": 4,
+      "rounds": 3,
+      "pipeline_s": 4.28,
+      "pipeline_s_each": [
+        4.35,
+        4.28,
+        3.98
+      ],
+      "pipeline_s_spread": 0.37,
+      "pipeline_tail_s": 6.14,
+      "asr_decode_s_median": 2.58,
+      "asr_decode_s_max": 3.36,
+      "mt_ms_median": 848,
+      "peak_rss_mb": 2619,
+      "wall_s": 22.6,
+      "runs": [
+        {
+          "asr_threads": 4,
+          "mt_threads": 4,
+          "wall_s": 22.6,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.63,
+          "asr_decode_s_max": 3.3,
+          "mt_ms_median": 858,
+          "mt_ms_max": 1414,
+          "pipeline_s": 4.35,
+          "pipeline_tail_s": 6.13
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 4,
+          "wall_s": 22.6,
+          "peak_rss_mb": 2618,
+          "asr_decode_s_median": 2.58,
+          "asr_decode_s_max": 3.36,
+          "mt_ms_median": 848,
+          "mt_ms_max": 1391,
+          "pipeline_s": 4.28,
+          "pipeline_tail_s": 6.14
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 4,
+          "wall_s": 25.1,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.33,
+          "asr_decode_s_max": 3.97,
+          "mt_ms_median": 823,
+          "mt_ms_max": 1289,
+          "pipeline_s": 3.98,
+          "pipeline_tail_s": 6.55
+        }
+      ]
+    },
+    "threads:6x4": {
+      "asr_threads": 6,
+      "mt_threads": 4,
+      "rounds": 3,
+      "pipeline_s": 4.2,
+      "pipeline_s_each": [
+        4.2,
+        4.1,
+        4.28
+      ],
+      "pipeline_s_spread": 0.18,
+      "pipeline_tail_s": 6.0,
+      "asr_decode_s_median": 2.28,
+      "asr_decode_s_max": 2.89,
+      "mt_ms_median": 913,
+      "peak_rss_mb": 2622,
+      "wall_s": 21.8,
+      "runs": [
+        {
+          "asr_threads": 6,
+          "mt_threads": 4,
+          "wall_s": 21.8,
+          "peak_rss_mb": 2618,
+          "asr_decode_s_median": 2.28,
+          "asr_decode_s_max": 2.68,
+          "mt_ms_median": 960,
+          "mt_ms_max": 1494,
+          "pipeline_s": 4.2,
+          "pipeline_tail_s": 5.67
+        },
+        {
+          "asr_threads": 6,
+          "mt_threads": 4,
+          "wall_s": 21.7,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.28,
+          "asr_decode_s_max": 2.89,
+          "mt_ms_median": 913,
+          "mt_ms_max": 1557,
+          "pipeline_s": 4.1,
+          "pipeline_tail_s": 6.0
+        },
+        {
+          "asr_threads": 6,
+          "mt_threads": 4,
+          "wall_s": 23.1,
+          "peak_rss_mb": 2622,
+          "asr_decode_s_median": 2.58,
+          "asr_decode_s_max": 3.4,
+          "mt_ms_median": 852,
+          "mt_ms_max": 1383,
+          "pipeline_s": 4.28,
+          "pipeline_tail_s": 6.16
+        }
+      ]
+    },
+    "threads:8x4": {
+      "asr_threads": 8,
+      "mt_threads": 4,
+      "rounds": 3,
+      "pipeline_s": 4.3,
+      "pipeline_s_each": [
+        4.3,
+        4.3,
+        4.16
+      ],
+      "pipeline_s_spread": 0.14,
+      "pipeline_tail_s": 6.02,
+      "asr_decode_s_median": 2.31,
+      "asr_decode_s_max": 2.79,
+      "mt_ms_median": 989,
+      "peak_rss_mb": 2622,
+      "wall_s": 22.2,
+      "runs": [
+        {
+          "asr_threads": 8,
+          "mt_threads": 4,
+          "wall_s": 22.1,
+          "peak_rss_mb": 2621,
+          "asr_decode_s_median": 2.23,
+          "asr_decode_s_max": 2.79,
+          "mt_ms_median": 1033,
+          "mt_ms_max": 1695,
+          "pipeline_s": 4.3,
+          "pipeline_tail_s": 6.18
+        },
+        {
+          "asr_threads": 8,
+          "mt_threads": 4,
+          "wall_s": 22.2,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.32,
+          "asr_decode_s_max": 2.66,
+          "mt_ms_median": 989,
+          "mt_ms_max": 1627,
+          "pipeline_s": 4.3,
+          "pipeline_tail_s": 5.91
+        },
+        {
+          "asr_threads": 8,
+          "mt_threads": 4,
+          "wall_s": 22.3,
+          "peak_rss_mb": 2622,
+          "asr_decode_s_median": 2.31,
+          "asr_decode_s_max": 2.96,
+          "mt_ms_median": 925,
+          "mt_ms_max": 1529,
+          "pipeline_s": 4.16,
+          "pipeline_tail_s": 6.02
+        }
+      ]
+    },
+    "threads:4x8": {
+      "asr_threads": 4,
+      "mt_threads": 8,
+      "rounds": 3,
+      "pipeline_s": 3.86,
+      "pipeline_s_each": [
+        3.89,
+        3.86,
+        3.71
+      ],
+      "pipeline_s_spread": 0.18,
+      "pipeline_tail_s": 6.73,
+      "asr_decode_s_median": 2.15,
+      "asr_decode_s_max": 4.07,
+      "mt_ms_median": 850,
+      "peak_rss_mb": 2621,
+      "wall_s": 24.0,
+      "runs": [
+        {
+          "asr_threads": 4,
+          "mt_threads": 8,
+          "wall_s": 24.0,
+          "peak_rss_mb": 2621,
+          "asr_decode_s_median": 2.19,
+          "asr_decode_s_max": 4.07,
+          "mt_ms_median": 850,
+          "mt_ms_max": 1333,
+          "pipeline_s": 3.89,
+          "pipeline_tail_s": 6.73
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 8,
+          "wall_s": 24.0,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.15,
+          "asr_decode_s_max": 4.05,
+          "mt_ms_median": 856,
+          "mt_ms_max": 1311,
+          "pipeline_s": 3.86,
+          "pipeline_tail_s": 6.67
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 8,
+          "wall_s": 26.0,
+          "peak_rss_mb": 2618,
+          "asr_decode_s_median": 2.07,
+          "asr_decode_s_max": 4.39,
+          "mt_ms_median": 822,
+          "mt_ms_max": 1267,
+          "pipeline_s": 3.71,
+          "pipeline_tail_s": 6.92
+        }
+      ]
+    },
+    "threads:6x8": {
+      "asr_threads": 6,
+      "mt_threads": 8,
+      "rounds": 3,
+      "pipeline_s": 4.49,
+      "pipeline_s_each": [
+        4.49,
+        4.54,
+        4.47
+      ],
+      "pipeline_s_spread": 0.07,
+      "pipeline_tail_s": 6.37,
+      "asr_decode_s_median": 2.73,
+      "asr_decode_s_max": 3.53,
+      "mt_ms_median": 883,
+      "peak_rss_mb": 2622,
+      "wall_s": 23.7,
+      "runs": [
+        {
+          "asr_threads": 6,
+          "mt_threads": 8,
+          "wall_s": 22.8,
+          "peak_rss_mb": 2622,
+          "asr_decode_s_median": 2.74,
+          "asr_decode_s_max": 3.52,
+          "mt_ms_median": 876,
+          "mt_ms_max": 1424,
+          "pipeline_s": 4.49,
+          "pipeline_tail_s": 6.37
+        },
+        {
+          "asr_threads": 6,
+          "mt_threads": 8,
+          "wall_s": 24.4,
+          "peak_rss_mb": 2620,
+          "asr_decode_s_median": 2.73,
+          "asr_decode_s_max": 3.53,
+          "mt_ms_median": 903,
+          "mt_ms_max": 1404,
+          "pipeline_s": 4.54,
+          "pipeline_tail_s": 6.34
+        },
+        {
+          "asr_threads": 6,
+          "mt_threads": 8,
+          "wall_s": 23.7,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.7,
+          "asr_decode_s_max": 3.56,
+          "mt_ms_median": 883,
+          "mt_ms_max": 1425,
+          "pipeline_s": 4.47,
+          "pipeline_tail_s": 6.41
+        }
+      ]
+    },
+    "threads:8x8": {
+      "asr_threads": 8,
+      "mt_threads": 8,
+      "rounds": 3,
+      "pipeline_s": 4.51,
+      "pipeline_s_each": [
+        4.55,
+        4.47,
+        4.51
+      ],
+      "pipeline_s_spread": 0.08,
+      "pipeline_tail_s": 6.52,
+      "asr_decode_s_median": 2.6,
+      "asr_decode_s_max": 3.47,
+      "mt_ms_median": 945,
+      "peak_rss_mb": 2623,
+      "wall_s": 23.5,
+      "runs": [
+        {
+          "asr_threads": 8,
+          "mt_threads": 8,
+          "wall_s": 23.4,
+          "peak_rss_mb": 2623,
+          "asr_decode_s_median": 2.67,
+          "asr_decode_s_max": 3.48,
+          "mt_ms_median": 938,
+          "mt_ms_max": 1486,
+          "pipeline_s": 4.55,
+          "pipeline_tail_s": 6.46
+        },
+        {
+          "asr_threads": 8,
+          "mt_threads": 8,
+          "wall_s": 23.5,
+          "peak_rss_mb": 2621,
+          "asr_decode_s_median": 2.58,
+          "asr_decode_s_max": 3.46,
+          "mt_ms_median": 945,
+          "mt_ms_max": 1530,
+          "pipeline_s": 4.47,
+          "pipeline_tail_s": 6.52
+        },
+        {
+          "asr_threads": 8,
+          "mt_threads": 8,
+          "wall_s": 23.8,
+          "peak_rss_mb": 2616,
+          "asr_decode_s_median": 2.6,
+          "asr_decode_s_max": 3.47,
+          "mt_ms_median": 956,
+          "mt_ms_max": 1582,
+          "pipeline_s": 4.51,
+          "pipeline_tail_s": 6.63
+        }
+      ]
+    },
+    "threads:4x12": {
+      "asr_threads": 4,
+      "mt_threads": 12,
+      "rounds": 3,
+      "pipeline_s": 3.89,
+      "pipeline_s_each": [
+        3.95,
+        3.86,
+        3.89
+      ],
+      "pipeline_s_spread": 0.09,
+      "pipeline_tail_s": 7.2,
+      "asr_decode_s_median": 2.19,
+      "asr_decode_s_max": 4.43,
+      "mt_ms_median": 851,
+      "peak_rss_mb": 2623,
+      "wall_s": 26.5,
+      "runs": [
+        {
+          "asr_threads": 4,
+          "mt_threads": 12,
+          "wall_s": 24.8,
+          "peak_rss_mb": 2619,
+          "asr_decode_s_median": 2.25,
+          "asr_decode_s_max": 4.26,
+          "mt_ms_median": 853,
+          "mt_ms_max": 1470,
+          "pipeline_s": 3.95,
+          "pipeline_tail_s": 7.2
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 12,
+          "wall_s": 26.5,
+          "peak_rss_mb": 2621,
+          "asr_decode_s_median": 2.16,
+          "asr_decode_s_max": 4.43,
+          "mt_ms_median": 849,
+          "mt_ms_max": 1343,
+          "pipeline_s": 3.86,
+          "pipeline_tail_s": 7.12
+        },
+        {
+          "asr_threads": 4,
+          "mt_threads": 12,
+          "wall_s": 26.5,
+          "peak_rss_mb": 2623,
+          "asr_decode_s_median": 2.19,
+          "asr_decode_s_max": 4.54,
+          "mt_ms_median": 851,
+          "mt_ms_max": 1338,
+          "pipeline_s": 3.89,
+          "pipeline_tail_s": 7.21
+        }
+      ]
+    },
+    "e2e_ab": {
+      "before": [
+        {
+          "engine": "hy-mt2",
+          "minutes": 2.0,
+          "students": 10,
+          "captions": 38,
+          "latency": {
+            "count": 38,
+            "median_s": 2.44,
+            "p95_s": 3.42,
+            "max_s": 3.58
+          },
+          "memory": {
+            "samples": 70,
+            "baseline_mb": 2516,
+            "final_mb": 2513,
+            "peak_mb": 2665,
+            "increase_mb": -3,
+            "increasing": false
+          },
+          "first_caption_s": 5.64,
+          "cpu_percent": {
+            "cores": 16,
+            "median": 155.9,
+            "p95": 658.0,
+            "max": 710.7,
+            "samples": 69
+          },
+          "audio_queue_seconds": {
+            "median": 0.0,
+            "p95": 6.37,
+            "max": 8.1,
+            "samples": 60
+          },
+          "queue_depth": {
+            "median": 0.0,
+            "max": 1
+          },
+          "overloaded_samples": 0,
+          "mt_cache": {
+            "hit_rate": 0.0,
+            "hits": 0,
+            "size": 0
+          },
+          "disconnects": 0,
+          "reconnect_failures": 0,
+          "crashes": 0,
+          "errors": [],
+          "ran_seconds": 140.0,
+          "verdict": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        {
+          "engine": "hy-mt2",
+          "minutes": 2.0,
+          "students": 10,
+          "captions": 38,
+          "latency": {
+            "count": 38,
+            "median_s": 2.42,
+            "p95_s": 3.38,
+            "max_s": 3.56
+          },
+          "memory": {
+            "samples": 70,
+            "baseline_mb": 2518,
+            "final_mb": 2514,
+            "peak_mb": 2653,
+            "increase_mb": -4,
+            "increasing": false
+          },
+          "first_caption_s": 5.62,
+          "cpu_percent": {
+            "cores": 16,
+            "median": 173.0,
+            "p95": 644.7,
+            "max": 688.5,
+            "samples": 69
+          },
+          "audio_queue_seconds": {
+            "median": 0.0,
+            "p95": 6.37,
+            "max": 8.1,
+            "samples": 60
+          },
+          "queue_depth": {
+            "median": 0.0,
+            "max": 1
+          },
+          "overloaded_samples": 0,
+          "mt_cache": {
+            "hit_rate": 0.0,
+            "hits": 0,
+            "size": 0
+          },
+          "disconnects": 0,
+          "reconnect_failures": 0,
+          "crashes": 0,
+          "errors": [],
+          "ran_seconds": 140.0,
+          "verdict": {
+            "passed": true,
+            "reasons": []
+          }
+        }
+      ],
+      "after": [
+        {
+          "engine": "hy-mt2",
+          "minutes": 2.0,
+          "students": 10,
+          "captions": 38,
+          "latency": {
+            "count": 38,
+            "median_s": 2.12,
+            "p95_s": 3.11,
+            "max_s": 3.51
+          },
+          "memory": {
+            "samples": 70,
+            "baseline_mb": 2521,
+            "final_mb": 2517,
+            "peak_mb": 2671,
+            "increase_mb": -4,
+            "increasing": false
+          },
+          "first_caption_s": 5.64,
+          "cpu_percent": {
+            "cores": 16,
+            "median": 125.4,
+            "p95": 568.9,
+            "max": 673.2,
+            "samples": 69
+          },
+          "audio_queue_seconds": {
+            "median": 0.0,
+            "p95": 6.37,
+            "max": 8.1,
+            "samples": 60
+          },
+          "queue_depth": {
+            "median": 0.0,
+            "max": 1
+          },
+          "overloaded_samples": 0,
+          "mt_cache": {
+            "hit_rate": 0.278,
+            "hits": 10,
+            "size": 26
+          },
+          "disconnects": 0,
+          "reconnect_failures": 0,
+          "crashes": 0,
+          "errors": [],
+          "ran_seconds": 140.0,
+          "verdict": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        {
+          "engine": "hy-mt2",
+          "minutes": 2.0,
+          "students": 10,
+          "captions": 38,
+          "latency": {
+            "count": 38,
+            "median_s": 2.13,
+            "p95_s": 3.09,
+            "max_s": 3.5
+          },
+          "memory": {
+            "samples": 70,
+            "baseline_mb": 2519,
+            "final_mb": 2445,
+            "peak_mb": 2664,
+            "increase_mb": -74,
+            "increasing": false
+          },
+          "first_caption_s": 5.62,
+          "cpu_percent": {
+            "cores": 16,
+            "median": 107.8,
+            "p95": 555.7,
+            "max": 677.1,
+            "samples": 69
+          },
+          "audio_queue_seconds": {
+            "median": 0.0,
+            "p95": 6.37,
+            "max": 8.1,
+            "samples": 60
+          },
+          "queue_depth": {
+            "median": 0.0,
+            "max": 1
+          },
+          "overloaded_samples": 0,
+          "mt_cache": {
+            "hit_rate": 0.278,
+            "hits": 10,
+            "size": 26
+          },
+          "disconnects": 0,
+          "reconnect_failures": 0,
+          "crashes": 0,
+          "errors": [],
+          "ran_seconds": 140.0,
+          "verdict": {
+            "passed": true,
+            "reasons": []
+          }
+        }
+      ]
+    }
+  }
+}
