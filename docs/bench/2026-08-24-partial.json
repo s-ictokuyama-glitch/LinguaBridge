@@ -1,0 +1,286 @@
+{
+  "note": "#29 partial字幕 A/B（off→on→off→on の背中合わせ・2分リプレイ・擬似生徒10名）",
+  "rounds": {
+    "r1-off": {
+      "engine": "hy-mt2",
+      "minutes": 2.0,
+      "students": 10,
+      "captions": 38,
+      "latency": {
+        "count": 38,
+        "median_s": 1.67,
+        "p95_s": 3.36,
+        "max_s": 3.44
+      },
+      "memory": {
+        "samples": 69,
+        "baseline_mb": 2536,
+        "final_mb": 2574,
+        "peak_mb": 2590,
+        "increase_mb": 38,
+        "increasing": false
+      },
+      "first_caption_s": 5.09,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 9.5,
+        "p95": 481.6,
+        "max": 503.2,
+        "samples": 68
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 4.22,
+        "max": 8.06,
+        "samples": 60
+      },
+      "queue_depth": {
+        "median": 0.0,
+        "max": 1
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 18,
+        "turns_with_partial": 0,
+        "preceded_rate": 0.0,
+        "partials": 0,
+        "revisions_per_turn": null,
+        "revisions_max": null,
+        "mismatch_rate": null,
+        "exact_match_rate": null,
+        "first_partial_s": null,
+        "first_final_s": 3.875,
+        "lead_median_s": null,
+        "lead_max_s": null,
+        "lead_min_s": null
+      },
+      "mt_cache": {
+        "hit_rate": 0.333,
+        "hits": 12,
+        "size": 24
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 140.0,
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    },
+    "r1-on": {
+      "engine": "hy-mt2",
+      "minutes": 2.0,
+      "students": 10,
+      "captions": 38,
+      "latency": {
+        "count": 38,
+        "median_s": 1.73,
+        "p95_s": 3.06,
+        "max_s": 3.2
+      },
+      "memory": {
+        "samples": 69,
+        "baseline_mb": 2544,
+        "final_mb": 2585,
+        "peak_mb": 2602,
+        "increase_mb": 41,
+        "increasing": false
+      },
+      "first_caption_s": 5.14,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 58.8,
+        "p95": 533.1,
+        "max": 591.1,
+        "samples": 68
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 8.1,
+        "samples": 60
+      },
+      "queue_depth": {
+        "median": 0.0,
+        "max": 1
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 18,
+        "turns_with_partial": 18,
+        "preceded_rate": 1.0,
+        "partials": 28,
+        "revisions_per_turn": 1.4736842105263157,
+        "revisions_max": 2,
+        "mismatch_rate": 0.008869179600886918,
+        "exact_match_rate": 0.9444444444444444,
+        "first_partial_s": 3.375,
+        "first_final_s": 3.875,
+        "lead_median_s": 0.539,
+        "lead_max_s": 4.407,
+        "lead_min_s": 0.39
+      },
+      "mt_cache": {
+        "hit_rate": 0.333,
+        "hits": 12,
+        "size": 24
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 140.0,
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    },
+    "r2-off": {
+      "engine": "hy-mt2",
+      "minutes": 2.0,
+      "students": 10,
+      "captions": 38,
+      "latency": {
+        "count": 38,
+        "median_s": 1.76,
+        "p95_s": 3.26,
+        "max_s": 3.34
+      },
+      "memory": {
+        "samples": 69,
+        "baseline_mb": 2535,
+        "final_mb": 2574,
+        "peak_mb": 2590,
+        "increase_mb": 39,
+        "increasing": false
+      },
+      "first_caption_s": 5.16,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 4.2,
+        "p95": 488.0,
+        "max": 563.9,
+        "samples": 68
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 8.06,
+        "samples": 60
+      },
+      "queue_depth": {
+        "median": 0.0,
+        "max": 2
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 18,
+        "turns_with_partial": 0,
+        "preceded_rate": 0.0,
+        "partials": 0,
+        "revisions_per_turn": null,
+        "revisions_max": null,
+        "mismatch_rate": null,
+        "exact_match_rate": null,
+        "first_partial_s": null,
+        "first_final_s": 3.875,
+        "lead_median_s": null,
+        "lead_max_s": null,
+        "lead_min_s": null
+      },
+      "mt_cache": {
+        "hit_rate": 0.333,
+        "hits": 12,
+        "size": 24
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 140.0,
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    },
+    "r2-on": {
+      "engine": "hy-mt2",
+      "minutes": 2.0,
+      "students": 10,
+      "captions": 38,
+      "latency": {
+        "count": 38,
+        "median_s": 1.74,
+        "p95_s": 3.14,
+        "max_s": 3.3
+      },
+      "memory": {
+        "samples": 69,
+        "baseline_mb": 2540,
+        "final_mb": 2580,
+        "peak_mb": 2597,
+        "increase_mb": 41,
+        "increasing": false
+      },
+      "first_caption_s": 5.14,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 61.0,
+        "p95": 528.2,
+        "max": 607.6,
+        "samples": 68
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 4.22,
+        "max": 8.1,
+        "samples": 60
+      },
+      "queue_depth": {
+        "median": 0.0,
+        "max": 1
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 18,
+        "turns_with_partial": 18,
+        "preceded_rate": 1.0,
+        "partials": 28,
+        "revisions_per_turn": 1.4736842105263157,
+        "revisions_max": 2,
+        "mismatch_rate": 0.008869179600886918,
+        "exact_match_rate": 0.9444444444444444,
+        "first_partial_s": 3.375,
+        "first_final_s": 3.8910000000032596,
+        "lead_median_s": 0.531,
+        "lead_max_s": 4.485,
+        "lead_min_s": 0.406
+      },
+      "mt_cache": {
+        "hit_rate": 0.333,
+        "hits": 12,
+        "size": 24
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 140.0,
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    }
+  },
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-08-24"
+  }
+}

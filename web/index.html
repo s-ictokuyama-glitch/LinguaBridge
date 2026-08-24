@@ -23,6 +23,9 @@
     <header>
       <span id="session-banner" class="banner idle">…</span>
       <span id="record-indicator" class="record-indicator" hidden>● 記録中</span>
+      <!-- 「発話中」インジケーター（#29）。翻訳は final のみという方針上、
+           生徒には未翻訳の日本語ではなく状態だけを見せる -->
+      <span id="speaking-indicator" class="speaking-indicator" data-i18n="speaking" hidden></span>
       <div class="header-controls">
         <label class="ja-toggle">
           <input type="checkbox" id="ja-toggle" checked>

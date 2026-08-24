@@ -45,6 +45,7 @@ const el = {
   joinError: document.getElementById("join-error"),
   banner: document.getElementById("session-banner"),
   recordIndicator: document.getElementById("record-indicator"),
+  speakingIndicator: document.getElementById("speaking-indicator"),
   langSelect: document.getElementById("lang-select"),
   cards: document.getElementById("cards"),
   jaToggle: document.getElementById("ja-toggle"),
@@ -201,6 +202,7 @@ function connect(lastSeq) {
   ws.addEventListener("message", (ev) => handleMessage(JSON.parse(ev.data)));
 
   ws.addEventListener("close", () => {
+    el.speakingIndicator.hidden = true; // 切断中に「発話中」を残さない（#29）
     if (!state.joined || state.ended) return;
     setBanner("disconnected");
     // 指数バックオフ＋ジッタで自動再接続し、last_seq で欠落分を差分復元する（E-06）。
@@ -227,9 +229,14 @@ function handleMessage(msg) {
       applyI18n();
       setBanner(msg.session_state);
       el.recordIndicator.hidden = !msg.recording;
+      el.speakingIndicator.hidden = !msg.speaking; // 発話の途中で参加した場合（#29）
       break;
     case "recording":
       el.recordIndicator.hidden = !msg.on;
+      break;
+    case "speaking":
+      // 先生の発話中インジケーター（#29）。日本語の原文は1文字も出さない
+      el.speakingIndicator.hidden = !msg.on;
       break;
     case "join_rejected": {
       if (state.joined && msg.reason === "rate_limited") {
@@ -253,6 +260,7 @@ function handleMessage(msg) {
       break;
     case "session":
       if (msg.state === "ended") state.ended = true;
+      if (msg.state !== "live") el.speakingIndicator.hidden = true; // 非liveで残さない（#29）
       setBanner(msg.state);
       break;
     case "error":
