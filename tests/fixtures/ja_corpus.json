@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "sample_rate": 16000,
+  "_readme": [
+    "ベンチ音源の拡張コーパス定義（イシュー#22）。これがコミット対象の唯一の正解データ。",
+    "音声そのものは scripts/make_fixture_audio.ps1 で再生成できるので .gitignore してある。",
+    "",
+    "clips[].segments[] は『1発話を構成する断片』の列。segments[i].pause_ms は",
+    "その断片の直後に挿入される無音（ミリ秒）で、合成後に厳密な長さで挿入されるため、",
+    "ギャップの時刻は正解として使える。",
+    "segments[i].natural_break は『そのギャップで発話を切ってよいか』の正解:",
+    "  false = 文の途中の間。ここで切ったら『不自然な分割』",
+    "  true  = 本当の発話境界。ここでは切ってよい",
+    "CER 用の正解テキストは segments[].text の連結（生成側で index.json に展開される）。",
+    "",
+    "rate は SAPI の SpeechSynthesizer.Rate（-10〜10）。-3=ゆっくり / 0=標準 / 3=早口。",
+    "category=noise のクリップは source のクリップに定常雑音（空調相当）を snr_db で重畳する。"
+  ],
+  "noise": {
+    "seed": 20260823,
+    "lowpass_hz": 450,
+    "_comment": "白色雑音を1次ローパスに通した定常雑音。教室の空調・プロジェクタのファン相当。"
+  },
+  "clips": [
+    {
+      "id": "rate-slow-a",
+      "category": "rate",
+      "rate": -3,
+      "note": "ゆっくり。base-02 と同一文なので CER と RTF を話速だけで比較できる。",
+      "segments": [{ "text": "光合成には日光と水と二酸化炭素が必要です。" }]
+    },
+    {
+      "id": "rate-normal-a",
+      "category": "rate",
+      "rate": 0,
+      "note": "標準。base-02 と同一文（話速比較の基準点）。",
+      "segments": [{ "text": "光合成には日光と水と二酸化炭素が必要です。" }]
+    },
+    {
+      "id": "rate-fast-a",
+      "category": "rate",
+      "rate": 3,
+      "note": "早口。RTF と endpoint latency がどう動くか。",
+      "segments": [{ "text": "光合成には日光と水と二酸化炭素が必要です。" }]
+    },
+    {
+      "id": "rate-slow-b",
+      "category": "rate",
+      "rate": -3,
+      "note": "ゆっくり・長文。base-08 と同一文。",
+      "segments": [
+        { "text": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。" }
+      ]
+    },
+    {
+      "id": "rate-normal-b",
+      "category": "rate",
+      "rate": 0,
+      "note": "標準・長文（話速比較の基準点）。",
+      "segments": [
+        { "text": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。" }
+      ]
+    },
+    {
+      "id": "rate-fast-b",
+      "category": "rate",
+      "rate": 3,
+      "note": "早口・長文。読点をまたぐ早口で分割が暴れやすい。",
+      "segments": [
+        { "text": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。" }
+      ]
+    },
+    {
+      "id": "pause-01",
+      "category": "pause",
+      "rate": 0,
+      "note": "言い出しのためらい。3断片すべて1発話。ここで切ったら不自然な分割。",
+      "segments": [
+        { "text": "えーとですね", "pause_ms": 300, "natural_break": false },
+        { "text": "光合成というのは", "pause_ms": 250, "natural_break": false },
+        { "text": "植物が光のエネルギーを使ってデンプンを作るはたらきのことです。" }
+      ]
+    },
+    {
+      "id": "pause-02",
+      "category": "pause",
+      "rate": 0,
+      "note": "助詞で切れる間。文法的に文が終わっていないので切ってはいけない。",
+      "segments": [
+        { "text": "教科書の", "pause_ms": 200, "natural_break": false },
+        { "text": "四十二ページの", "pause_ms": 350, "natural_break": false },
+        { "text": "下のほうにある図を見てください。" }
+      ]
+    },
+    {
+      "id": "pause-03",
+      "category": "pause",
+      "rate": 0,
+      "note": "turn 連結の主対象。内部の短い間3つは切ってはいけないが、中央の900msは本当の発話境界。期待される turn 数は2。",
+      "segments": [
+        { "text": "昨日の実験の結果を", "pause_ms": 250, "natural_break": false },
+        { "text": "グループごとに発表してもらいます。", "pause_ms": 900, "natural_break": true },
+        { "text": "準備ができた班から", "pause_ms": 300, "natural_break": false },
+        { "text": "前に出てきてください。" }
+      ]
+    },
+    {
+      "id": "pause-04",
+      "category": "pause",
+      "rate": 3,
+      "note": "早口＋間。話速が上がると間が相対的に長く見えるので、閾値が話速に引きずられないかを見る。",
+      "segments": [
+        { "text": "この実験でいちばん大事なのは", "pause_ms": 300, "natural_break": false },
+        { "text": "温度をきちんと管理することです。" }
+      ]
+    },
+    {
+      "id": "hes-01",
+      "category": "hesitation",
+      "rate": 0,
+      "note": "文末で言い淀んで終わる。文法的に終止していないので NormalEnd と判定してよいかが論点。",
+      "segments": [
+        { "text": "今日の内容はここまでなんですけれども", "pause_ms": 300, "natural_break": false },
+        { "text": "次回はですね" }
+      ]
+    },
+    {
+      "id": "hes-02",
+      "category": "hesitation",
+      "rate": 0,
+      "note": "逆接の接続助詞で終わる。続きがあるように聞こえるが発話は終わっている。",
+      "segments": [
+        { "text": "この部分がですね", "pause_ms": 400, "natural_break": false },
+        { "text": "ちょっと分かりにくいと思うんですけれども" }
+      ]
+    },
+    {
+      "id": "hes-03",
+      "category": "hesitation",
+      "rate": -3,
+      "note": "短くゆっくり言い淀む。短い発話が捨てられないか。",
+      "segments": [{ "text": "はい、えーと、それでは" }]
+    },
+    {
+      "id": "noise-snr20-base04",
+      "category": "noise",
+      "source": "base-04",
+      "snr_db": 20,
+      "note": "軽い空調音。既存の長文にかぶせて CER の劣化を測る。"
+    },
+    {
+      "id": "noise-snr10-base04",
+      "category": "noise",
+      "source": "base-04",
+      "snr_db": 10,
+      "note": "うるさめの空調音。VAD 閾値が張り付かないか。"
+    },
+    {
+      "id": "noise-snr20-pause03",
+      "category": "noise",
+      "source": "pause-03",
+      "snr_db": 20,
+      "note": "雑音下での区切り。無音区間が雑音で埋まると分割が変わる。"
+    },
+    {
+      "id": "noise-snr10-pause03",
+      "category": "noise",
+      "source": "pause-03",
+      "snr_db": 10,
+      "note": "雑音下での区切り（強）。900ms の真の境界を拾えるか。"
+    },
+    {
+      "id": "noise-snr10-rate-fast-b",
+      "category": "noise",
+      "source": "rate-fast-b",
+      "snr_db": 10,
+      "note": "早口＋雑音。いちばん厳しい条件。"
+    },
+    {
+      "id": "noise-only",
+      "category": "noise_only",
+      "duration_s": 20.0,
+      "level_dbfs": -38,
+      "note": "発話なし・雑音のみ。VAD の false positive 検証。期待される turn 数は0。"
+    }
+  ]
+}

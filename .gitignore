@@ -13,6 +13,7 @@ sessions/
 
 # 生成フィクスチャ（scripts/make_fixture_audio.ps1 で再生成可能）
 tests/fixtures/ja/*.wav
+tests/fixtures/ja_ext/
 
 # 受け入れ試験の作業ディレクトリ（サーバーログ・一時config）。レポート本体(.md/.json)は残す
 docs/accept/_work/
@@ -20,3 +21,9 @@ docs/accept/_work/
 # OS
 Thumbs.db
 .DS_Store
+
+# ベースライン計測の作業ディレクトリ（E2E のサーバーログ・一時config）
+docs/bench/_work/
+
+# #26 の E2E before/after（tune_hymt.py --e2e-ab）の作業ディレクトリ
+docs/bench/_e2e_ab/
