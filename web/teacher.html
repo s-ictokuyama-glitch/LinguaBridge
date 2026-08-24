@@ -29,6 +29,14 @@
         <button id="end-btn" disabled>終了</button>
       </div>
 
+      <div class="mic-row">
+        <label class="meter-label" for="mic-select">マイク</label>
+        <select id="mic-select" disabled>
+          <option value="">既定のマイク</option>
+        </select>
+      </div>
+      <p id="mic-notice" class="warn" hidden></p>
+
       <div class="meter-row">
         <span class="meter-label">マイク入力</span>
         <div id="mic-meter"><div id="mic-meter-bar"></div></div>
@@ -50,12 +58,27 @@
       <ul id="stats">
         <li>接続生徒数: <span id="stat-students">0</span></li>
         <li>言語内訳: <span id="stat-langs">—</span></li>
-        <li>処理キュー深度: <span id="stat-queue">0</span></li>
         <li>遅延中央値: <span id="stat-delay">0</span> ms</li>
+        <!-- 遅延の内訳（#30）。どこが詰まっているかを段ごとに出す。
+             「音声待ち」と「処理中」を分けるのが要点: 合算値だけを見せると、
+             1発話が長いだけの状態を先生が滞留と誤読する（#25・#29） -->
+        <li class="breakdown">
+          <ul>
+            <li>音声待ち: <span id="stat-asr-wait">0.0</span> 秒
+              <span class="sub">（処理中 <span id="stat-asr-active">0.0</span> 秒）</span></li>
+            <li>音声認識: <span id="stat-asr-ms">0</span> ms</li>
+            <li>翻訳待ち: <span id="stat-mt-queue">0</span> 件</li>
+            <li>翻訳: <span id="stat-mt-ms">0</span> ms</li>
+          </ul>
+        </li>
+        <li>翻訳キャッシュ: <span id="stat-cache">—</span></li>
       </ul>
 
       <h2>文字起こし（日本語）</h2>
       <ul id="transcript"></ul>
+      <!-- 確定前の暫定テキスト（#29）。確定リストの下＝時系列で次に来る位置に置く。
+           生徒には送られない（未翻訳の日本語は生徒に見せない） -->
+      <p id="partial" class="partial" hidden></p>
     </section>
   </div>
 
