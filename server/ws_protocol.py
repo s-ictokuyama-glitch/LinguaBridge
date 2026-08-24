@@ -19,7 +19,8 @@ class ProtocolError(Exception):
 
 
 SessionState = Literal["idle", "live", "paused", "ended"]
-JoinRejectReason = Literal["bad_code", "bad_lang", "rate_limited"]
+# "full" は生徒の同時接続上限に達したとき（#25 A-4 / limits.max_students）
+JoinRejectReason = Literal["bad_code", "bad_lang", "rate_limited", "full"]
 
 
 # ---- クライアント → サーバー ----
@@ -74,6 +75,9 @@ class Joined(BaseModel):
     languages: list[Language]
     session_state: SessionState
     recording: bool = False  # 参加時点の記録状態（記録中インジケーター表示用 F-10）
+    # 参加時点で先生が発話中か（#29）。発話の途中で参加した生徒にも
+    # インジケーターが正しく出るようにする。既定値つき＝既存クライアントは無視できる
+    speaking: bool = False
 
 
 class RecordingState(BaseModel):
@@ -106,6 +110,39 @@ class AsrFinal(BaseModel):
     seq: int
     ja: str
     asr_ms: int
+    # この発話の turn_id（#29）。先生UIは同じ turn_id の partial 行をこれで差し替える。
+    # 既定値つき＝ partial を使わないクライアントは無視できる
+    turn_id: int = 0
+
+
+class TurnPartial(BaseModel):
+    """確定前の暫定テキスト（#29）。**先生にだけ**送る。
+
+    生徒には送らない。翻訳は final のみという方針上、生徒に見せられるのは未翻訳の
+    日本語になり、英語/中国語を選んだ生徒には無意味なため（チケットの決定事項）。
+
+    不変条件: 履歴に載らない・記録に載らない・翻訳へ流れない。
+    同じ turn_id の中で revision が単調増加し、後から来た revision が前を上書きする。
+    """
+
+    type: Literal["turn.partial"] = "turn.partial"
+    turn_id: int
+    revision: int
+    ja: str
+
+
+class Speaking(BaseModel):
+    """先生が発話中か（#29）。全クライアントへ送る。
+
+    生徒は「先生が話しています」インジケーターに使い（日本語の原文は1文字も見せない）、
+    先生は partial 行を消す契機に使う。**VAD 由来**なので ASR の完了を待たない
+    ——詰まっているときこそ「話しているのに字幕が出ない」ことが伝わる必要がある。
+
+    状態が変化したときだけ送る（毎フレーム送らない）。
+    """
+
+    type: Literal["speaking"] = "speaking"
+    on: bool
 
 
 class Stats(BaseModel):
@@ -115,6 +152,23 @@ class Stats(BaseModel):
     queue_depth: int
     median_delay_ms: int
     overloaded: bool = False  # キュー滞留による過負荷（E-05）。解消で False に戻る
+    # ASR待ち＋処理中の音声の長さ（秒）。queue_depth（件数）と違い「どれだけ遅れているか」を
+    # 実時間で表す。ベースライン計測（#24）の計装で、既定値つき＝既存クライアントは無視できる
+    audio_queue_seconds: float = 0.0
+    # 遅延の内訳（#30）。`audio_queue_seconds` は「待ち」と「処理中」の合計で、
+    # 分けずに先生へ出すと「1発話が長いだけ」を「詰まっている」と誤読させる
+    # （#25・#29 で二度確認された読み間違い）。合計の意味は変えずに内訳を足す:
+    #   asr_wait_seconds + asr_active_seconds == audio_queue_seconds
+    asr_wait_seconds: float = 0.0  # まだ ASR に入っていない、キューで待っている音声
+    asr_active_seconds: float = 0.0  # いま ASR が処理しているセグメントの長さ
+    median_asr_ms: int = 0  # 確定 Segment 1件あたりの ASR 推論時間（partial は含めない）
+    mt_queue_depth: int = 0  # 翻訳待ちの件数（queue_depth は ASR と合算していて分からない）
+    median_mt_ms: int = 0  # **実際に推論した**翻訳1件あたりの時間（キャッシュヒットは除く）
+    # 発話をまたぐ翻訳キャッシュ（#26 B-4）。hit_rate は 0..1（参照0回なら 0.0）。
+    # いずれも既定値つき＝既存クライアントは無視できる
+    mt_cache_hit_rate: float = 0.0
+    mt_cache_hits: int = 0
+    mt_cache_size: int = 0
 
 
 class ErrorMsg(BaseModel):

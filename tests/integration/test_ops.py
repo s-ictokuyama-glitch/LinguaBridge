@@ -1,6 +1,6 @@
 """運用パッケージ（イシュー#16）のサーバー側挙動テスト。
 
-- /healthz がモデルロード完了まで 503、完了で 200（E-13）
+- /ready がモデルロード完了まで 503、完了で 200（E-13）。/healthz は liveness で常に200（#25 W-2）
 - /api/teacher-info は HTTPS からは許可、平文HTTPの非ループバックは 403
 - モデル欠損時に build_*_engine が復旧手順つきで失敗する
 """
@@ -34,13 +34,26 @@ class TestHealthzReadiness:
         gate = threading.Event()  # warmup を止めてロード中を再現
         app = make_app(asr_engine=FakeASREngine(warmup_gate=gate))
         with TestClient(app) as client:
-            assert client.get("/healthz").status_code == 503  # ロード中
+            assert client.get("/ready").status_code == 503  # ロード中
             gate.set()
             for _ in range(200):
-                if client.get("/healthz").status_code == 200:
+                if client.get("/ready").status_code == 200:
                     break
                 time.sleep(0.02)
-            assert client.get("/healthz").status_code == 200
+            assert client.get("/ready").status_code == 200
+
+    def test_liveness_is_200_even_while_models_load(self):
+        """liveness と readiness の分離（#25 W-2）。ロード中でもプロセスは生きている。"""
+        gate = threading.Event()
+        app = make_app(asr_engine=FakeASREngine(warmup_gate=gate))
+        try:
+            with TestClient(app) as client:
+                assert client.get("/ready").status_code == 503
+                res = client.get("/healthz")
+                assert res.status_code == 200
+                assert res.json() == {"status": "ok", "ready": False}
+        finally:
+            gate.set()  # 止めた warmup スレッドを解放
 
 
 class TestTeacherInfoAccess:

@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -55,6 +56,22 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
             model_dir,
             compute_type=config.asr.compute_type,
             language=config.asr.language,
+            cpu_threads=config.asr.cpu_threads,
+        )
+    if config.asr.engine == "sherpa":
+        # 遅延import: 他構成では sherpa-onnx を要求しない
+        from server.asr.sherpa_engine import SherpaOnnxEngine
+
+        model_dir = config.models.resolve(config.asr.sherpa.model)
+        require_model_files(model_dir, 10_000_000, "ASRモデル")
+        hotwords = config.asr.sherpa.resolved_hotwords_file()
+        return SherpaOnnxEngine(
+            model_dir,
+            num_threads=config.asr.cpu_threads,
+            decoding_method=config.asr.sherpa.decoding_method,
+            lead_in_ms=config.asr.sherpa.lead_in_ms,
+            hotwords_file=hotwords,
+            hotwords_score=config.asr.sherpa.hotwords_score,
         )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
@@ -92,19 +109,82 @@ def build_mt_engine(config: AppConfig) -> TranslationEngine:
             gguf_path,
             threads=config.mt.hy_mt2.threads,
             temperature=config.mt.hy_mt2.temperature,
+            max_tokens_cap=config.mt.hy_mt2.max_tokens_cap,
         )
     raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
 
 
+def _lan_ip_rank(ip: str) -> tuple[int, int]:
+    """生徒端末から到達できる見込みの高さ（小さいほど優先）。
+
+    以前は `8.8.8.8:80` へ UDP connect して既定経路のIFを選んでいたが、
+    「外部アドレスへの connect がゼロ」を機械判定できなくなるため列挙方式にした（#23）。
+    既定経路の情報が使えない代わりに、次の2段で絞る:
+
+    第1段（帯）: 学校LANで実際に出る帯を優先し、生徒から到達できない
+        仮想アダプタ・link-local を減点する。
+    第2段（ホスト部）: 末尾が .1 のアドレスを一段下げる。VMware/Hyper-V の
+        仮想スイッチは実LANと同じ 192.168.* 帯に .1 で現れることが多く、
+        DHCPで配られた実機は .1 を取らないため、帯が同じときの決め手になる。
+    """
+    octets = ip.split(".")
+    if len(octets) != 4 or not all(o.isdigit() for o in octets):
+        return (90, 0)
+    a, b = int(octets[0]), int(octets[1])
+    host_penalty = 1 if octets[3] == "1" else 0
+    if a == 127:
+        return (80, host_penalty)  # ループバック。LAN候補が1つも無いときだけ選ばれる
+    if a == 169 and b == 254:
+        return (70, host_penalty)  # DHCP失敗時の link-local。生徒からは到達できない
+    if a == 192 and b == 168:
+        # 192.168.56.* は VirtualBox のホストオンリーアダプタ
+        return (30 if octets[2] == "56" else 0, host_penalty)
+    if a == 10:
+        return (1, host_penalty)
+    if a == 172 and 16 <= b <= 31:
+        return (30 if b == 17 else 2, host_penalty)  # 172.17.* は Docker の既定ブリッジ
+    return (60, host_penalty)  # グローバルIP等。private が1つも無いときの最後の砦
+
+
+def select_lan_ip(candidates: list[str]) -> str:
+    """列挙したIPv4から生徒用URLに載せる1つを選ぶ。同点なら列挙順の先頭
+    （実行のたびに表示URLが変わらないよう安定させる）。"""
+    if not candidates:
+        return "127.0.0.1"
+    return min(candidates, key=lambda ip: (*_lan_ip_rank(ip), candidates.index(ip)))
+
+
 def get_lan_ip() -> str:
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))  # UDPなので実送信はしない。経路のあるIF判定のみ
-            return str(s.getsockname()[0])
-    except OSError:
-        with contextlib.suppress(OSError):
-            return socket.gethostbyname(socket.gethostname())
-    return "127.0.0.1"
+    """自ホストのIPv4を列挙して1つ選ぶ。外部アドレスへの connect は行わない（#23）。"""
+    candidates: list[str] = []
+    with contextlib.suppress(OSError):
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = str(info[4][0])
+            if ip not in candidates:
+                candidates.append(ip)
+    return select_lan_ip(candidates)
+
+
+def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
+    """WSの Origin を検証する（#25 A-4）。
+
+    - Origin ヘッダが無い接続は許可する。ブラウザは必ず付けるので、無いのは
+      `scripts/replay_client.py` のような非ブラウザのツール（LAN内・信頼済み）。
+    - 明示的な許可リストに完全一致すれば許可する。
+    - それ以外は「Origin のホストが接続先ホストと同一」であることを求める。
+      学校LANでは生徒も先生も同じホスト名（IP）で開くので通常は素通りし、
+      外部サイトに置かれたページからのWS接続だけが落ちる。
+    """
+    if origin is None:
+        return True
+    if origin in allowed:
+        return True
+    origin_host = urlsplit(origin).hostname
+    if origin_host is None:  # "null"（file:// やサンドボックス）
+        return False
+    # Host ヘッダはポート付き。ホスト名だけ取り出して比べる
+    host_only = urlsplit(f"//{host}").hostname if host else None
+    return host_only is not None and origin_host == host_only
 
 
 def create_app(
@@ -151,8 +231,15 @@ def create_app(
 
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
-        # モデルの事前ロード完了まで 503（E-13）。start.bat はこれが 200 になってから
-        # ブラウザを開く。ロード中でもサーバー自体は起動済みで応答する
+        # liveness: プロセスが生きて応答できるか（#25 W-2）。モデルのロード状況とは
+        # 独立で、常に 200 を返す。「生きているが未準備」を区別するために
+        # readiness は /ready に分けてある
+        return JSONResponse({"status": "ok", "ready": pipeline.ready})
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        # readiness: モデルの事前ロード完了まで 503（E-13）。start.bat はこれが
+        # 200 になってからブラウザを開く
         if not pipeline.ready:
             return JSONResponse({"status": "loading"}, status_code=503)
         return JSONResponse({"status": "ok"})
@@ -184,23 +271,34 @@ def create_app(
     ) -> Client | None:
         if limiter.is_blocked(client_ip):
             # 総当たり対策（E-09）: コードの正誤にかかわらず一定時間拒否
-            await ws.send_json(proto.JoinRejected(reason="rate_limited").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="rate_limited").model_dump())
             return current
         if not session.check_code(msg.code):
             limiter.record_failure(client_ip)
-            await ws.send_json(proto.JoinRejected(reason="bad_code").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="bad_code").model_dump())
             return current
         limiter.record_success(client_ip)
         if msg.role == "student" and msg.lang not in config.language_codes:
-            await ws.send_json(proto.JoinRejected(reason="bad_lang").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="bad_lang").model_dump())
+            return current
+        if (
+            msg.role == "student"
+            and (current is None or current.role != "student")
+            and len(session.students()) >= config.limits.max_students
+        ):
+            # 生徒数の明示上限（#25 A-4 / whisper-flow W-4）。既に入っている生徒の
+            # 入り直しは席を増やさないので数えない
+            await send_now(ws, proto.JoinRejected(reason="full").model_dump())
             return current
         if current is not None:
             session.remove_client(current.id)
+            await pipeline.drop_client(current.id)
         if msg.role == "teacher":
             old = session.teacher()
             if old is not None:
                 # 後勝ち（E-08）: 旧接続を code 4000 で切断（クライアントは再接続しない）
                 session.remove_client(old.id)
+                await pipeline.drop_client(old.id)
                 if old.ws is not None:
                     with contextlib.suppress(Exception):
                         await old.ws.close(code=4000)
@@ -211,13 +309,15 @@ def create_app(
             ws=ws,
         )
         session.add_client(client)
-        await ws.send_json(
+        await send_now(
+            ws,
             proto.Joined(
                 seq_head=session.seq_head,
                 history_from=session.history_from,
                 languages=config.languages,
                 session_state=session.state,
                 recording=session.recording,
+                speaking=pipeline.speaking,  # 発話の途中で参加した生徒にも出す（#29）
             ).model_dump()
         )
         if msg.role == "student" and msg.last_seq is not None:
@@ -257,8 +357,28 @@ def create_app(
             await pipeline.flush_audio()
             await pipeline.broadcast_session_state()
 
+    async def send_now(ws: WebSocket, payload: dict) -> None:
+        """join 前後の直接送信（拒否・エラー通知）。送信タイムアウト付き（#25 A-4）。
+
+        字幕の配信は pipeline のクライアント別送信キューを通るが、ここは
+        まだクライアントが登録されていない・登録できない経路なので直接送る。
+        タイムアウトが無いと、応答しない接続がこの受信ループを永久に止める。
+        """
+        with contextlib.suppress(Exception):  # TimeoutError もここに含まれる
+            await asyncio.wait_for(
+                ws.send_json(payload), timeout=config.limits.send_timeout_s
+            )
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
+        if not origin_allowed(
+            ws.headers.get("origin"), ws.headers.get("host"), config.limits.allowed_origins
+        ):
+            # 他サイトに置かれたページからのWS接続を断る（#25 A-4）。
+            # accept 前に閉じるのでハンドシェイク自体が成立しない
+            logger.warning("Origin が不許可のWS接続を拒否: %s", ws.headers.get("origin"))
+            await ws.close(code=1008)
+            return
         await ws.accept()
         client_ip = ws.client.host if ws.client else "unknown"
         client: Client | None = None
@@ -269,34 +389,52 @@ def create_app(
                     break
                 data = message.get("bytes")
                 if data is not None:
+                    if len(data) > config.limits.max_audio_bytes:
+                        # 100msフレーム(3200B)を大きく超えるバイナリは捨てる。
+                        # 接続は維持する（先生の操作は効いたままにする）
+                        logger.warning("上限超過の音声フレームを破棄: %d bytes", len(data))
+                        continue
                     if client is not None and client.role == "teacher":
                         await pipeline.feed_audio(data)
                     continue
                 text = message.get("text")
                 if text is None:
                     continue
+                # 文字数ではなくバイト数で測る（日本語は1文字3バイト）
+                if len(text.encode("utf-8", "ignore")) > config.limits.max_text_bytes:
+                    await send_now(
+                        ws,
+                        proto.ErrorMsg(
+                            code="too_large", message="メッセージが大きすぎます"
+                        ).model_dump(),
+                    )
+                    continue
                 try:
                     msg = proto.parse_client_message(text)
                 except proto.ProtocolError as exc:
-                    await ws.send_json(
-                        proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
+                    await send_now(
+                        ws, proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
                     )
                     continue
                 if isinstance(msg, proto.JoinMessage):
                     client = await handle_join(ws, client, msg, client_ip)
                 elif client is None:
-                    await ws.send_json(
-                        proto.ErrorMsg(code="not_joined", message="先に join してください").model_dump()
+                    await send_now(
+                        ws,
+                        proto.ErrorMsg(
+                            code="not_joined", message="先に join してください"
+                        ).model_dump(),
                     )
                 elif isinstance(msg, proto.SetLangMessage):
                     if client.role == "student":
                         if msg.lang in config.language_codes:
                             client.lang = msg.lang
                         else:
-                            await ws.send_json(
+                            await send_now(
+                                ws,
                                 proto.ErrorMsg(
                                     code="bad_lang", message=f"未対応の言語: {msg.lang}"
-                                ).model_dump()
+                                ).model_dump(),
                             )
                 elif isinstance(msg, proto.ControlMessage):
                     if client.role == "teacher":
@@ -310,6 +448,7 @@ def create_app(
         finally:
             if client is not None:
                 session.remove_client(client.id)
+                await pipeline.drop_client(client.id)  # 送信キューを畳む（#25 A-3）
                 if client.role == "teacher":
                     await handle_teacher_disconnect()
 
