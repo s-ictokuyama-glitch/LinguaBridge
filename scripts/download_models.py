@@ -79,6 +79,25 @@ SPECS: list[ModelSpec] = [
         ),
     ),
     ModelSpec(
+        name="reazonspeech",
+        repo_id="reazon-research/reazonspeech-k2-v2",
+        license="Apache-2.0",
+        note="ASR切替候補（日本語特化 zipformer transducer、sherpa-onnx形式）。句読点は出さない（#21）",
+        kind="snapshot",
+        subdir="reazonspeech-k2-v2",
+        # Parapper 既定の Int8Float32（encoder=int8 / decoder=fp32 / joiner=int8）に加え、
+        # 全int8 との精度・速度差を #28 で測るため decoder/joiner の int8 も取る。
+        # encoder の fp32（564MB）は取らない — CPUノートPCでは選択肢にならない
+        allow_patterns=(
+            "encoder-epoch-99-avg-1.int8.onnx",
+            "decoder-epoch-99-avg-1.onnx",
+            "decoder-epoch-99-avg-1.int8.onnx",
+            "joiner-epoch-99-avg-1.int8.onnx",
+            "tokens.txt",
+            "README.md",
+        ),
+    ),
+    ModelSpec(
         name="hy-mt2",
         repo_id="tencent/Hy-MT2-1.8B-GGUF",
         license="Apache-2.0",
@@ -163,7 +182,7 @@ def main() -> int:
     print()
     print("ライセンス注記:")
     print("  - NLLB-200 は CC-BY-NC 4.0（非商用限定）。学校の授業利用は非商用の想定（plan.md A-05）")
-    print("  - Hy-MT2 / kotoba-whisper は Apache-2.0、whisper-small は MIT")
+    print("  - Hy-MT2 / kotoba-whisper / ReazonSpeech K2 v2 は Apache-2.0、whisper-small は MIT")
     if failures:
         print(f"\n失敗: {failures} — 再実行するか --only で個別に取得してください")
         return 1

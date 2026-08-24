@@ -38,6 +38,14 @@ requires_fixture = pytest.mark.skipif(
     not FIXTURE_WAV.exists(), reason="fixture未生成（scripts/make_fixture_audio.ps1 を実行）"
 )
 
+REAZON_MODEL_DIR = AppConfig().models.resolved_dir / "reazonspeech-k2-v2"
+# 冒頭に無音が無く、リードイン無しだと前半が落ちる音源（#28 実測）
+LEAD_IN_WAV = ROOT / "tests" / "fixtures" / "ja_ext" / "pause-02.wav"
+requires_reazon = pytest.mark.skipif(
+    not REAZON_MODEL_DIR.exists(),
+    reason="ReazonSpeech未取得（scripts/download_models.py --only reazonspeech を実行）",
+)
+
 
 def load_fixture_pcm() -> np.ndarray:
     with wave.open(str(FIXTURE_WAV), "rb") as w:
@@ -164,3 +172,58 @@ class TestRealAsrOverWebSocket:
                 assert cap["type"] == "caption"
                 assert "教科書" in cap["ja"]
                 assert cap["text"] == f"[en] {cap['ja']}"  # フェイク訳文の原文=実文字起こし
+
+
+@requires_reazon
+@requires_fixture
+class TestSherpaOnnxEngine:
+    """ReazonSpeech K2 v2（#28）。実モデルでしか確かめられない性質だけを見る。"""
+
+    def test_config_selects_the_sherpa_engine(self):
+        from server.config import AsrConfig
+        from server.main import build_asr_engine
+
+        config = AppConfig(asr=AsrConfig(engine="sherpa"))
+        engine = build_asr_engine(config)
+        result = engine.transcribe(load_fixture_pcm(), 16000)
+        assert "教科書" in result.text
+
+    def test_transcribes_without_punctuation(self):
+        """語彙に `。！？` が無い（#21）。turn の分類器はこれを前提に選ぶ必要がある。"""
+        from server.asr.sherpa_engine import SherpaOnnxEngine
+
+        engine = SherpaOnnxEngine(REAZON_MODEL_DIR)
+        engine.warmup()
+        text = engine.transcribe(load_fixture_pcm(), 16000).text
+        assert text
+        assert not set(text) & set("。、！？")
+
+    @pytest.mark.skipif(not LEAD_IN_WAV.exists(), reason="拡張コーパス未生成（#22）")
+    def test_lead_in_recovers_the_start_of_the_utterance(self):
+        """#28 の判定を左右した現象。lead_in が無いと発話の冒頭が落ちる。
+
+        既定の 600ms で冒頭が取れることを固定する。0ms 側は対照群で、
+        **落ちること**ではなく **既定の方が長く取れること**だけを主張する
+        （どの文字が落ちるかは音源とモデル任せなので断定しない）。
+        """
+        from server.asr.sherpa_engine import SherpaOnnxEngine
+
+        with wave.open(str(LEAD_IN_WAV), "rb") as w:
+            pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+
+        with_lead = SherpaOnnxEngine(REAZON_MODEL_DIR, lead_in_ms=600)
+        with_lead.warmup()
+        without = SherpaOnnxEngine(REAZON_MODEL_DIR, lead_in_ms=0)
+        without.warmup()
+
+        text = with_lead.transcribe(pcm, 16000).text
+        assert "教科書" in text  # 音源の冒頭。lead_in が効いていないと消える
+        assert len(text) > len(without.transcribe(pcm, 16000).text)
+
+    def test_silence_does_not_produce_a_known_hallucination(self):
+        from server.config import AsrConfig
+        from server.main import build_asr_engine
+
+        engine = build_asr_engine(AppConfig(asr=AsrConfig(engine="sherpa")))
+        result = engine.transcribe(silence_pcm(3.0), 16000)
+        assert hallucination_reason(result) is None or result.text == ""

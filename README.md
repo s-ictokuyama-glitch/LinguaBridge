@@ -7,11 +7,16 @@
 
 ## 現在の状態（イシュー #18 完了時点）
 
-**ASR・翻訳とも実エンジンで動作する**: マイクの日本語発話が faster-whisper
-（既定 whisper small int8、kotoba へ切替可）で文字起こしされ、
-**Hy-MT2-1.8B**（既定・GGUF/llama.cpp）または **NLLB-200 600M**（CTranslate2、
-`mt.engine: nllb` で切替）で英語・中国語（簡体字）へ実翻訳されて生徒カードに届く。
-実測遅延は発話終了→表示で約1.7〜2.0秒（開発機、docs/bench 参照）。
+**ASR・翻訳とも実エンジンで動作する**: マイクの日本語発話が **ReazonSpeech K2 v2**
+（既定・sherpa-onnx、`asr.engine: faster-whisper` で whisper small / kotoba へ切替可）で
+文字起こしされ、**Hy-MT2-1.8B**（既定・GGUF/llama.cpp）または **NLLB-200 600M**
+（CTranslate2、`mt.engine: nllb` で切替）で英語・中国語（簡体字）へ実翻訳されて
+生徒カードに届く。実測遅延は発話終了→表示で中央値 0.65秒・最大 1.76秒
+（開発機、docs/bench/2026-08-24-asr-gate.md）。
+
+ASR の既定は判断ゲート②（#28）で確定した。ReazonSpeech は日本語 CER で
+whisper small(9.62%) / kotoba(3.94%) を上回り（**2.09%**）、デコードは 10倍速い。
+ただし**句読点を出力しない**（訳文には付くので生徒の字幕は影響を受けない）。
 
 - 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、
   文字起こしライブ表示、**モニタリング**（2秒ごとの統計＝接続数・言語内訳・キュー深度・
@@ -133,7 +138,8 @@ py -3.12 -m venv .venv
 
 証明書（`certs/cert.pem`, `certs/key.pem`）があればHTTP(8000)とHTTPS(8443)を同時リッスンし、
 無ければHTTP単独で起動する（先生はサーバーPCの `http://127.0.0.1:8000/teacher` を使う）。
-証明書は `python scripts\make_cert.py` で生成。死活確認 `/healthz` はモデルロード完了まで503。
+証明書は `python scripts\make_cert.py` で生成。死活確認は `/healthz`（常に200・liveness）と
+`/ready`（モデルロード完了まで503・readiness）に分かれている。
 
 ## モデル取得とベンチ（イシュー #9）
 
@@ -158,7 +164,11 @@ PRD の N-01（遅延 中央値≤5s/最大≤8s）・N-05（常駐≤5GB）・N
 ```powershell
 .venv\Scripts\python scripts\replay_client.py --audio 授業録音.wav   # 実録音で45分試験
 .venv\Scripts\python scripts\replay_client.py --minutes 2            # 短縮スモーク（合成音源）
+.venv\Scripts\python scripts\replay_client.py --minutes 2 --partial on   # partial字幕の A/B（#29）
 ```
+
+`--partial on|off` は partial字幕（先生のみ）の A/B 用。ドリフトを効果と読まないよう
+**同じ時間帯に off → on を背中合わせで撮る**こと（#26 B-4 の教訓）。
 
 既定エンジン（hy-mt2）が基準を満たさない場合は自動で NLLB を再測定し、合格した構成を
 `config.yaml` の `mt.engine` 既定に反映する。レポートは `docs\accept\` に出力。
