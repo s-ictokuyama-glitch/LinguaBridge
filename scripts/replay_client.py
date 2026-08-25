@@ -26,6 +26,7 @@ import asyncio
 import contextlib
 import datetime
 import json
+import random
 import statistics
 import subprocess
 import sys
@@ -45,6 +46,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.acceptance import (  # noqa: E402
     DRIFT_WINDOW_S,
     DroppedAudio,
+    restore_gaps,
     LatencyDrift,
     ResourceTrend,
     Verdict,
@@ -138,6 +140,18 @@ class Results:
     # 先生が受けた過負荷通知の内訳（code -> 件数）。クールダウンで間引かれるので
     # 「起きたか」は分かるが「何件起きたか」はサーバーの計数器の側で見る
     notices: dict[str, int] = field(default_factory=dict)
+    # 切断注入（#35）。再接続の差分復元が効いているかは**生徒ごとに**
+    # 「自分の言語で配信された seq を全部持っているか」でしか見えない
+    student_seqs: dict[str, set[int]] = field(default_factory=dict)  # sid -> 受け取った seq
+    student_langs: dict[str, str] = field(default_factory=dict)  # sid -> 言語
+    # サーバーが配信した seq の真値。先生の asr_final から取る（生徒側の集合だと
+    # 「全員が取りこぼした seq」を配信されなかったものと区別できない）
+    published_seqs: set[int] = field(default_factory=set)
+    live_ws: dict[str, object] = field(default_factory=dict)  # sid -> 生きている接続
+    injected_pending: set[str] = field(default_factory=set)  # 注入で閉じた直後の生徒
+    injected_disconnects: int = 0
+    injected_at: dict[str, float] = field(default_factory=dict)  # sid -> 注入時刻
+    restore_times: list[float] = field(default_factory=list)  # 注入→復帰までの秒数
     stats_samples: list[dict] = field(default_factory=list)  # 先生が受けた stats メッセージ
     audio_started_at: float | None = None  # 先生が音声送信を始めた時刻（monotonic）
     first_caption_at: float | None = None  # 最初の caption が生徒に届いた時刻
@@ -296,6 +310,7 @@ async def drain_teacher(ws, results: Results) -> None:
                     results.first_final_at = time.monotonic()
                 # turn_id は #29 以降のサーバーだけが持つ（既定 0 で読む）
                 results.finals[msg.get("turn_id", 0)] = msg["ja"]
+                results.published_seqs.add(msg["seq"])  # 復元判定の真値（#35）
                 results.final_at[msg.get("turn_id", 0)] = time.monotonic()
             elif msg["type"] == "stats":
                 results.stats_samples.append(
@@ -363,14 +378,18 @@ async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -
                 await reader
 
 
-async def run_student(port: int, code: str, lang: str, results: Results) -> None:
+async def run_student(port: int, code: str, lang: str, results: Results, sid: str) -> None:
     """擬似生徒。切断されたら last_seq で再接続して復元する（N-08）。
 
-    disconnects: 確立済み接続が想定外に切れた回数。
+    disconnects: 確立済み接続が**想定外に**切れた回数。
     reconnect_failures: 切断後の再接続（本接続）に失敗した回数（＝復元失敗）。
+    injected_disconnects: 試験が意図的に切った回数（#35）。**上の2つには混ぜない** —
+    混ぜると「注入すればするほど不合格に近づく」という無意味な判定になる。
     """
     import websockets
 
+    results.student_langs[sid] = lang
+    results.student_seqs.setdefault(sid, set())
     last_seq = 0
     backoff = 1.0
     need_reconnect = False  # 直前に切断された＝この接続試行は「復元」
@@ -383,20 +402,25 @@ async def run_student(port: int, code: str, lang: str, results: Results) -> None
                 await ws.send(json.dumps(join))
                 backoff = 1.0  # 接続成功でバックオフ回復
                 need_reconnect = False  # 復元成功
+                results.live_ws[sid] = ws
+                injected_at = results.injected_at.pop(sid, None)
+                if injected_at is not None:  # 注入で切られたぶんの復帰時間（#35）
+                    results.restore_times.append(time.monotonic() - injected_at)
                 async for raw in ws:
                     if results.stop.is_set():
                         return
                     msg = json.loads(raw)
                     if msg["type"] == "caption":
                         results.record_caption(msg)
+                        results.student_seqs[sid].add(msg["seq"])
                         last_seq = max(last_seq, msg["seq"])
                     elif msg["type"] == "join_rejected":
                         results.errors.append(f"student {lang}: join_rejected {msg['reason']}")
                         return
-            # 例外なしで async-for を抜けた＝サーバーが接続を閉じた（想定外の切断）
+            # 例外なしで async-for を抜けた＝サーバーが接続を閉じた
             if results.stop.is_set():
                 return
-            results.disconnects += 1
+            _count_disconnect(results, sid)
             need_reconnect = True
         except Exception:
             if results.stop.is_set():
@@ -404,10 +428,46 @@ async def run_student(port: int, code: str, lang: str, results: Results) -> None
             if need_reconnect:
                 results.reconnect_failures += 1  # 切断後の再接続に失敗＝復元失敗
             else:
-                results.disconnects += 1
+                _count_disconnect(results, sid)
                 need_reconnect = True
+        finally:
+            results.live_ws.pop(sid, None)
         await asyncio.sleep(backoff)
         backoff = min(backoff * 2, 15.0)
+
+
+def _count_disconnect(results: Results, sid: str) -> None:
+    """切断を数える。**試験が自分で切ったぶんは想定外に数えない**（#35）。"""
+    if sid in results.injected_pending:
+        results.injected_pending.discard(sid)
+        return
+    results.disconnects += 1
+
+
+async def inject_disconnects(results: Results, every_s: float, seed: int = 0) -> None:
+    """N秒ごとにランダムな生徒1名の接続を切る（#35）。
+
+    実授業で起きるのは Wi-Fi 瞬断と端末スリープで、どちらもクライアントから見れば
+    「接続が閉じた」になる。close code 1001（going away）はスリープ相当。
+    **生徒側の再接続実装は触らない** — 触ると「試験のために作った経路」を試すことになる。
+
+    生徒の再接続バックオフは 1.0s 起点なので、`every_s` をそれより短くすると
+    復元の失敗ではなく**試験の設計ミス**として欠落が出る。
+    """
+    rng = random.Random(seed)
+    while not results.stop.is_set():
+        await asyncio.sleep(every_s)
+        if results.stop.is_set():
+            return
+        live = [(sid, ws) for sid, ws in results.live_ws.items() if ws is not None]
+        if not live:
+            continue
+        sid, ws = rng.choice(live)
+        results.injected_pending.add(sid)
+        results.injected_at[sid] = time.monotonic()
+        results.injected_disconnects += 1
+        with contextlib.suppress(Exception):
+            await ws.close(code=1001)  # going away（端末スリープ相当）
 
 
 def proc_tree(root: psutil.Process) -> list[psutil.Process] | None:
@@ -536,23 +596,37 @@ async def _drive(
     drain_s: float,
     proc: subprocess.Popen,
     langs: list[str] | None = None,
+    disconnect_every_s: float | None = None,
 ) -> Results:
     results = Results()
     langs = langs or ["en", "zh"]
     students = [
-        asyncio.create_task(run_student(port, code, langs[i % len(langs)], results))
+        asyncio.create_task(run_student(port, code, langs[i % len(langs)], results, f"s{i}"))
         for i in range(n_students)
     ]
     sampler = asyncio.create_task(sample_rss(proc, results))
+    injector = (
+        asyncio.create_task(inject_disconnects(results, disconnect_every_s))
+        if disconnect_every_s
+        else None
+    )
     await asyncio.sleep(1.0)  # 生徒の join を先に成立させる
     started = time.monotonic()
     await run_teacher(port, code, pcm, results)
+    if injector is not None:
+        # drain 中は切らない。最後に切ったぶんの復元を drain で完了させるため
+        # （切ったまま試験が終わると「復元されなかった」と読めてしまう）
+        injector.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await injector
+        injector = None
     await asyncio.sleep(drain_s)  # 最後のcaptionが届くのを待つ
     results.ran_seconds = time.monotonic() - started
     results.stop.set()
-    for task in (*students, sampler):
+    extra = [t for t in (sampler, injector) if t is not None]
+    for task in (*students, *extra):
         task.cancel()
-    await asyncio.gather(*students, sampler, return_exceptions=True)
+    await asyncio.gather(*students, *extra, return_exceptions=True)
     return results
 
 
@@ -671,6 +745,7 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
                 args.drain_seconds,
                 proc,
                 getattr(args, "langs", None),
+                getattr(args, "disconnect_every_s", None),
             )
         )
     finally:
@@ -681,6 +756,14 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
     depths = [s["queue_depth"] for s in results.stats_samples]
     mt_depths = [float(s["mt_queue_depth"]) for s in results.stats_samples]
     dropped = results.dropped_audio()
+    # 切断注入下の復元（#35）。注入していない周では student_seqs は埋まるが
+    # 欠落は出ない（切れていないので当然）＝判定に影響しない
+    restore = restore_gaps(
+        results.student_seqs,
+        results.student_langs,
+        dict.fromkeys(set(results.student_langs.values()), results.published_seqs),
+        history_limit=load_config(ROOT / "config.yaml").history_resend,
+    )
     lat = latency_stats(list(results.captions.values()))
     mem = memory_trend(results.rss_mb)
     # 長時間試験の追加判定（#32）。短い周では窓が1つしか作れず drift は None になり、
@@ -706,12 +789,14 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         drift=drift,
         resources=resources,
         dropped=dropped,
+        restore=restore,
     )
     return {
         "engine": engine,
         "minutes": args.minutes,
         "students": args.students,
         "corpus": getattr(args, "corpus", "ja"),
+        "disconnect_every_s": getattr(args, "disconnect_every_s", None),
         "mt_cache_size": getattr(args, "mt_cache_size", None),
         "langs": getattr(args, "langs", None) or ["en", "zh"],
         "captions": len(results.captions),
@@ -776,6 +861,23 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         ),
         "resources": [r.__dict__ for r in resources if r is not None],
         "dropped": {**dropped.__dict__, "notices": results.notices},
+        "restore": (
+            {
+                **restore.__dict__,
+                "injected_disconnects": results.injected_disconnects,
+                "restore_median_s": (
+                    round(statistics.median(results.restore_times), 2)
+                    if results.restore_times
+                    else None
+                ),
+                "restore_max_s": (
+                    round(max(results.restore_times), 2) if results.restore_times else None
+                ),
+                "published_seqs": len(results.published_seqs),
+            }
+            if restore
+            else None
+        ),
         "calls": (
             {
                 "asr": results.stats_samples[-1]["asr_calls"],
@@ -917,6 +1019,32 @@ def build_report(results: list[dict], system: dict) -> str:
         add("")
         add("</details>")
         add("")
+    if any(r.get("restore") and r["restore"]["injected_disconnects"] for r in results):
+        add("### 切断注入と差分復元（#35）")
+        add("")
+        add("| エンジン | 注入した切断 | 復帰 中央値 / 最大 | 配信seq | 復元されなかった | 履歴外（仕様どおり） | 想定外の切断 | 復元失敗 |")
+        add("|---------|------------|------------------|--------|----------------|------------------|------------|--------|")
+        for r in results:
+            res = r.get("restore")
+            if not res:
+                continue
+            mark = " ⚠️" if res["gaps"] else ""
+            add(
+                f"| {r['engine']} | {res['injected_disconnects']}回 | "
+                f"{res['restore_median_s']}s / {res['restore_max_s']}s | "
+                f"{res['published_seqs']} | {res['gaps']}件{mark} | "
+                f"{res['beyond_history']}件 | {r['disconnects']} | {r['reconnect_failures']} |"
+            )
+        add("")
+        add(f"- 注入間隔 {results[0].get('disconnect_every_s')}秒。ランダムに1名を選び close code 1001")
+        add("  （going away＝端末スリープ相当）で切る。**生徒側の再接続実装は触っていない**")
+        add("- 「復元されなかった」= 履歴上限（`history_resend`）の**内側**なのに最後まで")
+        add("  届かなかった seq。**0 でなければ再接続の差分復元が効いていない**")
+        add("- 「履歴外」= 履歴上限より古いぶんの欠落。`joined.history_from` が「これより前は")
+        add("  恒久欠落」と伝える契約どおりで、**不合格の材料にしない**")
+        add("- 「想定外の切断」は注入したぶんを**含まない**。含めると注入するほど不合格に近づく")
+        add("- 音声送出が終わった時点で注入を止め、drain の間に最後の復元を完了させている")
+        add("")
     add("### 推論回数（#32）")
     add("")
     add("| エンジン | ASR（確定） | ASR（partial） | Hy-MT2/NLLB | キャッシュヒット | 生存タスク |")
@@ -1033,6 +1161,10 @@ def main() -> int:
     parser.add_argument(
         "--langs", default=None,
         help="生徒の言語をカンマ区切りで指定（既定は config.yaml の languages）",
+    )
+    parser.add_argument(
+        "--disconnect-every-s", type=float, default=None,
+        help="N秒ごとにランダムな生徒1名の接続を切る（#35 の切断注入。既定は注入しない）",
     )
     parser.add_argument(
         "--mt-cache-size", type=int, default=None,

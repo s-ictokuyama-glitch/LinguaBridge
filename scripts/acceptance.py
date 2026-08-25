@@ -220,6 +220,71 @@ class DroppedAudio:
 
 
 @dataclass
+class RestoreResult:
+    """切断注入下の差分復元の結果（#35）。
+
+    再接続の復元が効いているかは**生徒ごとに**「自分の言語で配信された seq を
+    全部持っているか」でしか見えない。`(seq, lang)` で重複排除した集合では
+    「誰かが受け取った」しか分からず、切断された当人が取り戻せたかは分からない。
+    """
+
+    students: int
+    gaps: int  # 履歴の**内側**なのに届いていない seq の総数（＝復元の失敗）
+    beyond_history: int  # 履歴上限の外で届かなかった seq の総数（＝仕様どおり）
+    worst_student: str | None  # gaps が最も多かった生徒
+    worst_gaps: int
+
+    @property
+    def complete(self) -> bool:
+        return self.gaps == 0
+
+
+def restore_gaps(
+    student_seqs: dict[str, set[int]],
+    student_langs: dict[str, str],
+    published_by_lang: dict[str, set[int]],
+    history_limit: int = 50,
+) -> RestoreResult | None:
+    """生徒ごとの seq 到達を、その言語で配信された seq と突き合わせる（#35）。
+
+    `history_limit` は `config.yaml` の `history_resend`。**これより古い欠落は
+    仕様どおり**で、`joined.history_from` が「これより前は恒久欠落」を
+    クライアントへ伝える契約になっている。ここを失敗に数えると、長い切断を
+    注入するほど落ちる＝判定の意味が反転する。
+
+    **近似していることを明示しておく**: サーバーの復元は再接続した**その時点**の
+    `last_seq` と履歴上限で決まるが、ここでは試験終了時の「最新 `history_limit` 件」を
+    復元対象とみなしている。切断ごとの窓を追う代わりの割り切りで、判定としては
+    **保守的な側**に倒れている: 試験は全生徒が接続した状態で drain して終わるので、
+    最新 `history_limit` 件のどれかが最後まで欠けていれば、それは確実に復元の失敗。
+    それより古い欠落は、正当な履歴切れと復元失敗を区別できないので数えない。
+    """
+    if not student_seqs:
+        return None
+    total_gaps = 0
+    total_beyond = 0
+    worst: tuple[str, int] | None = None
+    for sid, got in student_seqs.items():
+        published = published_by_lang.get(student_langs.get(sid, ""), set())
+        if not published:
+            continue
+        # 復元対象は「最新 history_limit 件」。それより古いものは範囲外
+        recoverable = set(sorted(published)[-history_limit:])
+        gaps = len(recoverable - got)
+        total_gaps += gaps
+        total_beyond += len((published - recoverable) - got)
+        if worst is None or gaps > worst[1]:
+            worst = (sid, gaps)
+    return RestoreResult(
+        students=len(student_seqs),
+        gaps=total_gaps,
+        beyond_history=total_beyond,
+        worst_student=worst[0] if worst else None,
+        worst_gaps=worst[1] if worst else 0,
+    )
+
+
+@dataclass
 class Verdict:
     passed: bool
     reasons: list[str]  # 不合格理由（空なら合格）
@@ -236,10 +301,12 @@ def judge(
     drift: LatencyDrift | None = None,
     resources: list[ResourceTrend | None] | None = None,
     dropped: DroppedAudio | None = None,
+    restore: RestoreResult | None = None,
 ) -> Verdict:
     """計測値を受け入れ基準に照らし、合否と不合格理由を返す。
 
-    `drift` / `resources` / `dropped` は長時間試験の追加判定（#32）で、
+    `drift` / `resources` / `dropped` は長時間試験の追加判定（#32）、
+    `restore` は切断注入下の復元判定（#35）で、
     省略すれば #17 の判定と完全に同じになる（既存の呼び出しは不変）。
     いずれも N-08「試験長を通して劣化なし」の別の顔なので N-08 として数える。
     """
@@ -273,6 +340,11 @@ def judge(
                 f"{res.name} が増加傾向 ({res.baseline:g}→{res.final:g}, "
                 f"+{res.increase:g})、リーク疑い (N-08)"
             )
+    if restore is not None and not restore.complete:
+        reasons.append(
+            f"切断後に復元されなかった字幕が {restore.gaps} 件"
+            f"（最悪の生徒 {restore.worst_student}: {restore.worst_gaps}件） (N-08)"
+        )
     if dropped is not None and dropped.any_loss:
         if dropped.segments > 0:
             reasons.append(

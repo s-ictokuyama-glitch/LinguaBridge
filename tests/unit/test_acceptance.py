@@ -12,6 +12,7 @@ from scripts.acceptance import (
     latency_stats,
     memory_trend,
     resource_trend,
+    restore_gaps,
 )
 
 
@@ -229,3 +230,95 @@ class TestJudgeEndurance:
         stable = [resource_trend("threads", [24.0] * 20), resource_trend("tasks", [40.0] * 20)]
         v = self._ok(drift=drift, resources=stable, dropped=DroppedAudio())
         assert v.passed
+
+
+class TestRestoreGaps:
+    """切断注入下の復元判定（#35）。
+
+    再接続の差分復元が本当に効いているかは、**生徒ごとに**「自分の言語で配信された
+    seq を全部持っているか」でしか見えない。`(seq, lang)` で重複排除した集合では
+    「誰かが受け取った」しか分からない。
+    """
+
+    def test_no_gaps_when_everyone_got_everything(self):
+        r = restore_gaps(
+            {"s0": {1, 2, 3}, "s1": {1, 2, 3}},
+            {"s0": "en", "s1": "en"},
+            {"en": {1, 2, 3}},
+        )
+        assert r.gaps == 0
+        assert r.beyond_history == 0
+        assert r.complete
+
+    def test_gap_inside_the_history_window_is_a_failure(self):
+        # seq=2 だけ欠けている。履歴上限(50)の内側なので復元されるべきだった
+        r = restore_gaps({"s0": {1, 3}}, {"s0": "en"}, {"en": {1, 2, 3}})
+        assert r.gaps == 1
+        assert r.beyond_history == 0
+        assert not r.complete
+        assert r.worst_student == "s0"
+
+    def test_gap_beyond_the_history_window_is_expected(self):
+        """`history_resend` を超える欠落は仕様どおり（`joined.history_from` の契約）。
+
+        ここを不合格にすると、長い切断を注入するほど落ちる＝判定の意味が反転する。
+        """
+        published = set(range(1, 101))
+        # 最新50件(51..100)は全部あり、さらに 41..50 も持っている。欠けているのは
+        # 1..40 で、これは復元対象の外
+        got = set(range(41, 101))
+        r = restore_gaps({"s0": got}, {"s0": "en"}, {"en": published}, history_limit=50)
+        assert r.gaps == 0, "履歴の外の欠落を不合格にしてはいけない"
+        assert r.beyond_history == 40
+        assert r.complete
+
+    def test_gap_inside_the_window_fails_even_if_older_ones_are_forgiven(self):
+        """新しい側が欠けていれば、古い側が許されていても失敗になる。"""
+        published = set(range(1, 101))
+        got = set(range(61, 101))  # 51..60 が欠けている＝復元対象の内側
+        r = restore_gaps({"s0": got}, {"s0": "en"}, {"en": published}, history_limit=50)
+        assert r.gaps == 10
+        assert r.beyond_history == 50
+        assert not r.complete
+
+    def test_boundary_of_the_history_window(self):
+        published = set(range(1, 101))
+        # 最新50件は復元対象。51番目に古いものから外側
+        r = restore_gaps({"s0": set(range(51, 101))}, {"s0": "en"}, {"en": published},
+                         history_limit=50)
+        assert r.gaps == 0 and r.beyond_history == 50
+
+    def test_language_a_student_did_not_choose_is_not_counted(self):
+        r = restore_gaps(
+            {"s0": {1, 2}}, {"s0": "en"}, {"en": {1, 2}, "zh": {3, 4}}
+        )
+        assert r.gaps == 0
+
+    def test_none_without_students(self):
+        assert restore_gaps({}, {}, {"en": {1}}) is None
+
+
+class TestJudgeRestore:
+    def _ok(self, **kw):
+        return judge(
+            latency_stats([3000]),
+            memory_trend([2000.0] * 20),
+            crashes=0,
+            reconnect_failures=0,
+            ran_seconds=2700,
+            target_seconds=2700,
+            **kw,
+        )
+
+    def test_restore_is_optional(self):
+        assert self._ok().passed
+
+    def test_gaps_fail(self):
+        r = restore_gaps({"s0": {1, 3}}, {"s0": "en"}, {"en": {1, 2, 3}})
+        v = self._ok(restore=r)
+        assert not v.passed
+        assert any("復元されなかった" in x for x in v.reasons)
+
+    def test_complete_restore_passes(self):
+        r = restore_gaps({"s0": {1, 2, 3}}, {"s0": "en"}, {"en": {1, 2, 3}})
+        assert self._ok(restore=r).passed
