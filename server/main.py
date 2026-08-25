@@ -393,6 +393,7 @@ def create_app(
                         # 100msフレーム(3200B)を大きく超えるバイナリは捨てる。
                         # 接続は維持する（先生の操作は効いたままにする）
                         logger.warning("上限超過の音声フレームを破棄: %d bytes", len(data))
+                        pipeline.audio_frames_rejected += 1  # 長時間試験の破棄内訳（#32）
                         continue
                     if client is not None and client.role == "teacher":
                         await pipeline.feed_audio(data)

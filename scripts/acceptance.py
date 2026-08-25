@@ -18,6 +18,18 @@ RSS_LIMIT_MB = 5000  # N-05: 常駐メモリ ≤ 5GB
 LEAK_REL_LIMIT = 0.10  # +10%
 LEAK_ABS_LIMIT_MB = 300  # かつ +300MB
 
+# 遅延ドリフト（#32・N-08「メモリ増加傾向なし」の遅延版）。
+# 長時間試験で見たいのは「遅いか」ではなく「だんだん遅くなるか」で、
+# 平均や p95 では出ない（前半の速さに薄められる）ので時間窓で並べる
+DRIFT_WINDOW_S = 300.0  # 5分窓
+DRIFT_REL_LIMIT = 0.50  # 最後の窓が最初の窓より +50%
+DRIFT_ABS_LIMIT_S = 1.0  # かつ +1.0s 遅ければ「悪化傾向あり」
+
+# リソースリーク（#32）。スレッド数・ハンドル数・asyncioタスク数は
+# 定常運転では一定のはずで、単調に増えるならリークを疑う
+RESOURCE_REL_LIMIT = 0.25  # +25%
+RESOURCE_ABS_LIMIT = 20.0  # かつ +20（本・個）
+
 
 @dataclass
 class LatencyStats:
@@ -51,15 +63,26 @@ class MemoryTrend:
     increasing: bool  # リーク傾向ありか
 
 
+def _halves(values: list[float], warmup_frac: float) -> tuple[float, float] | None:
+    """warmup を捨てた残りを前半/後半に割り、それぞれの中央値を返す。
+
+    リークの判定はどの指標でも「前半の平常値と後半の平常値を比べる」であって、
+    最初と最後の1点を比べることではない（1点はGCや瞬間的な山に振られる）。
+    """
+    if len(values) < 4:
+        return None
+    start = int(len(values) * warmup_frac)  # 起動直後のロード変動を除外（len>=4 で start<len）
+    usable = values[start:]
+    half = len(usable) // 2
+    return statistics.median(usable[:half]), statistics.median(usable[half:])
+
+
 def memory_trend(rss_mb: list[float], warmup_frac: float = 0.1) -> MemoryTrend | None:
     """RSS推移の前半/後半の中央値を比べ、リーク傾向とピークを判定する。"""
-    if len(rss_mb) < 4:
+    halves = _halves(rss_mb, warmup_frac)
+    if halves is None:
         return None
-    start = int(len(rss_mb) * warmup_frac)  # 起動直後のロード変動を除外（len>=4 で start<len）
-    usable = rss_mb[start:]
-    half = len(usable) // 2
-    baseline = statistics.median(usable[:half])
-    final = statistics.median(usable[half:])
+    baseline, final = halves
     increase = final - baseline
     increasing = increase > LEAK_ABS_LIMIT_MB and increase > baseline * LEAK_REL_LIMIT
     return MemoryTrend(
@@ -70,6 +93,130 @@ def memory_trend(rss_mb: list[float], warmup_frac: float = 0.1) -> MemoryTrend |
         increase_mb=round(increase),
         increasing=increasing,
     )
+
+
+@dataclass
+class DriftWindow:
+    """1つの時間窓に入った caption の遅延。"""
+
+    index: int  # 0 起点の窓番号
+    start_s: float  # 窓の開始（配信開始からの経過秒）
+    count: int
+    median_s: float
+    max_s: float
+
+
+@dataclass
+class LatencyDrift:
+    windows: list[DriftWindow]  # caption が1件以上あった窓だけ
+    empty_windows: int  # 期間内で caption が1件も無かった窓の数
+    first_median_s: float
+    last_median_s: float
+    increase_s: float
+    drifting: bool  # 試験中に遅延が悪化したか
+
+
+def latency_drift(
+    samples: list[tuple[float, int]], window_s: float = DRIFT_WINDOW_S
+) -> LatencyDrift | None:
+    """`(経過秒, delay_ms)` を時間窓へ束ね、窓ごとの中央値の推移を出す（#32）。
+
+    `memory_trend` が前半/後半の2分割なのに対し、遅延は「いつから悪化したか」を
+    見たいので窓を並べる。判定に使うのは最初と最後の窓だけで、間の窓は
+    レポートで人が読むためのもの。
+
+    窓が1つしか作れない（＝推移が取れない）なら None。
+    caption が1件も無かった窓は中央値に混ぜず、`empty_windows` として数える
+    （0件の窓を0秒として平均すると「速くなった」に見えてしまう）。
+    """
+    if not samples:
+        return None
+    buckets: dict[int, list[int]] = {}
+    for at_s, delay_ms in samples:
+        buckets.setdefault(int(at_s // window_s), []).append(delay_ms)
+    last_index = max(buckets)
+    if last_index == 0:
+        return None  # 窓が1つ＝推移が存在しない
+    windows = [
+        DriftWindow(
+            index=i,
+            start_s=i * window_s,
+            count=len(buckets[i]),
+            median_s=round(statistics.median(buckets[i]) / 1000, 2),
+            max_s=round(max(buckets[i]) / 1000, 2),
+        )
+        for i in sorted(buckets)
+    ]
+    first, last = windows[0].median_s, windows[-1].median_s
+    increase = round(last - first, 2)
+    return LatencyDrift(
+        windows=windows,
+        empty_windows=(last_index + 1) - len(windows),
+        first_median_s=first,
+        last_median_s=last,
+        increase_s=increase,
+        drifting=increase > DRIFT_ABS_LIMIT_S and increase > first * DRIFT_REL_LIMIT,
+    )
+
+
+@dataclass
+class ResourceTrend:
+    """スレッド数・ハンドル数・asyncioタスク数の推移（#32）。"""
+
+    name: str
+    samples: int
+    baseline: float  # warmup後・前半の中央値
+    final: float  # 後半の中央値
+    peak: float
+    increase: float
+    growing: bool  # リーク傾向ありか
+
+
+def resource_trend(
+    name: str, values: list[float], warmup_frac: float = 0.1
+) -> ResourceTrend | None:
+    """リソース数の前半/後半の中央値を比べ、リーク傾向を判定する（#32）。
+
+    メモリと同じ数え方に揃える理由は、これらのリークがメモリ増加としては
+    現れないことがあるため（ハンドルとタスクは1個あたりのRSSが小さく、
+    5GBの N-05 に当たる前に ulimit / ハンドル上限の側で先に壊れる）。
+    """
+    halves = _halves(values, warmup_frac)
+    if halves is None:
+        return None
+    baseline, final = halves
+    increase = final - baseline
+    return ResourceTrend(
+        name=name,
+        samples=len(values),
+        baseline=round(baseline, 1),
+        final=round(final, 1),
+        peak=round(max(values), 1),
+        increase=round(increase, 1),
+        growing=increase > RESOURCE_ABS_LIMIT and increase > baseline * RESOURCE_REL_LIMIT,
+    )
+
+
+@dataclass
+class DroppedAudio:
+    """試験中に失われた音声（#32）。破棄地点は2つあり、意味が違う。
+
+    - `segments` / `seconds`: **容量**側。`limits.asr_queue_seconds` に達して
+      捨てた確定 Segment。0 でなければ授業で字幕が欠けている。
+    - `frames_rejected`: **不正入力**側。`limits.max_audio_bytes` を超えたフレーム。
+      正常なクライアントでは 0 で、0 でなければ壊れた送信元がいる。
+
+    まとめて1つの型にしているのは、この3つが judge・Results・レポートの
+    どこへ行くにも必ず一緒に動くため。
+    """
+
+    segments: int = 0
+    seconds: float = 0.0
+    frames_rejected: int = 0
+
+    @property
+    def any_loss(self) -> bool:
+        return self.segments > 0 or self.frames_rejected > 0
 
 
 @dataclass
@@ -86,8 +233,16 @@ def judge(
     reconnect_failures: int,
     ran_seconds: float,
     target_seconds: float,
+    drift: LatencyDrift | None = None,
+    resources: list[ResourceTrend | None] | None = None,
+    dropped: DroppedAudio | None = None,
 ) -> Verdict:
-    """計測値を受け入れ基準に照らし、合否と不合格理由を返す。"""
+    """計測値を受け入れ基準に照らし、合否と不合格理由を返す。
+
+    `drift` / `resources` / `dropped` は長時間試験の追加判定（#32）で、
+    省略すれば #17 の判定と完全に同じになる（既存の呼び出しは不変）。
+    いずれも N-08「試験長を通して劣化なし」の別の顔なので N-08 として数える。
+    """
     reasons: list[str] = []
     if latency is None:
         reasons.append("captionを1件も受信できなかった（ASR/翻訳が機能していない可能性）")
@@ -107,6 +262,27 @@ def judge(
         reasons.append(f"サーバークラッシュ {crashes}回 (N-08)")
     if reconnect_failures > 0:
         reasons.append(f"切断復元失敗 {reconnect_failures}回 (N-08)")
+    if drift is not None and drift.drifting:
+        reasons.append(
+            f"遅延のドリフトあり: 最初の窓 {drift.first_median_s}s → "
+            f"最後の窓 {drift.last_median_s}s (+{drift.increase_s}s) (N-08)"
+        )
+    for res in resources or []:
+        if res is not None and res.growing:
+            reasons.append(
+                f"{res.name} が増加傾向 ({res.baseline:g}→{res.final:g}, "
+                f"+{res.increase:g})、リーク疑い (N-08)"
+            )
+    if dropped is not None and dropped.any_loss:
+        if dropped.segments > 0:
+            reasons.append(
+                f"音声の破棄 {dropped.segments}件 ({dropped.seconds:.1f}s)"
+                f"、処理が追いつかなかった (N-08)"
+            )
+        if dropped.frames_rejected > 0:
+            reasons.append(
+                f"上限超過の音声フレーム {dropped.frames_rejected}枚を受け取れなかった (N-08)"
+            )
     if ran_seconds < target_seconds * 0.98:
         reasons.append(f"試験が最後まで完走しなかった ({ran_seconds:.0f}s / {target_seconds:.0f}s)")
     return Verdict(passed=not reasons, reasons=reasons)

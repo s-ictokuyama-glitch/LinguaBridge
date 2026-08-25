@@ -165,10 +165,34 @@ PRD の N-01（遅延 中央値≤5s/最大≤8s）・N-05（常駐≤5GB）・N
 .venv\Scripts\python scripts\replay_client.py --audio 授業録音.wav   # 実録音で45分試験
 .venv\Scripts\python scripts\replay_client.py --minutes 2            # 短縮スモーク（合成音源）
 .venv\Scripts\python scripts\replay_client.py --minutes 2 --partial on   # partial字幕の A/B（#29）
+.venv\Scripts\python scripts\replay_client.py --minutes 60 --corpus ja_ext  # 長時間連続動作試験（#32）
 ```
 
 `--partial on|off` は partial字幕（先生のみ）の A/B 用。ドリフトを効果と読まないよう
 **同じ時間帯に off → on を背中合わせで撮る**こと（#26 B-4 の教訓）。
+
+`--corpus ja|ja_ext` はループ合成に使う音源。既定 `ja` は #17 以来の10文で、既存レポートとの
+比較可能性を守るためのもの。`ja_ext` は #22 の拡張コーパス（35クリップ/200秒。話速×3・
+文中の間・言い淀み・雑音SNR 20/10dB・無発話）で、**長時間試験はこちらで走らせる**。
+`--langs en,zh` は生徒の言語配分。
+
+45分以上の試験では、遅延ドリフト（5分窓ごとの中央値の推移）・スレッド/ハンドル/asyncioタスク・
+ASR滞留とMTキューの増加傾向・破棄音声が判定に入る（#32）。「遅いか」ではなく
+**「だんだん悪くなるか」**を見る指標なので、短いスモークでは窓が1つしか作れず判定されない。
+
+### スケーリングベンチ（`scripts\scale_bench.py`・#32）
+
+生徒 1/10/20/40 × 対象言語 1/2/3/5 で推論回数を測り、**ASR回数が生徒人数で増えないこと**と
+**翻訳回数が同一言語の人数で増えないこと**を数値で示す。
+
+```powershell
+.venv\Scripts\python scripts\scale_bench.py                  # 既定の行列（1点2分 × 16点）
+.venv\Scripts\python scripts\scale_bench.py --students 1,10  # 軸を絞る
+```
+
+実エンジン（Hy-MT2 / NLLB）の対応言語は現在 `en` / `zh` の2つだけなので、**3言語・5言語の点は
+MT を `fake` に落として回数だけを見る**（多言語対応は #5）。レポートは
+`docs\bench\<日付>-scaling.md`。
 
 既定エンジン（hy-mt2）が基準を満たさない場合は自動で NLLB を再測定し、合格した構成を
 `config.yaml` の `mt.engine` 既定に反映する。レポートは `docs\accept\` に出力。

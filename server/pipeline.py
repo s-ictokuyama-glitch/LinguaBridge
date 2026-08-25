@@ -119,8 +119,25 @@ _NOTICE_COOLDOWN_S = 10.0
 # 混雑で差分復元を積めなかったときのWSクローズコード。1013 = Try Again Later
 _RETRY_CLOSE_CODE = 1013
 
+# ASR滞留の秒数を 0 とみなす下限（#32）。16kHz の1サンプルは 62.5µs なので、
+# これより短い「音声」は存在しない＝浮動小数の端数でしかない
+_AUDIO_EPSILON_S = 1e-6
+
 # 先生の話す言語。現状は日本語固定だが、キャッシュキーには明示的に含める（#26 B-4）
 _SOURCE_LANG = "ja"
+
+
+def _live_task_count() -> int:
+    """生存 asyncio タスク数（#32 のタスクリーク検出）。
+
+    `stats_snapshot()` は同期メソッドで、イベントループの外からも呼ばれる
+    （ユニットテスト・将来の同期エンドポイント）。**stats は決して例外を
+    投げてはならない**ので、ループが無ければ 0 を返す（見えない＝増えていない）。
+    """
+    try:
+        return len(asyncio.all_tasks())
+    except RuntimeError:
+        return 0
 
 
 class Pipeline:
@@ -163,6 +180,23 @@ class Pipeline:
         self.partials_sent = 0
         self.partials_stale = 0
         self.interims_skipped = 0
+        # 通算の推論回数（#32）。「生徒が増えても ASR は増えない」「同一言語の人数で
+        # Hy-MT2 は増えない」を実エンジンの実負荷で数値にするための計数器。
+        # `_asr_ms_samples` / `_mt_ms_samples` は deque(maxlen=) の**標本**なので
+        # 通算回数には使えない（中央値と回数は別物）
+        self.asr_calls = 0  # 確定 Segment の ASR 推論回数（partial は含めない）
+        self.asr_partial_calls = 0  # interim（partial）の ASR 推論回数
+        self.mt_calls = 0  # **実際に推論した**翻訳の回数（キャッシュヒットは含めない）
+        # ASR待ち秒数の上限で捨てたぶん（#25 A-2 の破棄地点）。通知を数えるだけでは
+        # クールダウン（10秒）に丸められて実数が分からない
+        self.asr_dropped_segments = 0
+        self.asr_dropped_seconds = 0.0
+        # 上限超過で受け取らなかった音声フレーム数（`limits.max_audio_bytes`）。
+        # 破棄地点はここと `_enqueue_asr` の2つで、意味が違う:
+        # ここは**不正な入力**（100msフレームのはずが巨大）、あちらは**容量**。
+        # 送信キュー溢れ（`delivery.py`）は破棄ではなく切断なので、
+        # 長時間試験では disconnects の側に出る
+        self.audio_frames_rejected = 0
         # Segment を Turn へ束ねる（#27）。ASR の**後段**に置く。文法クラスの判定に
         # ASR テキストが要るので、VAD の中では決められない
         self._assembler = TurnAssembler(
@@ -324,6 +358,8 @@ class Pipeline:
         if self._queued_audio_s > 0 and (
             self._queued_audio_s + seconds > self._limits.asr_queue_seconds
         ):
+            self.asr_dropped_segments += 1
+            self.asr_dropped_seconds += seconds
             logger.warning(
                 "ASR待ちが上限 %.1f 秒に達したため %.2f 秒の音声を破棄しました",
                 self._limits.asr_queue_seconds,
@@ -441,6 +477,15 @@ class Pipeline:
                     self._queued_audio_s = max(
                         0.0, self._queued_audio_s - self._active_audio_s
                     )
+                    # 浮動小数の端数を掃き出す（#32）。積むのは到着順・引くのは
+                    # 処理順なので足し引きの順序が違い、全部さばいても 0 に戻らず
+                    # 2.2e-16 のような値が残る。残ると「滞留は空か」を `> 0` で
+                    # 見ている2か所が**恒久的に「空でない」**と読む:
+                    #   - `_enqueue_interim`: partial が二度と出なくなる（#29 が死ぬ）
+                    #   - `_enqueue_asr`: 「キューが空なら長さによらず必ず受ける」
+                    #     という carve-out が消え、長い1発話が捨てられうる
+                    if self._queued_audio_s < _AUDIO_EPSILON_S:
+                        self._queued_audio_s = 0.0
                     self._active_audio_s = 0.0
                 if isinstance(event, InterimSegment):
                     self._interim_in_flight = False  # 失敗・stale でも必ず解放する
@@ -473,6 +518,8 @@ class Pipeline:
         確定済みの文が巻き戻る。
         """
         turn_id = self._assembler.reserve_turn_id()
+        # 呼んだ時点で数える（#32）。stale で捨てても推論費用は払っている
+        self.asr_partial_calls += 1
         try:
             result = await asyncio.wait_for(
                 loop.run_in_executor(
@@ -504,6 +551,9 @@ class Pipeline:
         self, loop: asyncio.AbstractEventLoop, segment: Segment
     ) -> None:
         started = time.monotonic()
+        # 呼んだ時点で数える（#32）。タイムアウトしても幻覚で捨てても推論費用は
+        # 払っているので、「何回 ASR を叩いたか」はここが正しい数え場所になる
+        self.asr_calls += 1
         try:
             result = await asyncio.wait_for(
                 loop.run_in_executor(
@@ -653,6 +703,9 @@ class Pipeline:
             translation = self._translation_from_cache(job)
         if translation is None:
             started = time.monotonic()
+            # 呼んだ時点で数える（#32）。キャッシュヒットも復元済みの再送もここへ
+            # 来ないので、これが「Hy-MT2 を叩いた回数」そのものになる
+            self.mt_calls += 1
             try:
                 text = await asyncio.wait_for(
                     loop.run_in_executor(
@@ -844,6 +897,16 @@ class Pipeline:
             mt_cache_hit_rate=round(cache.hit_rate, 3),
             mt_cache_hits=cache.hits,
             mt_cache_size=cache.size,
+            # 通算の推論回数と破棄（#32）。スケーリング試験はこの差分だけを見る
+            asr_calls=self.asr_calls,
+            asr_partial_calls=self.asr_partial_calls,
+            mt_calls=self.mt_calls,
+            audio_frames_rejected=self.audio_frames_rejected,
+            asr_dropped_segments=self.asr_dropped_segments,
+            asr_dropped_seconds=round(self.asr_dropped_seconds, 2),
+            # 生存 asyncio タスク数（#32）。タスクリークはクライアント側からは
+            # 原理的に見えない（プロセスのスレッド数にもハンドル数にも出ない）
+            tasks=_live_task_count(),
         )
 
     async def _check_mic_silence(self) -> None:

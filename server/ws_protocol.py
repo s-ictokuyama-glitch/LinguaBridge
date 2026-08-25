@@ -169,6 +169,21 @@ class Stats(BaseModel):
     mt_cache_hit_rate: float = 0.0
     mt_cache_hits: int = 0
     mt_cache_size: int = 0
+    # 通算の推論回数（#32）。上の median_asr_ms / median_mt_ms は deque(maxlen=) の
+    # 標本から出した中央値で、回数は表せない。スケーリング試験（生徒 1/10/20/40 ×
+    # 言語 1/2/3/5）はこの3つの**差分**だけで主張を検証する
+    asr_calls: int = 0  # 確定 Segment の ASR 推論回数（生徒数で増えないはず）
+    asr_partial_calls: int = 0  # interim（partial）の ASR 推論回数
+    mt_calls: int = 0  # 実際に推論した翻訳の回数（同一言語の人数で増えないはず）
+    # 破棄したぶん。error 通知はクールダウンで間引かれるので実数はここでしか分からない。
+    # 破棄地点は2つあり意味が違う: 上限超過フレーム＝**不正な入力**、
+    # ASR待ち秒数超過＝**容量**（#25 A-2）
+    audio_frames_rejected: int = 0
+    asr_dropped_segments: int = 0
+    asr_dropped_seconds: float = 0.0
+    # 生存 asyncio タスク数（#32 のタスクリーク検出）。プロセスのスレッド数にも
+    # ハンドル数にも出ないので、サーバー自身が報告するしかない
+    tasks: int = 0
 
 
 class ErrorMsg(BaseModel):

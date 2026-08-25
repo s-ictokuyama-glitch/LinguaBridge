@@ -43,14 +43,24 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts.acceptance import (  # noqa: E402
+    DRIFT_WINDOW_S,
+    DroppedAudio,
+    LatencyDrift,
+    ResourceTrend,
     Verdict,
     judge,
+    latency_drift,
     latency_stats,
     memory_trend,
+    resource_trend,
 )
 from server.config import load_config  # noqa: E402
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "ja"
+# #22 の拡張音源（話速×3・文中の間・言い淀み・雑音SNR 20/10dB・無発話の雑音のみ）。
+# 長時間試験ではこちらを使う: 同じ10文をループするより、実授業に近い揺れで
+# VAD・区切り・幻覚フィルタを踏み続けられる
+EXT_INDEX = ROOT / "tests" / "fixtures" / "ja_ext" / "index.json"
 SAMPLE_RATE = 16000
 CHUNK_BYTES = 3200  # 100ms @16kHz PCM16
 GAP_S = 1.5  # 合成音源で発話間に挟む無音（VADの発話終了を誘発）
@@ -75,10 +85,24 @@ def read_wav_16k_mono(path: Path) -> np.ndarray:
         return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
 
 
-def build_stream(minutes: float, audio_path: str | None) -> np.ndarray:
+def corpus_clips(corpus: str) -> list[Path]:
+    """ループ合成に使う wav の一覧。
+
+    `ja` は #17 以来の既定（10文）。`ja_ext` は #22 の拡張コーパスで、
+    `index.json` の並び順を守る（カテゴリが混ざる順序そのものが揺れの一部）。
+    """
+    if corpus == "ja":
+        return sorted(FIXTURE_DIR.glob("*.wav"))
+    if not EXT_INDEX.exists():
+        sys.exit(f"拡張コーパスが無い: {EXT_INDEX}。scripts/build_fixture_corpus.py を実行のこと")
+    index = json.loads(EXT_INDEX.read_text(encoding="utf-8"))
+    return [ROOT / clip["path"] for clip in index["clips"]]
+
+
+def build_stream(minutes: float, audio_path: str | None, corpus: str = "ja") -> np.ndarray:
     if audio_path:
         return read_wav_16k_mono(Path(audio_path))
-    fixtures = sorted(FIXTURE_DIR.glob("*.wav"))
+    fixtures = corpus_clips(corpus)
     if not fixtures:
         sys.exit(f"fixture が無い: {FIXTURE_DIR}。scripts/make_fixture_audio.ps1 を実行のこと")
     gap = np.zeros(int(SAMPLE_RATE * GAP_S), dtype=np.int16)
@@ -101,8 +125,19 @@ def build_stream(minutes: float, audio_path: str | None) -> np.ndarray:
 class Results:
     stop: asyncio.Event = field(default_factory=asyncio.Event)
     captions: dict[tuple[int, str], int] = field(default_factory=dict)  # (seq,lang)->delay_ms
+    # 遅延ドリフト（#32）用の (配信開始からの経過秒, delay_ms)。captions は
+    # (seq,lang) で重複排除した「分布」で、いつ届いたかを保持できない
+    lat_samples: list[tuple[float, int]] = field(default_factory=list)
     rss_mb: list[float] = field(default_factory=list)
     cpu_percent: list[float] = field(default_factory=list)  # プロセスツリー合計（1コア=100%）
+    # リソースリーク（#32）。スレッド・ハンドルはプロセスツリーから、
+    # asyncio タスク数はサーバー自身の stats から取る（外からは見えない）
+    threads: list[float] = field(default_factory=list)
+    handles: list[float] = field(default_factory=list)
+    tasks: list[float] = field(default_factory=list)
+    # 先生が受けた過負荷通知の内訳（code -> 件数）。クールダウンで間引かれるので
+    # 「起きたか」は分かるが「何件起きたか」はサーバーの計数器の側で見る
+    notices: dict[str, int] = field(default_factory=dict)
     stats_samples: list[dict] = field(default_factory=list)  # 先生が受けた stats メッセージ
     audio_started_at: float | None = None  # 先生が音声送信を始めた時刻（monotonic）
     first_caption_at: float | None = None  # 最初の caption が生徒に届いた時刻
@@ -193,6 +228,22 @@ class Results:
             "lead_min_s": (round(min(leads), 3) if leads else None),
         }
 
+    def dropped_audio(self) -> DroppedAudio:
+        """試験中に失われた音声（サーバーの通算計数器の最終値）。
+
+        stats は2秒ごとに来るので最後のサンプルが通算値になる。
+        1件も stats を受けていないなら「失われていない」ではなく
+        「観測していない」だが、その場合は caption も 0 件で別途落ちる。
+        """
+        if not self.stats_samples:
+            return DroppedAudio()
+        last = self.stats_samples[-1]
+        return DroppedAudio(
+            segments=last["asr_dropped_segments"],
+            seconds=last["asr_dropped_seconds"],
+            frames_rejected=last["audio_frames_rejected"],
+        )
+
     def record_caption(self, msg: dict) -> None:
         if self.first_caption_at is None and msg["delay_ms"] > 0:
             self.first_caption_at = time.monotonic()  # 復元再送(delay_ms=0)は初回に数えない
@@ -201,6 +252,15 @@ class Results:
         # caption は delay_ms=0（歴史的再送、pipeline側で0固定）で届きうる。ライブ配信は
         # 復元ジョブより優先度が高く必ず先に届くため、setdefault(初回優先)で
         # ライブの実遅延を採り、後着の復元0で過小評価しない。
+        if key not in self.captions and self.audio_started_at is not None and msg["delay_ms"] > 0:
+            # ドリフトは「初めて見た (seq,lang)」だけで数える。5生徒に同じ caption が
+            # 配られるぶんを混ぜると、生徒数が窓の重みになってしまう。
+            # **復元再送（delay_ms=0）は除く**（`first_caption_at` と同じ理由）。
+            # 0秒を窓に混ぜると最初の窓の中央値が 0 に落ち、相対閾値
+            # （increase > first * 0.5）が常に真になってドリフト判定が壊れる
+            self.lat_samples.append(
+                (time.monotonic() - self.audio_started_at, msg["delay_ms"])
+            )
         self.captions.setdefault(key, msg["delay_ms"])
 
 
@@ -245,13 +305,29 @@ async def drain_teacher(ws, results: Results) -> None:
                         # 旧サーバーには無いフィールドなので既定 0 で読む
                         "audio_queue_seconds": msg.get("audio_queue_seconds", 0.0),
                         "median_delay_ms": msg["median_delay_ms"],
+                        "mt_queue_depth": msg.get("mt_queue_depth", 0),
                         "overloaded": msg.get("overloaded", False),
                         # #26 の翻訳キャッシュ。旧サーバーには無いので既定 0
                         "mt_cache_hit_rate": msg.get("mt_cache_hit_rate", 0.0),
                         "mt_cache_hits": msg.get("mt_cache_hits", 0),
                         "mt_cache_size": msg.get("mt_cache_size", 0),
+                        # 通算の推論回数と破棄（#32）。旧サーバーには無いので既定 0
+                        "asr_calls": msg.get("asr_calls", 0),
+                        "asr_partial_calls": msg.get("asr_partial_calls", 0),
+                        "mt_calls": msg.get("mt_calls", 0),
+                        "audio_frames_rejected": msg.get("audio_frames_rejected", 0),
+                        "asr_dropped_segments": msg.get("asr_dropped_segments", 0),
+                        "asr_dropped_seconds": msg.get("asr_dropped_seconds", 0.0),
+                        "tasks": msg.get("tasks", 0),
                     }
                 )
+                if msg.get("tasks"):
+                    results.tasks.append(float(msg["tasks"]))
+            elif msg["type"] == "error":
+                # 過負荷通知（audio_dropped / mt_backlog / asr_timeout / mt_timeout）と
+                # 無音警告（mic_silent）。授業中に先生の画面へ出るものがそのまま来る
+                code = msg.get("code", "unknown")
+                results.notices[code] = results.notices.get(code, 0) + 1
     except Exception:
         pass  # 送信側の切断は run_teacher が記録する
 
@@ -361,6 +437,30 @@ def tree_rss_mb(root: psutil.Process) -> float | None:
     return total / 1e6
 
 
+def tree_counts(root: psutil.Process) -> tuple[float, float | None] | None:
+    """プロセスツリー全体の (スレッド数, ハンドル数) 合計（#32）。
+
+    ハンドルは Windows の `num_handles()`、POSIX では `num_fds()` を使う。
+    **どちらも取れない環境ではハンドルを None で返す**。0 を返すと
+    レポートに `0→0` と出て「測ったが増えなかった」と誤読されるが、
+    実際には測れていない（レポートは `-` になるべき）。
+    """
+    procs = proc_tree(root)
+    if procs is None:
+        return None
+    threads = 0.0
+    handles: float | None = None
+    for p in procs:
+        try:
+            threads += p.num_threads()
+            counter = getattr(p, "num_handles", None) or getattr(p, "num_fds", None)
+            if counter is not None:
+                handles = (handles or 0.0) + counter()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return threads, handles
+
+
 class TreeCpuSampler:
     """プロセスツリー全体のCPU使用率（前回呼び出しからの区間平均、1コア=100%）。
 
@@ -417,6 +517,11 @@ async def sample_rss(proc: subprocess.Popen, results: Results) -> None:
             results.stop.set()
             return
         results.rss_mb.append(rss)
+        counts = tree_counts(root)
+        if counts is not None:
+            results.threads.append(counts[0])
+            if counts[1] is not None:
+                results.handles.append(counts[1])
         cpu = cpu_sampler.sample()
         if cpu is not None:
             results.cpu_percent.append(cpu)
@@ -424,12 +529,18 @@ async def sample_rss(proc: subprocess.Popen, results: Results) -> None:
 
 
 async def _drive(
-    port: int, code: str, pcm: np.ndarray, n_students: int, drain_s: float, proc: subprocess.Popen
+    port: int,
+    code: str,
+    pcm: np.ndarray,
+    n_students: int,
+    drain_s: float,
+    proc: subprocess.Popen,
+    langs: list[str] | None = None,
 ) -> Results:
     results = Results()
-    langs = ["en", "zh"]
+    langs = langs or ["en", "zh"]
     students = [
-        asyncio.create_task(run_student(port, code, langs[i % 2], results))
+        asyncio.create_task(run_student(port, code, langs[i % len(langs)], results))
         for i in range(n_students)
     ]
     sampler = asyncio.create_task(sample_rss(proc, results))
@@ -454,11 +565,13 @@ def write_config(
     dest: Path,
     asr_engine: str | None = None,
     partial: bool | None = None,
+    langs: list[str] | None = None,
+    mt_cache_size: int | None = None,
 ) -> Path:
     """試験用の config を書き出す。
 
-    `asr_engine` は #28 の ASR A/B 用、`partial` は #29 の partial A/B 用
-    （どちらも None なら config.yaml のまま）。
+    `asr_engine` は #28 の ASR A/B 用、`partial` は #29 の partial A/B 用、
+    `langs` は #32 のスケーリング試験用（いずれも None なら config.yaml のまま）。
     """
     base = load_config(ROOT / "config.yaml").model_dump()
     base["server"]["http_port"] = port
@@ -469,6 +582,17 @@ def write_config(
     if partial is not None:
         base["partial"]["enabled"] = partial
         suffix += f"-partial{'on' if partial else 'off'}"
+    if langs:
+        # 生徒が選べる言語は config の languages が決める。ここを絞らないと
+        # 生徒の join が拒否される（言語コードの検証は join の側にある）
+        base["languages"] = [{"code": c, "label": c} for c in langs]
+        suffix += f"-{len(langs)}lang"
+    if mt_cache_size is not None:
+        # 0 でキャッシュ無効＝**MT負荷の上界**を測る（#32）。ループ合成の音源は
+        # 同じ原文が何周も来るのでヒット率が実授業よりはるかに高くなり、
+        # 既定のままでは Hy-MT2 がほとんど動かない状態を計測してしまう
+        base["mt"]["cache_size"] = mt_cache_size
+        suffix += f"-cache{mt_cache_size}"
     cfg = dest / f"accept-{engine}{suffix}.yaml"
     import yaml
 
@@ -517,7 +641,13 @@ def _terminate_tree(proc: subprocess.Popen) -> None:
 
 def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dict:
     cfg = write_config(
-        engine, args.port, scratch, getattr(args, "asr", None), getattr(args, "partial", None)
+        engine,
+        args.port,
+        scratch,
+        getattr(args, "asr", None),
+        getattr(args, "partial", None),
+        getattr(args, "langs", None),
+        getattr(args, "mt_cache_size", None),
     )
     log = open(scratch / f"server-{engine}.log", "w", encoding="utf-8")
     print(f"\n=== エンジン {engine}: サーバー起動 ===", flush=True)
@@ -530,17 +660,42 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
     try:
         wait_ready(args.port, proc)
         code = fetch_code(args.port)
-        pcm = build_stream(args.minutes, args.audio)
+        pcm = build_stream(args.minutes, args.audio, getattr(args, "corpus", "ja"))
         print(f"    参加コード {code} / 音源 {pcm.size / SAMPLE_RATE:.0f}s / 生徒{args.students}名", flush=True)
         results = asyncio.run(
-            _drive(args.port, code, pcm, args.students, args.drain_seconds, proc)
+            _drive(
+                args.port,
+                code,
+                pcm,
+                args.students,
+                args.drain_seconds,
+                proc,
+                getattr(args, "langs", None),
+            )
         )
     finally:
         _terminate_tree(proc)
         log.close()
 
+    queued = [s["audio_queue_seconds"] for s in results.stats_samples]
+    depths = [s["queue_depth"] for s in results.stats_samples]
+    mt_depths = [float(s["mt_queue_depth"]) for s in results.stats_samples]
+    dropped = results.dropped_audio()
     lat = latency_stats(list(results.captions.values()))
     mem = memory_trend(results.rss_mb)
+    # 長時間試験の追加判定（#32）。短い周では窓が1つしか作れず drift は None になり、
+    # そのときは判定に効かない（＝スモークを長時間試験の基準で落とさない）
+    drift = latency_drift(results.lat_samples)
+    resources = [
+        resource_trend("threads", results.threads),
+        resource_trend("handles", results.handles),
+        resource_trend("tasks", results.tasks),
+        # queue growth（チケットが名指しした確認項目）。最大値だけでは
+        # 「一度跳ねた」と「増え続けている」が区別できないので、
+        # メモリと同じ前半/後半の中央値で見る
+        resource_trend("audio_queue_seconds", queued),
+        resource_trend("mt_queue_depth", mt_depths),
+    ]
     verdict = judge(
         lat,
         mem,
@@ -548,13 +703,17 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         reconnect_failures=results.reconnect_failures,
         ran_seconds=results.ran_seconds,
         target_seconds=args.minutes * 60,
+        drift=drift,
+        resources=resources,
+        dropped=dropped,
     )
-    queued = [s["audio_queue_seconds"] for s in results.stats_samples]
-    depths = [s["queue_depth"] for s in results.stats_samples]
     return {
         "engine": engine,
         "minutes": args.minutes,
         "students": args.students,
+        "corpus": getattr(args, "corpus", "ja"),
+        "mt_cache_size": getattr(args, "mt_cache_size", None),
+        "langs": getattr(args, "langs", None) or ["en", "zh"],
         "captions": len(results.captions),
         "latency": lat.__dict__ if lat else None,
         "memory": mem.__dict__ if mem else None,
@@ -601,6 +760,32 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
             if results.stats_samples
             else None
         ),
+        # 連続動作の健全性（#32）
+        "drift": (
+            {
+                "window_s": DRIFT_WINDOW_S,
+                "first_median_s": drift.first_median_s,
+                "last_median_s": drift.last_median_s,
+                "increase_s": drift.increase_s,
+                "drifting": drift.drifting,
+                "empty_windows": drift.empty_windows,
+                "windows": [w.__dict__ for w in drift.windows],
+            }
+            if drift
+            else None
+        ),
+        "resources": [r.__dict__ for r in resources if r is not None],
+        "dropped": {**dropped.__dict__, "notices": results.notices},
+        "calls": (
+            {
+                "asr": results.stats_samples[-1]["asr_calls"],
+                "asr_partial": results.stats_samples[-1]["asr_partial_calls"],
+                "mt": results.stats_samples[-1]["mt_calls"],
+                "tasks": results.stats_samples[-1]["tasks"],
+            }
+            if results.stats_samples
+            else None
+        ),
         "disconnects": results.disconnects,
         "reconnect_failures": results.reconnect_failures,
         "crashes": results.crashes,
@@ -619,7 +804,17 @@ def build_report(results: list[dict], system: dict) -> str:
     add(f"# 性能受け入れ試験レポート（イシュー#17） — {system['date']}")
     add("")
     add(f"- 計測機: **{system['cpu']}**（{system['cores']}C/{system['threads']}T, RAM {system['ram_gb']}GB, {system['os']}, Python {system.get('python', '?')}）")
-    add(f"- 試験長: {results[0]['minutes']}分 / 擬似生徒 {results[0]['students']}名（en/zh 半々）")
+    add(
+        f"- 試験長: {results[0]['minutes']}分 / 擬似生徒 {results[0]['students']}名"
+        f"（{'/'.join(results[0].get('langs') or ['en', 'zh'])} を順に割当）"
+    )
+    add(f"- 音源: {results[0].get('corpus', 'ja')}（`--audio` 指定時は録音そのもの）")
+    if results[0].get("mt_cache_size") is not None:
+        add(
+            f"- **翻訳キャッシュを `{results[0]['mt_cache_size']}` に上書きして計測**"
+            "（0 = 無効）。ループ合成の音源はヒット率が実授業よりはるかに高くなるので、"
+            "既定のままでは Hy-MT2 がほとんど動かない状態を測ることになる"
+        )
     add("- 遅延指標は caption の `delay_ms`（発話終了→送出）。ローカル同居クライアントのため受信までの差は無視できる")
     add("")
     add("> **注意**: 授業投入の正式判定は**実機（学校のi5）で45分の実授業録音**を `--audio` に与えて")
@@ -661,6 +856,80 @@ def build_report(results: list[dict], system: dict) -> str:
             f"{str(aq['median']) + 's' if aq else '-'} | {str(aq['max']) + 's' if aq else '-'} | "
             f"{qd['max'] if qd else '-'} | {r.get('overloaded_samples', '-')} |"
         )
+    add("")
+    add("### 連続動作の健全性（#32）")
+    add("")
+    add("| エンジン | 遅延ドリフト | スレッド | ハンドル | asyncioタスク | ASR滞留 | MTキュー | 破棄 | 過負荷通知 |")
+    add("|---------|------------|--------|---------|-------------|--------|---------|-----|----------|")
+    for r in results:
+        d = r.get("drift")
+        res = {x["name"]: x for x in r.get("resources", [])}
+
+        def cell(name: str) -> str:
+            x = res.get(name)
+            if not x:
+                return "-"
+            mark = " ⚠️" if x["growing"] else ""
+            return f"{x['baseline']:g}→{x['final']:g}{mark}"
+
+        drift_cell = (
+            f"{d['first_median_s']}s→{d['last_median_s']}s"
+            + (" ⚠️" if d["drifting"] else "")
+            if d
+            else "-（窓が1つ）"
+        )
+        dropped = r.get("dropped", {})
+        notices = dropped.get("notices") or {}
+        add(
+            f"| {r['engine']} | {drift_cell} | {cell('threads')} | {cell('handles')} | "
+            f"{cell('tasks')} | {cell('audio_queue_seconds')} | {cell('mt_queue_depth')} | "
+            f"容量{dropped.get('segments', 0)}件"
+            f"（{dropped.get('seconds', 0.0):.1f}s）/ 上限超過{dropped.get('frames_rejected', 0)}枚 | "
+            f"{', '.join(f'{k}×{v}' for k, v in notices.items()) if notices else 'なし'} |"
+        )
+    add("")
+    add(f"- ドリフト = {DRIFT_WINDOW_S:.0f}秒窓ごとの遅延中央値の、最初の窓と最後の窓の比較。")
+    add("  「遅いか」ではなく**「だんだん遅くなるか」**を見る（p95 では前半の速さに薄められる）")
+    add("- スレッド/ハンドル/タスク/キューは前半中央値→後半中央値。⚠️ は増加傾向の判定に当たったもの")
+    add("  （`-` は測れなかった指標。0→0 と区別する）")
+    add("- ASR滞留・MTキューは **queue growth** の判定。最大値だけでは「一度跳ねた」と")
+    add("  「増え続けている」が区別できないので、メモリと同じ前半/後半の中央値で見る")
+    add("- 破棄は2種類で意味が違う。**容量** = `limits.asr_queue_seconds`(30s) 到達で捨てた")
+    add("  Segment（0でなければ授業で字幕が欠けている）。**上限超過** = `limits.max_audio_bytes`")
+    add("  を超えたフレーム（不正入力側で、正常なクライアントでは 0）。")
+    add("  送信キュー溢れ（遅い生徒）は破棄ではなく切断なので、上の表の「切断」に出る")
+    add("- `asyncio` タスク数は**生徒ごとのWSハンドラを含む**ので、接続数が動く試験では")
+    add("  リークではなく接続数の増減を見ていることになる。生徒数が一定の試験でだけ読める")
+    add("")
+    for r in results:
+        d = r.get("drift")
+        if not d or not d["windows"]:
+            continue
+        add(f"<details><summary>{r['engine']}: 窓ごとの遅延推移</summary>")
+        add("")
+        add("| 窓 | 開始 | caption数 | 中央値 | 最大 |")
+        add("|----|------|----------|-------|------|")
+        for w in d["windows"]:
+            add(
+                f"| {w['index']} | {w['start_s'] / 60:.0f}分 | {w['count']} | "
+                f"{w['median_s']}s | {w['max_s']}s |"
+            )
+        add("")
+        add("</details>")
+        add("")
+    add("### 推論回数（#32）")
+    add("")
+    add("| エンジン | ASR（確定） | ASR（partial） | Hy-MT2/NLLB | キャッシュヒット | 生存タスク |")
+    add("|---------|-----------|--------------|------------|--------------|----------|")
+    for r in results:
+        c = r.get("calls") or {}
+        cache = r.get("mt_cache") or {}
+        add(
+            f"| {r['engine']} | {c.get('asr', '-')} | {c.get('asr_partial', '-')} | "
+            f"{c.get('mt', '-')} | {cache.get('hits', '-')} | {c.get('tasks', '-')} |"
+        )
+    add("")
+    add("- 生徒人数に対する回数の不変性はスケーリングベンチ（`scripts/scale_bench.py`）で測る")
     add("")
     add("- 初回字幕 = 配信開始→最初のcaption到達。**最初の発話が終わるまでの待ちを含む**")
     add(f"- CPU はサーバープロセスツリー合計（1コア=100%、論理{results[0].get('cpu_percent', {}).get('cores', '?') if results[0].get('cpu_percent') else '?'}コア）")
@@ -757,6 +1026,18 @@ def main() -> int:
     parser.add_argument("--minutes", type=float, default=45, help="試験長（分・既定45）")
     parser.add_argument("--students", type=int, default=10, help="擬似生徒数（既定10）")
     parser.add_argument("--audio", default=None, help="リプレイする録音WAV（16kHz mono）")
+    parser.add_argument(
+        "--corpus", default="ja", choices=["ja", "ja_ext"],
+        help="--audio 未指定時にループする合成音源（既定 ja。ja_ext は #22 の拡張コーパス）",
+    )
+    parser.add_argument(
+        "--langs", default=None,
+        help="生徒の言語をカンマ区切りで指定（既定は config.yaml の languages）",
+    )
+    parser.add_argument(
+        "--mt-cache-size", type=int, default=None,
+        help="翻訳キャッシュの上限件数を上書き（0 = 無効＝MT負荷の上界を測る・#32）",
+    )
     parser.add_argument("--engine", default=None, choices=["hy-mt2", "nllb"], help="エンジン固定")
     parser.add_argument(
         "--asr", default=None, choices=["faster-whisper", "sherpa"],
@@ -773,6 +1054,7 @@ def main() -> int:
     args = parser.parse_args()
     # "on"/"off" → bool/None（None なら config.yaml の値のまま）
     args.partial = None if args.partial is None else args.partial == "on"
+    args.langs = [c.strip() for c in args.langs.split(",")] if args.langs else None
 
     default_engine = load_config(ROOT / "config.yaml").mt.engine
     if args.engine:
