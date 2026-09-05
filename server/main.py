@@ -168,7 +168,7 @@ def create_app(
         host = request.client.host if request.client else None
         if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
             return JSONResponse({"detail": "forbidden"}, status_code=403)
-        join_url = f"http://{get_lan_ip()}:{config.server.http_port}/?code={session.join_code}"
+        join_url = config.server.join_url(session.join_code, get_lan_ip())
         return JSONResponse(
             {
                 "code": session.join_code,
@@ -360,6 +360,12 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
             )
         )
         teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
+
+    if config.server.join_scheme == "https" and not config.server.tls_ready():
+        logger.warning(
+            "server.join_scheme=https ですが証明書がありません。生徒用URLがつながらないので "
+            "'python scripts/make_cert.py' を実行するか join_scheme を http に戻してください"
+        )
 
     servers = [uvicorn.Server(c) for c in server_configs]
     # 2サーバーが個別にSIGINTを奪い合うと、片方（lifespanを持つHTTP側）が終了せず

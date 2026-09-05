@@ -5,6 +5,12 @@ server:
   cert_dir: certs/           # scripts/make_cert.py の出力先。証明書があればHTTPSも起動
   cert_file: cert.pem
   key_file: key.pem
+  # QR・参加URLのホスト。空ならLAN IPを自動検出。QRを読んだ端末が勝手に https へ
+  # 上げてしまう場合、mDNS名（例: linguabridge.local）を書くとアップグレード対象外になる
+  public_host: ""
+  # QR・参加URLのスキーム。既定 http（生徒に証明書警告なし）。端末設定でどうしても
+  # https に上げられる環境では https（8443を配る。初回だけ警告の承認が要る）
+  join_scheme: http
 
 models:
   # OneDrive同期の影響を受けない場所に置く（plan.md R-08）。環境変数は展開される

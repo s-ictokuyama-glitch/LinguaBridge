@@ -26,21 +26,28 @@ from server.main import get_lan_ip  # noqa: E402
 VALID_DAYS = 825
 
 
-def build_san(ip: str) -> list:
+def build_san(ip: str, extra_hosts: tuple[str, ...] = ()) -> list:
     from cryptography import x509
 
     names: list = [x509.DNSName("localhost"), x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]
     hostname = socket.gethostname()
     if hostname:
         names.append(x509.DNSName(hostname))
-    try:
-        names.append(x509.IPAddress(ipaddress.ip_address(ip)))
-    except ValueError:
-        pass
+    # config の public_host（mDNS名など）で配る場合、その名前もSANに要る
+    for host in (ip, *extra_hosts):
+        host = host.strip()
+        if not host:
+            continue
+        try:
+            entry: object = x509.IPAddress(ipaddress.ip_address(host))
+        except ValueError:
+            entry = x509.DNSName(host)
+        if entry not in names:
+            names.append(entry)
     return names
 
 
-def generate(cert_path: Path, key_path: Path) -> None:
+def generate(cert_path: Path, key_path: Path, extra_hosts: tuple[str, ...] = ()) -> None:
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -57,7 +64,9 @@ def generate(cert_path: Path, key_path: Path) -> None:
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + datetime.timedelta(days=VALID_DAYS))
-        .add_extension(x509.SubjectAlternativeName(build_san(get_lan_ip())), critical=False)
+        .add_extension(
+            x509.SubjectAlternativeName(build_san(get_lan_ip(), extra_hosts)), critical=False
+        )
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
@@ -91,7 +100,7 @@ def main() -> int:
         print(f"証明書は既に存在します: {cert_path}（再生成は --force）")
         return 0
 
-    generate(cert_path, key_path)
+    generate(cert_path, key_path, extra_hosts=(config.server.public_host,))
     print(f"生成しました:\n  {cert_path}\n  {key_path}")
     print(f"有効期間: {VALID_DAYS}日。先生ページを HTTPS で開くと初回に警告が出るので承認してください。")
     return 0

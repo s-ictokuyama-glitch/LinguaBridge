@@ -22,6 +22,27 @@ class ServerConfig(BaseModel):
     cert_dir: str = "certs/"
     cert_file: str = "cert.pem"  # cert_dir 配下
     key_file: str = "key.pem"
+    # QR・参加URL のホスト。空ならLAN IPを自動検出する。最近のブラウザ/QRリーダーは
+    # http:// を https:// に自動アップグレードすることがあるが、mDNS名(例 linguabridge.local)
+    # のような「非一意ホスト名」はどのブラウザでもアップグレード対象外なので逃げ道になる
+    public_host: str = ""
+    # QR・参加URL のスキーム。既定 "http"（生徒に証明書警告を出さない）。
+    # 端末側の設定でどうしても https に上げられてしまう環境では "https" にして
+    # 8443 を配ると、警告承認1回と引き換えに確実につながる
+    join_scheme: str = "http"
+
+    @field_validator("join_scheme")
+    @classmethod
+    def _join_scheme_supported(cls, v: str) -> str:
+        if v not in ("http", "https"):
+            raise ValueError(f"server.join_scheme は 'http' か 'https': '{v}'")
+        return v
+
+    def join_url(self, code: str, lan_ip: str) -> str:
+        """生徒に配る参加URL（QRの中身）。public_host 未設定なら検出したLAN IPを使う。"""
+        host = self.public_host.strip() or lan_ip
+        port = self.https_port if self.join_scheme == "https" else self.http_port
+        return f"{self.join_scheme}://{host}:{port}/?code={code}"
 
     def cert_path(self) -> Path:
         # cwd 非依存: 相対 cert_dir はリポジトリルート基準で解決する
