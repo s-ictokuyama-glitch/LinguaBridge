@@ -2,10 +2,21 @@
 # 日本語メッセージや条件分岐は、cmd.exeのコードページ依存パースを避けるため
 # ここ（PowerShell）に集約する。start.bat は純ASCIIの薄いシムに保つ。
 
+param([switch]$Diagnose)
+
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 $venvPython = "$root\.venv\Scripts\python.exe"
+if ($Diagnose) {
+    # 診断ではセットアップ・モデル取得・OS設定変更へ進まない。
+    if (-not (Test-Path $venvPython)) {
+        Write-Host "[未確認] .venv の Python がありません。設定担当者にセットアップ状況を確認してください。"
+        exit 2
+    }
+    & $venvPython -B -m server.diagnostics
+    exit $LASTEXITCODE
+}
 # セットアップ要否は「.venvの有無」ではなく「完了マーカーの有無」で判定する。
 # モデルDL（数GB）の途中で中断されると .venv だけ残るため、.venv基準だと
 # 次回起動でセットアップをスキップしてしまい start.bat だけでは復旧できない。

@@ -14,12 +14,13 @@ import socket
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from typing import AsyncIterator
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
@@ -228,6 +229,16 @@ def create_app(
     @app.get("/teacher")
     async def teacher_page() -> FileResponse:
         return FileResponse(WEB_DIR / "teacher.html")
+
+    @app.get("/connection-help", response_class=HTMLResponse)
+    async def connection_help() -> HTMLResponse:
+        page = (WEB_DIR / "connection-help.html").read_text(encoding="utf-8")
+        for name, value in {
+            "ip": get_lan_ip(), "http_port": config.server.http_port,
+            "https_port": config.server.https_port,
+        }.items():
+            page = page.replace("{{" + name + "}}", escape(str(value)))
+        return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
@@ -559,6 +570,7 @@ def main() -> None:
     print(f"  参加コード : {session.join_code}")
     print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
     print(f"  先生ページ : {teacher_line}")
+    print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")
     if not https:
         print("    （マイクにはセキュアコンテキストが必要。証明書が無いため localhost 運用）")
     else:

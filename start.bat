@@ -4,5 +4,12 @@ rem cmd.exe's batch parser can misparse non-ASCII text depending on the
 rem active codepage at parse time, so all logic and Japanese messages
 rem live in scripts\run.ps1 (PowerShell handles UTF-8 reliably).
 cd /d "%~dp0"
+if /I "%~1"=="--diagnose" goto diagnose
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run.ps1"
+goto finished
+:diagnose
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run.ps1" -Diagnose
+:finished
+set "startExitCode=%ERRORLEVEL%"
 pause
+exit /b %startExitCode%
