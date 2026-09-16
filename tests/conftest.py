@@ -11,6 +11,16 @@ from server.mt.fake_engine import FakeTranslationEngine
 JOIN_CODE = "4831"
 
 
+@pytest.fixture(autouse=True)
+def local_network_inventory(monkeypatch):
+    """OS境界を固定し、開発PCのNICや接続中のWi-Fiにテストを依存させない。"""
+    from server.network import InterfaceAddress
+
+    monkeypatch.setattr("server.network.list_addresses", lambda: [
+        InterfaceAddress("Wi-Fi", "192.168.5.25", True, "physical")
+    ])
+
+
 def make_ws_test_config() -> AppConfig:
     """WS境界テスト用の設定。VADは決定的な energy
     （テストが送る定数振幅PCMを Silero は音声と判定しないため）。"""

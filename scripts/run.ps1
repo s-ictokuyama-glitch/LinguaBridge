@@ -53,7 +53,7 @@ if (-not (Test-Path $setupComplete) -or -not (Test-Path $venvPython)) {
     exit 1
 }
 
-& $venvPython -m server.main --open-browser
+& $venvPython -m server.main --open-browser --select-network
 $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
     Write-Host ""

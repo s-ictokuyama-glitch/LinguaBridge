@@ -20,6 +20,7 @@ const state = {
 
 const el = {
   pageError: document.getElementById("page-error"),
+  networkError: document.getElementById("network-error"),
   qr: document.getElementById("qr"),
   joinCode: document.getElementById("join-code"),
   joinUrl: document.getElementById("join-url"),
@@ -179,18 +180,43 @@ async function onMicSelected() {
   }
 }
 
-async function init() {
-  const res = await fetch("/api/teacher-info");
-  if (!res.ok) {
-    el.pageError.textContent =
-      "先生ページはサーバーPC上で http://127.0.0.1:8000/teacher を開いてください。";
-    el.pageError.hidden = false;
-    return;
+async function refreshJoinInfo() {
+  try {
+    const res = await fetch("/api/teacher-info", {
+      cache: "no-store", signal: AbortSignal.timeout(12000),
+    });
+    const info = await res.json();
+    if (!res.ok) {
+      throw new Error(res.status === 503 ? info.detail :
+        "先生ページはサーバーPCの起動案内にあるURLで開いてください。");
+    }
+    if (el.joinUrl.textContent !== info.join_url) {
+      el.qr.textContent = "";
+      new QRCode(el.qr, { text: info.join_url, width: 200, height: 200 });
+    }
+    el.joinCode.textContent = info.code;
+    el.joinUrl.textContent = info.join_url;
+    el.networkError.hidden = true;
+    return info;
+  } catch (err) {
+    el.qr.textContent = "";
+    el.joinUrl.textContent = "";
+    el.joinCode.textContent = "";
+    el.networkError.textContent = err.message || "接続先を確認できません。サーバーを確認してください。";
+    el.networkError.hidden = false;
+    return null;
   }
-  const info = await res.json();
-  el.joinCode.textContent = info.code;
-  el.joinUrl.textContent = info.join_url;
-  new QRCode(el.qr, { text: info.join_url, width: 200, height: 200 });
+}
+
+async function monitorJoinInfo() {
+  await refreshJoinInfo();
+  setTimeout(monitorJoinInfo, 5000);
+}
+
+async function init() {
+  const info = await refreshJoinInfo();
+  if (!info) return;
+  setTimeout(monitorJoinInfo, 5000);
 
   connect(info.code);
 

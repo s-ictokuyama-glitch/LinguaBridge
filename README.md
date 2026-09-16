@@ -3,6 +3,7 @@
 先生が話す日本語の授業音声を、同一LAN上の Windows 11 機でリアルタイムに音声認識・機械翻訳し、生徒が自分の端末（Chromebook / iPhone のブラウザ）で選択した言語の字幕として閲覧できるシステム。完全ローカル動作（APIキー不要・クラウド不要・GPU不要）。
 
 - 全体計画: [plan.md](plan.md)
+- 起動案内・QRの接続先: [Wi-Fi選択と復元の手順](docs/network-selection.md)
 - PRD・実装スライス: [GitHub Issues](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues)（PRD は #8）
 
 ## 現在の状態（イシュー #18 完了時点）

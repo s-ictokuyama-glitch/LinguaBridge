@@ -17,6 +17,7 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, AsrConfig, ModelsConfig, MtConfig
 from server.main import build_asr_engine, cert_days_remaining, create_app
 from server.mt.fake_engine import FakeTranslationEngine
+from server.network import InterfaceAddress
 from tests.conftest import JOIN_CODE, make_ws_test_config
 
 
@@ -223,6 +224,7 @@ class TestConnectionDiagnostics:
         def denied(*args, **kwargs):
             raise PermissionError("sensitive detail must not be included")
 
+        monkeypatch.setattr("server.network.list_addresses", lambda: [])
         monkeypatch.setattr(socket, "getaddrinfo", denied)
         monkeypatch.setattr(subprocess, "run", denied)
         monkeypatch.setattr(HTTPConnection, "connect", denied)
@@ -363,8 +365,8 @@ class TestConnectionDiagnostics:
         assert report["tls"]["remote_trust"]["status"] == "unknown"
         assert (cert.read_bytes(), key.read_bytes()) == original
         assert "PRIVATE KEY" not in json.dumps(report)
-        monkeypatch.setattr(socket, "getaddrinfo", lambda *a: [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.5.26", 0))
+        monkeypatch.setattr("server.network.list_addresses", lambda: [
+            InterfaceAddress("Wi-Fi", "192.168.5.26", True, "physical")
         ])
         assert diagnose(config)["tls"]["certificate"]["status"] == "failed"
         generate(tmp_path / "other.pem", key)

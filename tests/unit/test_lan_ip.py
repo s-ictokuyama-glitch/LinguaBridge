@@ -1,102 +1,107 @@
-"""生徒用URLに載せるLAN IPの選択（#23）。
-
-`get_lan_ip()` は以前 `8.8.8.8:80` へ UDP connect して既定経路のIFを選んでいた。
-実パケットは出ないが「外部アドレスへの connect がゼロ」を機械判定できなくなるため、
-インターフェース列挙 + 優先順位ルールへ置き換えた。ここではその優先順位を固定する。
-
-優先順位の根拠: 学校のLANは 192.168.* か 10.* が圧倒的に多い。172.17.* は Docker の
-既定ブリッジ、192.168.56.* は VirtualBox のホストオンリー、169.254.* は DHCP 失敗時の
-link-local で、いずれも生徒端末からは到達できない。
-"""
-
-from __future__ import annotations
-
+﻿"""NICの状態・役割による公開接続先の選択（#38）。"""
 import pytest
 
-from server.main import select_lan_ip
-
-LOOPBACK = "127.0.0.1"
+from server.network import InterfaceAddress, choose_ip, list_addresses, select_address
 
 
-class TestSelectLanIp:
-    def test_no_candidates_falls_back_to_loopback(self):
-        assert select_lan_ip([]) == LOOPBACK
-
-    def test_single_lan_address_is_chosen(self):
-        assert select_lan_ip(["192.168.1.42"]) == "192.168.1.42"
-
-    def test_docker_bridge_loses_to_real_lan(self):
-        # 列挙順は OS 任せなので、Docker が先に来ても負けること
-        assert select_lan_ip(["172.17.0.1", "192.168.1.42"]) == "192.168.1.42"
-
-    def test_link_local_loses_to_real_lan(self):
-        assert select_lan_ip(["169.254.10.3", "10.0.5.7"]) == "10.0.5.7"
-
-    def test_virtualbox_host_only_loses_to_real_lan(self):
-        assert select_lan_ip(["192.168.56.1", "192.168.1.42"]) == "192.168.1.42"
-
-    def test_class_c_preferred_over_class_a(self):
-        assert select_lan_ip(["10.0.5.7", "192.168.1.42"]) == "192.168.1.42"
-
-    def test_class_a_preferred_over_class_b(self):
-        assert select_lan_ip(["172.20.0.9", "10.0.5.7"]) == "10.0.5.7"
-
-    @pytest.mark.parametrize(
-        "candidates",
-        [
-            ["172.17.0.1", "192.168.56.1", "169.254.10.3"],
-            ["169.254.10.3"],
-        ],
-    )
-    def test_only_unreachable_candidates_still_returns_one(self, candidates):
-        # 生徒端末から到達できない候補しか無い場合でも、何かは表示する
-        # （先生が「このIPは違う」と気づける方が、127.0.0.1 に落とすより実用的）
-        assert select_lan_ip(candidates) == candidates[0]
-
-    def test_loopback_is_never_chosen_over_a_lan_address(self):
-        assert select_lan_ip([LOOPBACK, "192.168.1.42"]) == "192.168.1.42"
-
-    def test_public_address_loses_to_private(self):
-        # グローバルIPが直付けされたPCでも、LAN側のIPを優先する
-        assert select_lan_ip(["203.0.113.9", "192.168.1.42"]) == "192.168.1.42"
-
-    def test_stable_when_two_equally_good_candidates(self):
-        # 同点なら列挙順の先頭。実行のたびにURLが変わらないことが運用上重要
-        assert select_lan_ip(["192.168.1.42", "192.168.1.99"]) == "192.168.1.42"
-
-    def test_host_octet_one_loses_to_a_dhcp_looking_address(self):
-        # VMware/Hyper-V の仮想スイッチは同じ 192.168.* 帯に .1 で現れる。
-        # DHCPで配られた実機は .1 を取らないので、これで実LANを選び分けられる
-        # （この開発機の実際の候補: 192.168.1.34 / 192.168.74.1 / 192.168.70.1）
-        assert select_lan_ip(["192.168.74.1", "192.168.1.34"]) == "192.168.1.34"
-        assert select_lan_ip(["192.168.74.1", "192.168.70.1", "192.168.1.34"]) == "192.168.1.34"
-
-    def test_host_octet_one_still_wins_over_a_worse_band(self):
-        assert select_lan_ip(["10.0.0.1", "169.254.10.3"]) == "10.0.0.1"
+def test_corporate_wifi_wins_over_virtual_192_network():
+    addresses = [
+        InterfaceAddress("VMnet8", "192.168.74.1", True, "virtual"),
+        InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical"),
+    ]
+    assert select_address(addresses).ip == "10.53.64.130"
 
 
-class TestGetLanIp:
-    def test_returns_an_ipv4_string(self):
-        """実環境で呼んでも例外にならず、IPv4文字列を返す。
+def test_multiple_physical_interfaces_require_selection():
+    addresses = [
+        InterfaceAddress("Ethernet", "192.168.1.42", True, "physical"),
+        InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical"),
+    ]
+    with pytest.raises(ValueError, match="選択"):
+        select_address(addresses)
+    assert select_address(addresses, "10.53.64.130").name == "Wi-Fi"
 
-        外部connectをしないことは tests/invariants/test_offline_invariants.py が判定する。
-        """
-        from server.main import get_lan_ip
 
-        ip = get_lan_ip()
-        parts = ip.split(".")
-        assert len(parts) == 4
-        assert all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+@pytest.mark.parametrize("ip,up", [
+    ("10.53.64.130", False), ("169.254.1.2", True), ("127.0.0.1", True),
+    ("0.0.0.0", True), ("224.0.0.1", True), ("999.1.2.3", True),
+])
+def test_invalid_or_down_selection_is_not_silently_replaced(ip, up):
+    addresses = [
+        InterfaceAddress("Wi-Fi", ip, up, "physical"),
+        InterfaceAddress("Ethernet", "192.168.1.42", True, "physical"),
+    ]
+    with pytest.raises(ValueError, match="指定IP"):
+        select_address(addresses, ip)
 
-    def test_falls_back_to_loopback_when_enumeration_fails(self, monkeypatch):
-        import socket as socket_mod
 
-        def boom(*_args, **_kwargs):
-            raise OSError("名前解決できない環境")
+def test_disappeared_ip_and_unknown_role_require_operator_action():
+    addresses = [InterfaceAddress("Wi-Fi", "10.53.64.131", True, "unknown")]
+    with pytest.raises(ValueError, match="指定IP"):
+        select_address(addresses, "10.53.64.130")
+    with pytest.raises(ValueError, match="選択"):
+        select_address(addresses)
+    assert select_address(addresses, "10.53.64.131").ip == "10.53.64.131"
 
-        monkeypatch.setattr(socket_mod, "getaddrinfo", boom)
-        monkeypatch.setattr(socket_mod, "gethostname", lambda: "any-host")
 
-        from server.main import get_lan_ip
+def test_windows_inventory_reads_state_and_role_without_connections(monkeypatch):
+    import json
+    import subprocess
+    from tests.net_guard import guard_network
 
-        assert get_lan_ip() == LOOPBACK
+    def inventory(args, **kwargs):
+        assert args[-1].endswith("network_interfaces.ps1")
+        assert kwargs["timeout"] == 10
+        return subprocess.CompletedProcess(args, 0, json.dumps([
+            {"name": "VMnet8", "ip": "192.168.74.1", "up": True, "role": "virtual"},
+            {"name": "Wi-Fi", "ip": "10.53.64.130", "up": True, "role": "physical"},
+        ]))
+
+    monkeypatch.setattr("platform.system", lambda: "Windows")
+    monkeypatch.setattr(subprocess, "run", inventory)
+    with guard_network() as guard:
+        assert select_address(list_addresses()).ip == "10.53.64.130"
+    assert not guard.seen
+    assert not guard.resolved
+
+
+def test_cim_denied_does_not_guess_physical_role(monkeypatch):
+    import socket
+    from types import SimpleNamespace
+    from tests.net_guard import guard_network
+
+    def denied(*args, **kwargs):
+        raise PermissionError()
+
+    monkeypatch.setattr("platform.system", lambda: "Windows")
+    monkeypatch.setattr("subprocess.run", denied)
+    monkeypatch.setattr("psutil.net_if_stats", lambda: {"Wi-Fi": SimpleNamespace(isup=True)})
+    monkeypatch.setattr("psutil.net_if_addrs", lambda: {
+        "Wi-Fi": [SimpleNamespace(family=socket.AF_INET, address="10.53.64.130")]
+    })
+    with guard_network() as guard:
+        addresses = list_addresses()
+    assert addresses == [InterfaceAddress("Wi-Fi", "10.53.64.130", True, "unknown")]
+    with pytest.raises(ValueError, match="選択"):
+        select_address(addresses)
+    assert not guard.seen
+    assert not guard.resolved
+
+
+def test_operator_selects_wifi_and_selection_is_revalidated(monkeypatch, capsys):
+    addresses = [
+        InterfaceAddress("Ethernet", "192.168.1.42", True, "physical"),
+        InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical"),
+    ]
+    monkeypatch.setattr("server.network.list_addresses", lambda: addresses)
+    monkeypatch.setattr("builtins.input", lambda _: "2")
+    assert choose_ip(None, interactive=True) == "10.53.64.130"
+    assert "Wi-Fi / 10.53.64.130" in capsys.readouterr().out
+
+    def disconnect(_):
+        addresses.pop()
+        return "2"
+
+    monkeypatch.setattr("builtins.input", disconnect)
+    with pytest.raises(ValueError, match="指定IP"):
+        choose_ip(None, interactive=True)

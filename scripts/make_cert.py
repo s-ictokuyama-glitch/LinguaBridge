@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 
 from server.config import load_config  # noqa: E402
 from server.main import get_lan_ip  # noqa: E402
+from server.network import choose_ip  # noqa: E402
 
 VALID_DAYS = 825
 
@@ -40,7 +41,7 @@ def build_san(ip: str) -> list:
     return names
 
 
-def generate(cert_path: Path, key_path: Path) -> None:
+def generate(cert_path: Path, key_path: Path, *, ip: str | None = None) -> None:
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -57,7 +58,7 @@ def generate(cert_path: Path, key_path: Path) -> None:
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + datetime.timedelta(days=VALID_DAYS))
-        .add_extension(x509.SubjectAlternativeName(build_san(get_lan_ip())), critical=False)
+        .add_extension(x509.SubjectAlternativeName(build_san(ip or get_lan_ip())), critical=False)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
@@ -76,6 +77,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(ROOT / "config.yaml"))
     parser.add_argument("--force", action="store_true", help="既存の証明書を上書きする")
+    parser.add_argument("--advertise-ip", help="起動と同じ公開IPv4（今回のみ）")
+    parser.add_argument("--select-network", action="store_true", help="曖昧な接続先を対話選択")
     args = parser.parse_args()
 
     try:
@@ -91,7 +94,14 @@ def main() -> int:
         print(f"証明書は既に存在します: {cert_path}（再生成は --force）")
         return 0
 
-    generate(cert_path, key_path)
+    try:
+        ip = choose_ip(args.advertise_ip or config.server.advertise_ip,
+                       interactive=args.select_network)
+    except ValueError as exc:
+        print(f"証明書を生成できません: {exc}")
+        return 1
+    generate(cert_path, key_path, ip=ip)
+    print(f"SANに使用した公開IP: {ip}")
     print(f"生成しました:\n  {cert_path}\n  {key_path}")
     print(f"有効期間: {VALID_DAYS}日。先生ページを HTTPS で開くと初回に警告が出るので承認してください。")
     return 0

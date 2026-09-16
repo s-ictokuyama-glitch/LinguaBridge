@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import http.client
-import ipaddress
+from ipaddress import IPv4Address
 import json
 import platform
 import socket
@@ -18,7 +18,9 @@ from pathlib import Path
 import yaml
 
 from server.config import AppConfig, ServerConfig, load_config
-from server.main import select_lan_ip
+from dataclasses import asdict
+
+from server import network as network_addresses
 
 
 def check(status: str, detail: str, **values) -> dict:
@@ -91,7 +93,7 @@ def inspect_windows(config: ServerConfig) -> dict:
     return unavailable
 
 
-def inspect_tls(config: ServerConfig, ip: str) -> dict:
+def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
     result = {
         "certificate": check("unknown", "証明書未確認"),
         "key_pair": check("unknown", "鍵との整合性未確認"),
@@ -130,7 +132,7 @@ def inspect_tls(config: ServerConfig, ip: str) -> dict:
         result["key_pair"] = check("failed", "証明書と秘密鍵を読み込めません（不一致・形式を確認）")
     except OSError as exc:
         result["key_pair"] = check("unknown", type(exc).__name__)
-    if fingerprint:
+    if fingerprint and ip:
         try:
             # この接続は提供中証明書の比較専用。信頼成功とは扱わずHTTPも送らない。
             client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -155,20 +157,17 @@ def inspect_tls(config: ServerConfig, ip: str) -> dict:
 
 def diagnose(config: AppConfig) -> dict:
     """JSON化できる観測結果のみを返す。レスポンス本文や秘密情報は収集しない。"""
-    candidates: list[str] = []
+    addresses = network_addresses.list_addresses()
+    ip = None
     try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = str(ipaddress.IPv4Address(info[4][0]))
-            if ip not in candidates:
-                candidates.append(ip)
-        network = check("observed" if candidates else "unknown", "起動時と同じIPv4選択規則")
-    except (OSError, ValueError) as exc:
-        network = check("unknown", type(exc).__name__)
-    ip = select_lan_ip(candidates)
-    address = ipaddress.IPv4Address(ip)
+        ip = network_addresses.select_address(addresses, config.server.advertise_ip).ip
+        network = check("observed", "起動時と同じNIC状態・役割・明示指定による選択")
+    except ValueError as exc:
+        network = check("unknown", str(exc))
     network.update(
-        candidates=candidates, selected_ip=ip,
-        usable_for_remote=not (address.is_loopback or address.is_link_local or address.is_unspecified),
+        candidates=[item.ip for item in addresses], selected_ip=ip,
+        interfaces=[asdict(item) for item in addresses],
+        requested_ip=config.server.advertise_ip, usable_for_remote=ip is not None,
     )
     os_version = sys.platform
     if sys.platform == "win32":
@@ -191,9 +190,11 @@ def diagnose(config: AppConfig) -> dict:
         "tls": inspect_tls(config.server, ip),
         "probes": {
             "loopback_http": probe_http("127.0.0.1", port, "/healthz"),
-            "selected_ip_http": probe_http(ip, port, "/healthz"),
+            "selected_ip_http": (probe_http(ip, port, "/healthz") if ip else
+                                 check("unknown", "公開IP未選択のため未実施")),
             "models": probe_http("127.0.0.1", port, "/ready"),
-            "page": probe_http(ip, port, "/"),
+            "page": (probe_http(ip, port, "/") if ip else
+                     check("unknown", "公開IP未選択のため未実施")),
         },
         "remote": {
             stage: check("unknown", "別端末で未実施。サーバーPCの成功では確認できません")
@@ -281,10 +282,13 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument("--advertise-ip", help="起動で一時指定・選択した公開IPv4")
     parser.add_argument("--json", action="store_true", help="診断結果と空の記録欄をJSON出力")
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
+        if args.advertise_ip is not None:
+            config.server.advertise_ip = str(IPv4Address(args.advertise_ip))
     except (OSError, ValueError, yaml.YAMLError) as exc:
         print(f"設定: 未確認（{type(exc).__name__}）。--config のファイルを確認してください。")
         return 2

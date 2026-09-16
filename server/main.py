@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import socket
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -29,6 +28,7 @@ from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, load_config
 from server.model_files import require_model_files
+from server.network import PublishedAddress, choose_ip, resolve_ip
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -115,55 +115,9 @@ def build_mt_engine(config: AppConfig) -> TranslationEngine:
     raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
 
 
-def _lan_ip_rank(ip: str) -> tuple[int, int]:
-    """生徒端末から到達できる見込みの高さ（小さいほど優先）。
-
-    以前は `8.8.8.8:80` へ UDP connect して既定経路のIFを選んでいたが、
-    「外部アドレスへの connect がゼロ」を機械判定できなくなるため列挙方式にした（#23）。
-    既定経路の情報が使えない代わりに、次の2段で絞る:
-
-    第1段（帯）: 学校LANで実際に出る帯を優先し、生徒から到達できない
-        仮想アダプタ・link-local を減点する。
-    第2段（ホスト部）: 末尾が .1 のアドレスを一段下げる。VMware/Hyper-V の
-        仮想スイッチは実LANと同じ 192.168.* 帯に .1 で現れることが多く、
-        DHCPで配られた実機は .1 を取らないため、帯が同じときの決め手になる。
-    """
-    octets = ip.split(".")
-    if len(octets) != 4 or not all(o.isdigit() for o in octets):
-        return (90, 0)
-    a, b = int(octets[0]), int(octets[1])
-    host_penalty = 1 if octets[3] == "1" else 0
-    if a == 127:
-        return (80, host_penalty)  # ループバック。LAN候補が1つも無いときだけ選ばれる
-    if a == 169 and b == 254:
-        return (70, host_penalty)  # DHCP失敗時の link-local。生徒からは到達できない
-    if a == 192 and b == 168:
-        # 192.168.56.* は VirtualBox のホストオンリーアダプタ
-        return (30 if octets[2] == "56" else 0, host_penalty)
-    if a == 10:
-        return (1, host_penalty)
-    if a == 172 and 16 <= b <= 31:
-        return (30 if b == 17 else 2, host_penalty)  # 172.17.* は Docker の既定ブリッジ
-    return (60, host_penalty)  # グローバルIP等。private が1つも無いときの最後の砦
-
-
-def select_lan_ip(candidates: list[str]) -> str:
-    """列挙したIPv4から生徒用URLに載せる1つを選ぶ。同点なら列挙順の先頭
-    （実行のたびに表示URLが変わらないよう安定させる）。"""
-    if not candidates:
-        return "127.0.0.1"
-    return min(candidates, key=lambda ip: (*_lan_ip_rank(ip), candidates.index(ip)))
-
-
 def get_lan_ip() -> str:
-    """自ホストのIPv4を列挙して1つ選ぶ。外部アドレスへの connect は行わない（#23）。"""
-    candidates: list[str] = []
-    with contextlib.suppress(OSError):
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = str(info[4][0])
-            if ip not in candidates:
-                candidates.append(ip)
-    return select_lan_ip(candidates)
+    """ローカルNICの状態・役割から公開IPを選ぶ。曖昧なら明示選択を要求する。"""
+    return resolve_ip()
 
 
 def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
@@ -221,6 +175,8 @@ def create_app(
     app.state.session = session
     app.state.pipeline = pipeline
     app.state.config = config
+    public_address = PublishedAddress(config.server.advertise_ip)
+    app.state.public_address = public_address
 
     @app.get("/")
     async def student_page() -> FileResponse:
@@ -231,10 +187,15 @@ def create_app(
         return FileResponse(WEB_DIR / "teacher.html")
 
     @app.get("/connection-help", response_class=HTMLResponse)
-    async def connection_help() -> HTMLResponse:
+    def connection_help() -> HTMLResponse:
+        try:
+            ip = public_address.current_ip()
+        except ValueError as exc:
+            return HTMLResponse(escape(str(exc)), status_code=503,
+                                headers={"Cache-Control": "no-store"})
         page = (WEB_DIR / "connection-help.html").read_text(encoding="utf-8")
         for name, value in {
-            "ip": get_lan_ip(), "http_port": config.server.http_port,
+            "ip": ip, "http_port": config.server.http_port,
             "https_port": config.server.https_port,
         }.items():
             page = page.replace("{{" + name + "}}", escape(str(value)))
@@ -260,19 +221,28 @@ def create_app(
         return {"languages": [lang.model_dump() for lang in config.languages]}
 
     @app.get("/api/teacher-info")
-    async def teacher_info(request: Request) -> JSONResponse:
+    def teacher_info(request: Request) -> JSONResponse:
         # 参加コードを晒す口。先生ページは HTTPS(8443) 側で開く運用なので https は許可、
         # 平文HTTP(生徒用)からはループバックのみ許可し部外者のコード取得を抑止（R-10）
         host = request.client.host if request.client else None
         if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
             return JSONResponse({"detail": "forbidden"}, status_code=403)
-        join_url = f"http://{get_lan_ip()}:{config.server.http_port}/?code={session.join_code}"
+        try:
+            ip = public_address.current_ip()
+        except ValueError as exc:
+            logger.warning("公開接続先を利用できません: %s", exc)
+            return JSONResponse({"detail": str(exc)}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+        join_url = f"http://{ip}:{config.server.http_port}/?code={session.join_code}"
         return JSONResponse(
             {
                 "code": session.join_code,
                 "join_url": join_url,
+                "teacher_url": (f"https://{ip}:{config.server.https_port}/teacher"
+                                if config.server.tls_ready() else
+                                f"http://127.0.0.1:{config.server.http_port}/teacher"),
                 "languages": [lang.model_dump() for lang in config.languages],
-            }
+            }, headers={"Cache-Control": "no-store"}
         )
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -548,17 +518,24 @@ def main() -> None:
     parser.add_argument(
         "--open-browser", action="store_true", help="起動後に先生ページを既定ブラウザで開く"
     )
+    parser.add_argument("--advertise-ip", help="案内に使う、このPCのIPv4（今回のみ）")
+    parser.add_argument("--select-network", action="store_true", help="曖昧・無効な接続先を対話選択")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
     config = load_config(args.config)
     try:
+        requested_ip = args.advertise_ip or config.server.advertise_ip
+        if args.select_network:
+            ip = choose_ip(requested_ip, interactive=True)
+        else:
+            ip = resolve_ip(requested_ip) if requested_ip else get_lan_ip()
+        config.server.advertise_ip = ip
         app = create_app(config)
     except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
     session: Session = app.state.session
-    ip = get_lan_ip()
     https = config.server.tls_ready()
     teacher_line = (
         f"https://{ip}:{config.server.https_port}/teacher（別端末可・初回のみ証明書警告を承認）"
@@ -567,6 +544,8 @@ def main() -> None:
     )
     print("=" * 66)
     print("LinguaBridge サーバー起動")
+    print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
+    print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
     print(f"  参加コード : {session.join_code}")
     print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
     print(f"  先生ページ : {teacher_line}")

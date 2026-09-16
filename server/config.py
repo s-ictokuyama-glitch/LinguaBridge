@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from ipaddress import IPv4Address
 from pathlib import Path
 
 import yaml
@@ -17,11 +18,17 @@ def _under_root(p: Path) -> Path:
 
 
 class ServerConfig(BaseModel):
+    advertise_ip: str | None = None  # None=稼働中の物理NICが一意なら自動選択
     http_port: int = 8000
     https_port: int = 8443
     cert_dir: str = "certs/"
     cert_file: str = "cert.pem"  # cert_dir 配下
     key_file: str = "key.pem"
+
+    @field_validator("advertise_ip")
+    @classmethod
+    def _advertise_ipv4(cls, value: str | None) -> str | None:
+        return str(IPv4Address(value)) if value is not None else None
 
     def cert_path(self) -> Path:
         # cwd 非依存: 相対 cert_dir はリポジトリルート基準で解決する
