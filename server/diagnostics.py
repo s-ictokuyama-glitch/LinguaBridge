@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.client
 from ipaddress import IPv4Address
 import json
@@ -18,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from server.config import AppConfig, ServerConfig, load_config
+from server.certificates import inspect_certificate
 from dataclasses import asdict
 
 from server import network as network_addresses
@@ -94,64 +96,47 @@ def inspect_windows(config: ServerConfig) -> dict:
 
 
 def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
-    result = {
-        "certificate": check("unknown", "証明書未確認"),
-        "key_pair": check("unknown", "鍵との整合性未確認"),
-        "served_certificate": check("unknown", "待受TLS未確認"),
-        "remote_trust": check("unknown", "別端末の証明書信頼・ブラウザ制限は未確認"),
-    }
-    fingerprint = None
-    try:
-        from cryptography import x509
-        from cryptography.hazmat.primitives import hashes
-
-        cert = x509.load_pem_x509_certificate(config.cert_path().read_bytes())
-        fingerprint = cert.fingerprint(hashes.SHA256()).hex()
-        try:
-            san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-            addresses = [str(address) for address in san.get_values_for_type(x509.IPAddress)]
-        except x509.ExtensionNotFound:
-            addresses = []
-        now = datetime.now(timezone.utc)
-        valid = cert.not_valid_before_utc <= now <= cert.not_valid_after_utc
-        matches = ip in addresses
-        result["certificate"] = check(
-            "ok" if valid and matches else "failed",
-            f"有効期間内={valid} / 採用IPとSAN一致={matches}",
-            ip_addresses=addresses, expires=cert.not_valid_after_utc.isoformat(),
-            sha256=fingerprint,
-        )
-    except (OSError, ValueError, ImportError) as exc:
-        result["certificate"] = check("unknown", type(exc).__name__)
-    try:
-        # 鍵はSSLライブラリがローカルで照合するだけ。内容を出力・保存しない。
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(str(config.cert_path()), str(config.key_path()), password="")
-        result["key_pair"] = check("ok", "設定された証明書と秘密鍵が一致")
-    except ssl.SSLError:
-        result["key_pair"] = check("failed", "証明書と秘密鍵を読み込めません（不一致・形式を確認）")
-    except OSError as exc:
-        result["key_pair"] = check("unknown", type(exc).__name__)
+    result = inspect_certificate(config, ip)
+    result["served_certificate"] = check("unknown", "待受TLS未確認")
+    result["https_health"] = check("unknown", "HTTPS応答未確認")
+    fingerprint = result["certificate"].get("sha256")
     if fingerprint and ip:
+        client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        client_context.check_hostname = False
+        client_context.verify_mode = ssl.CERT_NONE
+        connection = http.client.HTTPSConnection(ip, config.https_port, timeout=2, context=client_context)
         try:
-            # この接続は提供中証明書の比較専用。信頼成功とは扱わずHTTPも送らない。
-            client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            client_context.check_hostname = False
-            client_context.verify_mode = ssl.CERT_NONE
-            with socket.create_connection((ip, config.https_port), timeout=2) as raw:
-                with client_context.wrap_socket(raw, server_hostname=ip) as connection:
-                    import hashlib
-
-                    served = hashlib.sha256(connection.getpeercert(binary_form=True) or b"").hexdigest()
-                    result["served_certificate"] = check(
-                        "ok" if served == fingerprint else "failed",
-                        "提供中証明書と設定ファイルのSHA256比較（信頼検証とは別）",
-                        sha256=served,
-                    )
+            # プロキシ・リダイレクトなし。同じTLS接続で証明書と死活確認を検証する。
+            # CERT_NONE はこの診断専用で、ブラウザの発行元信頼成功とは扱わない。
+            connection.connect()
+            assert isinstance(connection.sock, ssl.SSLSocket)
+            served = hashlib.sha256(connection.sock.getpeercert(binary_form=True) or b"").hexdigest()
+            result["served_certificate"] = check(
+                "ok" if served == fingerprint else "failed",
+                "提供中証明書と設定ファイルのSHA256比較（信頼検証とは別）", sha256=served,
+            )
+            connection.request("GET", "/healthz")
+            response = connection.getresponse()
+            try:
+                payload = json.loads(response.read(65536))
+            except (ValueError, UnicodeError):
+                payload = None
+            expected = isinstance(payload, dict) and payload.get("status") == "ok"
+            result["https_health"] = check(
+                "ok" if response.status == 200 and expected else "failed",
+                f"HTTPS {response.status} / アプリ応答一致={expected}（別端末・マイク・字幕は未確認）",
+                url=f"https://{ip}:{config.https_port}/healthz", http_status=response.status,
+            )
         except (PermissionError, TimeoutError) as exc:
-            result["served_certificate"] = check("unknown", type(exc).__name__)
-        except OSError as exc:
-            result["served_certificate"] = check("failed", type(exc).__name__)
+            result["https_health"] = check("unknown", type(exc).__name__)
+            if result["served_certificate"]["status"] == "unknown":
+                result["served_certificate"] = check("unknown", type(exc).__name__)
+        except (OSError, http.client.HTTPException) as exc:
+            result["https_health"] = check("failed", type(exc).__name__)
+            if result["served_certificate"]["status"] == "unknown":
+                result["served_certificate"] = check("failed", type(exc).__name__)
+        finally:
+            connection.close()
     return result
 
 
@@ -267,7 +252,7 @@ def print_report(report: dict) -> None:
         print(f"    {json.dumps(profile, ensure_ascii=False)}")
     for name, key in (("ループバックHTTP", "loopback_http"), ("採用IPのHTTP", "selected_ip_http"), ("モデル準備", "models"), ("ページ取得", "page")):
         show(name, report["probes"][key])
-    for name, key in (("TLS証明書/IP/期限", "certificate"), ("TLS鍵の一致", "key_pair"), ("TLS提供中証明書", "served_certificate"), ("別端末のTLS信頼", "remote_trust")):
+    for name, key in (("TLS証明書/IP/期限", "certificate"), ("TLS鍵の一致", "key_pair"), ("TLS提供中証明書", "served_certificate"), ("HTTPS死活確認", "https_health"), ("別端末のTLS信頼", "remote_trust")):
         show(name, report["tls"][key])
     print("  別端末: HTTP=未確認 / TLS=未確認 / ページ取得=未確認 / WS参加=未確認")
     print("\n次の操作:")

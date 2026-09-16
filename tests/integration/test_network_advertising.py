@@ -76,8 +76,8 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
     config.mt.engine = "fake"
     config.server.advertise_ip = "10.53.64.130"
     config.server.cert_dir = str(tmp_path)
-    (tmp_path / "cert.pem").touch()
-    (tmp_path / "key.pem").touch()
+    from scripts.make_cert import generate
+    generate(tmp_path / "cert.pem", tmp_path / "key.pem", ip="10.53.64.130")
     monkeypatch.setattr("server.network.list_addresses", lambda: [
         InterfaceAddress("Ethernet", "192.168.1.42", True, "physical"),
         InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical"),

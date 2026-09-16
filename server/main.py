@@ -27,6 +27,7 @@ from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, load_config
+from server.certificates import certificate_ready, inspect_certificate, print_certificate_report
 from server.model_files import require_model_files
 from server.network import PublishedAddress, choose_ip, resolve_ip
 from server.mt.base import TranslationEngine
@@ -234,13 +235,15 @@ def create_app(
             return JSONResponse({"detail": str(exc)}, status_code=503,
                                 headers={"Cache-Control": "no-store"})
         join_url = f"http://{ip}:{config.server.http_port}/?code={session.join_code}"
+        tls = inspect_certificate(config.server, ip)
         return JSONResponse(
             {
                 "code": session.join_code,
                 "join_url": join_url,
                 "teacher_url": (f"https://{ip}:{config.server.https_port}/teacher"
-                                if config.server.tls_ready() else
+                                if certificate_ready(tls) else
                                 f"http://127.0.0.1:{config.server.http_port}/teacher"),
+                "tls": tls,
                 "languages": [lang.model_dump() for lang in config.languages],
             }, headers={"Cache-Control": "no-store"}
         )
@@ -536,11 +539,12 @@ def main() -> None:
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
     session: Session = app.state.session
-    https = config.server.tls_ready()
+    tls = inspect_certificate(config.server, ip)
+    https = certificate_ready(tls)
     teacher_line = (
-        f"https://{ip}:{config.server.https_port}/teacher（別端末可・初回のみ証明書警告を承認）"
+        f"https://{ip}:{config.server.https_port}/teacher（証明書整合性確認済み・別端末での利用は未確認）"
         if https
-        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは要 setup.ps1）"
+        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
     )
     print("=" * 66)
     print("LinguaBridge サーバー起動")
@@ -550,14 +554,16 @@ def main() -> None:
     print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
     print(f"  先生ページ : {teacher_line}")
     print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")
-    if not https:
-        print("    （マイクにはセキュアコンテキストが必要。証明書が無いため localhost 運用）")
-    else:
-        days = cert_days_remaining(config.server.cert_path())
-        if days is not None and days < 30:
-            state = "期限切れ" if days < 0 else f"残り{days}日"
-            print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
-            print("    python scripts\\make_cert.py --force で再生成してください。")
+    print_certificate_report(tls)
+    days = tls["certificate"].get("days_remaining")
+    if days is not None and days < 30:
+        state = "期限切れ" if days < 0 else f"残り{days}日"
+        print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
+    if not https or (days is not None and days < 30):
+        print("  サーバーを停止して次を実行（旧証明書・鍵は一組で自動退避）:")
+        print(f'    .venv\\Scripts\\python scripts\\make_cert.py --config "{args.config}" --advertise-ip {ip} --force')
+    print(f'  HTTPS再確認: 再起動後、.venv\\Scripts\\python -m server.diagnostics --config "{args.config}" --advertise-ip {ip} --json')
+    print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:
         asyncio.run(_serve(app, config, open_browser=args.open_browser))
