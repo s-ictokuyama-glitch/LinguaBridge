@@ -22,6 +22,11 @@ from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE
 from tests.helpers import SAMPLE_RATE, chunks, silence_pcm
 
+# モデル読込（module fixture の setup）も制限時間に含まれる。ディスクキャッシュが冷えた
+# 初回や、ウイルス対策の走査中は既定の20秒を超えうる。thread 方式の timeout は
+# プロセスごと終了させ全体試験の結果を失うため、このファイルだけ読込に見合う上限にする。
+pytestmark = pytest.mark.timeout(180)
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_WAV = ROOT / "tests" / "fixtures" / "ja" / "03.wav"  # 「教科書の四十二ページを開いてください。」
 SMALL_MODEL_DIR = AppConfig().models.resolved_dir / "faster-whisper-small"
