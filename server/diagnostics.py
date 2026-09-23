@@ -25,6 +25,33 @@ from dataclasses import asdict
 from server import network as network_addresses
 
 
+# 担当者が端末ごとに記入する欄。手順書・ヘルプページ・--json の記録欄はこの一覧から作る。
+RECORD_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("timestamp", "時刻（タイムゾーン）", ""),
+    ("config_file", "診断に使用した設定ファイル", ""),
+    ("device_os_version", "端末・OSの版", ""),
+    ("browser_version", "ブラウザの版（取得不能なら未確認）", ""),
+    ("requested_url_without_code", "入力したURL（参加コードを伏せる）", ""),
+    ("final_url_without_code", "ブラウザの最終URL（参加コードを伏せる）", ""),
+    ("server_http", "サーバーPCのHTTP", "未確認"),
+    ("remote_http", "別端末のHTTP", "未確認"),
+    ("remote_tls", "別端末のTLS", "未確認"),
+    ("certificate_warning", "証明書警告・承認可否", "未確認"),
+    ("remote_page", "別端末のページ取得", "未確認"),
+    ("remote_ws_join", "別端末のWS参加", "未確認"),
+    ("mic_captions", "マイク・字幕", "未確認"),
+    ("firewall_repair", "FW修復の要否・担当者", "未確認"),
+    ("actual_error_without_code", "実際のエラー（参加コードを伏せる）", ""),
+    ("matching_log_without_code", "同じ時刻の対応ログ（参加コードを伏せる／無い・取得不能も明記）", ""),
+    ("last_successful_stage", "最後に成功した段階", ""),
+    ("next_stage", "次に試す段階・担当者", ""),
+)
+
+
+def record_template() -> str:
+    return "\n".join(f"{label}: {default}".rstrip() for _, label, default in RECORD_FIELDS)
+
+
 def check(status: str, detail: str, **values) -> dict:
     return {"status": status, "detail": detail, **values}
 
@@ -140,7 +167,7 @@ def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
     return result
 
 
-def diagnose(config: AppConfig) -> dict:
+def diagnose(config: AppConfig, config_file: str = "") -> dict:
     """JSON化できる観測結果のみを返す。レスポンス本文や秘密情報は収集しない。"""
     addresses = network_addresses.list_addresses()
     ip = None
@@ -185,13 +212,7 @@ def diagnose(config: AppConfig) -> dict:
             stage: check("unknown", "別端末で未実施。サーバーPCの成功では確認できません")
             for stage in ("http", "tls", "page", "ws_join")
         },
-        "record": {
-            "timestamp": "", "device_os_version": "", "browser_version": "",
-            "requested_url_without_code": "", "final_url_without_code": "",
-            "actual_error_without_code": "", "matching_log_without_code": "",
-            "http": "未確認", "tls": "未確認", "page": "未確認",
-            "ws_join": "未確認", "next_stage": "",
-        },
+        "record": {key: default for key, _, default in RECORD_FIELDS} | {"config_file": config_file},
     }
     report["next_steps"] = next_steps(report)
     return report
@@ -202,7 +223,7 @@ def next_steps(report: dict) -> list[str]:
     http, https = report["ports"]["http"], report["ports"]["https"]
     if not report["network"]["usable_for_remote"]:
         return [
-            f"採用IP {ip} は別端末用の接続先として案内できません。候補の取得状況と実Wi-FiのIPv4を担当者が確認してください。",
+            f"採用IP（{ip or '未確認'}）は別端末用の接続先として案内できません。候補の取得状況と実Wi-FiのIPv4を担当者が確認してください。",
             f"サーバーPC内の死活確認は http://127.0.0.1:{http}/healthz、モデル準備は /ready で比較してください。",
             "別端末のHTTP・TLS・ページ取得・WS参加は未確認です。ping失敗やログ不在だけでAP分離と断定しません。",
             "時刻・端末/ブラウザの版・最終URL・実際のエラー・対応ログ・次の段階を docs/connection-diagnostics.md の記録欄へ記入し、参加コードを伏せてください。秘密鍵は収集しません。",
@@ -214,6 +235,14 @@ def next_steps(report: dict) -> list[str]:
         steps.append("ループバックは成功しています。採用IPと実Wi-Fi、待受アドレス、サーバーPCのファイアウォールを照合してください。")
     else:
         steps.append("サーバーPCでHTTP応答を確認しました。次は既存の社内Wi-Fiにつないだ別端末で比較します。")
+    if any(report["tls"][name]["status"] == "failed" for name in ("certificate", "key_pair")):
+        # 未確認は不整合と断定しない。失敗を観測した場合だけ再発行へ誘導する。
+        config_file = report["record"]["config_file"] or "<設定ファイル>"
+        steps.append(
+            "証明書のIP・期限・鍵に不整合があります。サーバー停止後、同じ設定で "
+            f".venv\\Scripts\\python scripts\\make_cert.py --config {config_file} --advertise-ip {ip} --force を実行し、"
+            "再起動後に同じ診断で再確認してください。手順と復元: docs/certificate-recovery.md"
+        )
     steps.extend([
         f"サーバーPCで http://127.0.0.1:{http}/healthz を開き、同PCと別端末で http://{ip}:{http}/healthz を比較してください。",
         f"http://{ip}:{http}/ready の503はモデル未準備です。/healthzの死活確認と分けて起動ログを確認してください。",
@@ -238,7 +267,7 @@ def print_report(report: dict) -> None:
     print("診断はOS設定・モデル・参加状態を変更しません。取得済みは接続成功の意味ではありません。")
     show("ネットワーク", report["network"])
     print(f"  IPv4候補: {', '.join(report['network']['candidates']) or '未確認'}")
-    print(f"  採用IP: {report['network']['selected_ip']}（起動時と同じ規則。実Wi-Fiと要照合）")
+    print(f"  採用IP: {report['network']['selected_ip'] or '未確認'}（起動時と同じ規則。実Wi-Fiと要照合）")
     print(f"  設定ポート: HTTP={report['ports']['http']} / HTTPS={report['ports']['https']}")
     print(f"  診断ランタイム: {json.dumps(report['runtime'], ensure_ascii=False)}")
     for name, key in (("アダプター", "interfaces"), ("待受プロセス", "listeners"), ("ファイアウォール", "firewall")):
@@ -277,7 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, yaml.YAMLError) as exc:
         print(f"設定: 未確認（{type(exc).__name__}）。--config のファイルを確認してください。")
         return 2
-    report = diagnose(config)
+    report = diagnose(config, config_file=args.config)
     if args.json:
         print(json.dumps(report, ensure_ascii=True, indent=2))
     else:

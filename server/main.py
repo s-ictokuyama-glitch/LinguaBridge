@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -28,6 +29,7 @@ from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, load_config
+from server.diagnostics import record_template
 from server.certificates import certificate_ready, inspect_certificate, print_certificate_report
 from server.model_files import require_model_files
 from server.network import PublishedAddress, choose_ip, resolve_ip
@@ -190,18 +192,23 @@ def create_app(
 
     @app.get("/connection-help", response_class=HTMLResponse)
     def connection_help() -> HTMLResponse:
-        try:
-            ip = public_address.current_ip()
-        except ValueError as exc:
-            return HTMLResponse(escape(str(exc)), status_code=503,
-                                headers={"Cache-Control": "no-store"})
         page = (WEB_DIR / "connection-help.html").read_text(encoding="utf-8")
-        for name, value in {
-            "ip": ip, "http_port": config.server.http_port,
-            "https_port": config.server.https_port,
-        }.items():
+        values: dict[str, object] = {
+            "http_port": config.server.http_port, "https_port": config.server.https_port,
+            "record_template": record_template(),
+        }
+        # テンプレートは <!-- remote-steps --> と <!-- unavailable-steps --> の2区間を持ち、片方だけ残す。
+        try:
+            values["ip"] = public_address.current_ip()
+            hidden, status_code = "unavailable-steps", 200
+        except ValueError as exc:
+            # 別端末用URLは出さず、利用者向け説明とサーバーPC内の確認だけを残す。
+            values["error"] = str(exc)
+            hidden, status_code = "remote-steps", 503
+        page = re.sub(rf"<!-- {hidden} -->.*?<!-- /{hidden} -->\s*", "", page, flags=re.S)
+        for name, value in values.items():
             page = page.replace("{{" + name + "}}", escape(str(value)))
-        return HTMLResponse(page, headers={"Cache-Control": "no-store"})
+        return HTMLResponse(page, status_code=status_code, headers={"Cache-Control": "no-store"})
 
     @app.get("/healthz")
     async def healthz() -> JSONResponse:

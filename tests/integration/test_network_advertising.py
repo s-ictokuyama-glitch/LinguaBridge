@@ -97,7 +97,9 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
     assert urls["teacher_url"] == "https://10.53.64.130:8443/teacher"
     assert urls["teacher_url"] in startup
     monkeypatch.setattr(diagnostics, "inspect_windows", lambda _: {})
-    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {"selected": ip})
+    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {
+        "selected": ip, "certificate": {"status": "unknown"}, "key_pair": {"status": "unknown"},
+    })
     monkeypatch.setattr(diagnostics, "probe_http", lambda host, port, path: {"status": "ok", "host": host})
     report = diagnostics.diagnose(config)
     assert report["network"]["selected_ip"] == "10.53.64.130"
@@ -112,7 +114,9 @@ def test_invalid_selection_is_not_probed_or_advertised(monkeypatch):
     config.server.advertise_ip = "10.53.64.130"
     hosts = []
     monkeypatch.setattr(diagnostics, "inspect_windows", lambda _: {})
-    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {"selected": ip})
+    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {
+        "selected": ip, "certificate": {"status": "unknown"}, "key_pair": {"status": "unknown"},
+    })
 
     def probe(host, port, path):
         hosts.append(host)

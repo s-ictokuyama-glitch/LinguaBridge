@@ -371,3 +371,119 @@ class TestConnectionDiagnostics:
         assert diagnose(config)["tls"]["certificate"]["status"] == "failed"
         generate(tmp_path / "other.pem", key)
         assert diagnose(config)["tls"]["key_pair"]["status"] == "failed"
+
+    def test_text_report_shows_unobtainable_as_unconfirmed(self, tmp_path, monkeypatch, capsys):
+        import socket
+        import subprocess
+        from http.client import HTTPConnection
+
+        from server.diagnostics import main
+
+        config = tmp_path / "config.yaml"
+        config.write_text(
+            "server:\n  http_port: 18081\n  https_port: 18444\n"
+            f"  cert_dir: '{tmp_path.as_posix()}'\n",
+            encoding="utf-8",
+        )
+
+        def denied(*args, **kwargs):
+            raise PermissionError("sensitive detail must not be included")
+
+        monkeypatch.setattr("server.network.list_addresses", lambda: [])
+        monkeypatch.setattr(socket, "getaddrinfo", denied)
+        monkeypatch.setattr(subprocess, "run", denied)
+        monkeypatch.setattr(HTTPConnection, "connect", denied)
+        assert main(["--config", str(config)]) == 0
+        output = capsys.readouterr().out
+        assert "採用IP: 未確認" in output
+        assert "None" not in output
+        assert "設定ポート: HTTP=18081 / HTTPS=18444" in output
+        for name in ("待受プロセス", "ファイアウォール", "ループバックHTTP", "モデル準備"):
+            assert f"{name}: 未確認" in output
+        assert "確認済み" not in output
+        assert "別端末用の接続先として案内できません" in output
+        assert "sensitive detail" not in output
+
+    @staticmethod
+    def steps_report(certificate="ok"):
+        return {
+            "network": {"selected_ip": "192.168.5.25", "usable_for_remote": True},
+            "ports": {"http": 18081, "https": 18444},
+            "probes": {"loopback_http": {"status": "ok"}, "selected_ip_http": {"status": "ok"}},
+            "tls": {"certificate": {"status": certificate}, "key_pair": {"status": "ok"}},
+            "record": {"config_file": "custom.yaml"},
+        }
+
+    def test_next_steps_separate_server_remote_models_and_stages(self):
+        from server.diagnostics import next_steps
+
+        text = "\n".join(next_steps(self.steps_report()))
+        assert "http://127.0.0.1:18081/healthz" in text
+        assert "同PCと別端末で http://192.168.5.25:18081/healthz を比較" in text
+        assert "/ready の503はモデル未準備" in text
+        assert "https://192.168.5.25:18444/healthz" in text
+        assert "最終URL" in text
+        assert "WS参加" in text
+        assert "AP分離と断定しません" in text
+        assert "参加コード" in text and "秘密鍵" in text
+        assert ":8000" not in text and ":8443" not in text
+        assert "certificate-recovery" not in text
+
+    def test_certificate_failure_points_to_recovery_not_remote_trust(self):
+        from server.diagnostics import next_steps
+
+        text = "\n".join(next_steps(self.steps_report(certificate="failed")))
+        assert "docs/certificate-recovery.md" in text
+        assert ".venv\Scripts\python scripts\make_cert.py --config custom.yaml --advertise-ip 192.168.5.25" in text
+        assert "certificate-recovery" not in "\n".join(next_steps(self.steps_report(certificate="unknown")))
+
+    def test_record_templates_share_one_field_list(self, monkeypatch):
+        import re
+        from html import escape
+        from pathlib import Path
+
+        from server.diagnostics import RECORD_FIELDS, diagnose, record_template
+
+        template = record_template()
+        for label in ("時刻", "端末・OSの版", "ブラウザの版", "入力したURL（参加コードを伏せる）",
+                      "最終URL（参加コードを伏せる）", "サーバーPCのHTTP: 未確認", "別端末のHTTP: 未確認",
+                      "別端末のTLS: 未確認", "別端末のページ取得: 未確認", "別端末のWS参加: 未確認",
+                      "実際のエラー（参加コードを伏せる）", "対応ログ（参加コードを伏せる",
+                      "最後に成功した段階:", "次に試す段階・担当者:"):
+            assert label in template
+        guide = (Path(__file__).resolve().parents[2] / "docs" / "connection-diagnostics.md").read_text(encoding="utf-8")
+        assert re.search(r"```text\n(.*?)\n```", guide, re.S).group(1) == template
+        monkeypatch.setattr("server.main.get_lan_ip", lambda: "192.168.5.25")
+        app = create_app(make_ws_test_config(), asr_engine=FakeASREngine(),
+                         mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
+        with TestClient(app) as client:
+            assert f"<pre>{escape(template)}</pre>" in client.get("/connection-help").text
+        monkeypatch.setattr("server.network.list_addresses", lambda: [])
+        monkeypatch.setattr("server.diagnostics.probe_http", lambda *a: {"status": "unknown", "detail": ""})
+        monkeypatch.setattr("server.diagnostics.inspect_windows", lambda config: {
+            name: {"status": "unknown", "detail": ""} for name in ("interfaces", "listeners", "firewall")
+        })
+        record = diagnose(make_ws_test_config(), config_file="custom.yaml")["record"]
+        assert list(record) == [key for key, _, _ in RECORD_FIELDS]
+        assert record["config_file"] == "custom.yaml"
+        assert record["remote_ws_join"] == "未確認" and record["next_stage"] == ""
+
+    def test_help_without_selected_ip_keeps_guidance_but_hides_remote_urls(self, monkeypatch):
+        config = make_ws_test_config()
+        config.server.http_port = 18081
+        app = create_app(config, asr_engine=FakeASREngine(),
+                         mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
+        monkeypatch.setattr("server.network.list_addresses", lambda: [])
+        with TestClient(app) as client:
+            response = client.get("/connection-help")
+        assert response.status_code == 503
+        assert response.headers["cache-control"] == "no-store"
+        assert "先生から案内されたURLを開き直してください" in response.text
+        assert "サーバーを再起動し、接続先を再選択してください" in response.text
+        assert "http://127.0.0.1:18081/healthz" in response.text
+        assert "start.bat --diagnose" in response.text
+        assert "別端末のWS参加: 未確認" in response.text
+        assert "{{" not in response.text
+        assert "https://" not in response.text
+        assert "上記HTTPS" not in response.text and "同じHTTPS URL" not in response.text
+        assert JOIN_CODE not in response.text
