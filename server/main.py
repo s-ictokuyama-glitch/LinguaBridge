@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from server import event_loop
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
@@ -566,7 +567,7 @@ def main() -> None:
     print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:
-        asyncio.run(_serve(app, config, open_browser=args.open_browser))
+        event_loop.run(_serve(app, config, open_browser=args.open_browser))
     except KeyboardInterrupt:
         pass
 
