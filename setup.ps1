@@ -64,7 +64,13 @@ Assert-ExitOk "モデルのダウンロード"
 
 Section "自己署名証明書の生成"
 & $venvPy "$root\scripts\make_cert.py"
-Assert-ExitOk "証明書の生成"
+if ($LASTEXITCODE -eq 3) {  # make_cert.py の EXIT_UNCHANGED_NOT_READY と一致させる
+    # 既存の証明書・鍵は変更していない。起動時も同じ検証を行い、不整合ならこのPCのHTTP先生URLで起動する。
+    Write-Warning "既存の証明書は採用IPに対して正常と確認できませんでした（上の検証結果を参照）。"
+    Write-Warning "別端末でHTTPSを使う場合は docs\certificate-recovery.md の手順で再発行してください。"
+} else {
+    Assert-ExitOk "証明書の生成"
+}
 
 # 設定ファイルからポートを取得
 $ports = (& $venvPy -c "from server.config import load_config; c=load_config('config.yaml'); print(c.server.http_port, c.server.https_port)")

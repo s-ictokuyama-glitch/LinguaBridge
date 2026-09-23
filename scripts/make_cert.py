@@ -32,6 +32,9 @@ from server.main import get_lan_ip  # noqa: E402
 from server.network import choose_ip  # noqa: E402
 
 VALID_DAYS = 825
+# 既存ファイルを変更せず、正常とも確認できなかった。setup.ps1 は警告として続行する。
+# argparse の引数エラー（2）と区別するため3。
+EXIT_UNCHANGED_NOT_READY = 3
 
 
 def build_san(ip: str) -> list:
@@ -192,17 +195,21 @@ def main() -> int:
     config = load_config(args.config)
     cert_path = config.server.cert_path()  # config 側でリポジトリルート基準に解決済み
     key_path = config.server.key_path()
+    keep_existing = not args.force and args.restore is None and (cert_path.exists() or key_path.exists())
     try:
-        ip = choose_ip(args.advertise_ip or config.server.advertise_ip,
-                       interactive=args.select_network)
+        ip: str | None = choose_ip(args.advertise_ip or config.server.advertise_ip,
+                                   interactive=args.select_network)
     except ValueError as exc:
-        print(f"証明書を生成できません: {exc}")
-        return 1
+        if not keep_existing or args.advertise_ip:  # 明示したIPの誤りは入力ミスとして失敗
+            print(f"証明書を生成できません: {exc}")
+            return 1
+        print(f"接続先未確定のため既存の証明書は未確認: {exc}")
+        ip = None
     report = inspect_certificate(config.server, ip)
     print_certificate_report(report)
-    if not args.force and args.restore is None and (cert_path.exists() or key_path.exists()):
+    if keep_existing or ip is None:  # ip が None になるのは keep_existing のときだけ（型の絞り込み）
         print("既存ファイルは変更していません。再発行はサーバー停止後に同じ接続先で --force。")
-        return 0 if certificate_ready(report) else 1
+        return 0 if certificate_ready(report) else EXIT_UNCHANGED_NOT_READY
     try:
         replace_pair(cert_path, key_path, ip=ip, restore=args.restore)
     except (OSError, ValueError) as exc:
