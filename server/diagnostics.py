@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from server.config import AppConfig, ServerConfig, load_config
+from server.config import AppConfig, ServerConfig, add_layer_arguments, layer_cli_args, load_config
 from server.certificates import inspect_certificate
 from dataclasses import asdict
 
@@ -167,7 +167,7 @@ def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
     return result
 
 
-def diagnose(config: AppConfig, config_file: str = "") -> dict:
+def diagnose(config: AppConfig, config_file: str = "", config_layer_args: str = "") -> dict:
     """JSON化できる観測結果のみを返す。レスポンス本文や秘密情報は収集しない。"""
     addresses = network_addresses.list_addresses()
     ip = None
@@ -214,6 +214,8 @@ def diagnose(config: AppConfig, config_file: str = "") -> dict:
         },
         "record": {key: default for key, _, default in RECORD_FIELDS} | {"config_file": config_file},
     }
+    if config_layer_args:  # 上書き設定・データルートを指定したときだけ。案内するコマンドへ引き継ぐ
+        report["config_layer_args"] = config_layer_args
     report["next_steps"] = next_steps(report)
     return report
 
@@ -238,6 +240,8 @@ def next_steps(report: dict) -> list[str]:
     if any(report["tls"][name]["status"] == "failed" for name in ("certificate", "key_pair")):
         # 未確認は不整合と断定しない。失敗を観測した場合だけ再発行へ誘導する。
         config_file = report["record"]["config_file"] or "<設定ファイル>"
+        if report.get("config_layer_args"):
+            config_file += " " + report["config_layer_args"]
         steps.append(
             "証明書のIP・期限・鍵に不整合があります。サーバー停止後、同じ設定で "
             f".venv\\Scripts\\python scripts\\make_cert.py --config {config_file} --advertise-ip {ip} --force を実行し、"
@@ -298,15 +302,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--advertise-ip", help="起動で一時指定・選択した公開IPv4")
     parser.add_argument("--json", action="store_true", help="診断結果と空の記録欄をJSON出力")
+    add_layer_arguments(parser)
     args = parser.parse_args(argv)
     try:
-        config = load_config(args.config)
+        config = load_config(args.config, override=args.config_override, data_root=args.data_root)
         if args.advertise_ip is not None:
             config.server.advertise_ip = str(IPv4Address(args.advertise_ip))
     except (OSError, ValueError, yaml.YAMLError) as exc:
-        print(f"設定: 未確認（{type(exc).__name__}）。--config のファイルを確認してください。")
+        files = "--config / --config-override" if args.config_override else "--config"
+        print(f"設定: 未確認（{type(exc).__name__}）。{files} のファイルを確認してください。")
         return 2
-    report = diagnose(config, config_file=args.config)
+    report = diagnose(config, config_file=args.config, config_layer_args=layer_cli_args(args))
     if args.json:
         print(json.dumps(report, ensure_ascii=True, indent=2))
     else:

@@ -37,7 +37,7 @@ def test_startup_without_certificate_prints_local_http_teacher_url(
         serve_calls.append((candidate_app, candidate_config, open_browser))
 
     monkeypatch.setattr(sys, "argv", ["server/main.py", "--config", "isolated.yaml"])
-    monkeypatch.setattr(server_main, "load_config", lambda _: config)
+    monkeypatch.setattr(server_main, "load_config", lambda *_, **__: config)
     monkeypatch.setattr(server_main, "create_app", lambda _: app)
     monkeypatch.setattr(server_main, "get_lan_ip", lambda: "192.168.50.23")
     monkeypatch.setattr(server_main, "_serve", fake_serve)
@@ -151,7 +151,7 @@ def _run_startup_banner(
         serve_calls.append((candidate_app, candidate_config, open_browser))
 
     monkeypatch.setattr(sys, "argv", ["server/main.py", "--config", "isolated.yaml"])
-    monkeypatch.setattr(server_main, "load_config", lambda _: config)
+    monkeypatch.setattr(server_main, "load_config", lambda *_, **__: config)
     monkeypatch.setattr(server_main, "create_app", lambda _: app)
     monkeypatch.setattr(server_main, "get_lan_ip", lambda: "192.168.50.23")
     monkeypatch.setattr(server_main, "_serve", fake_serve)

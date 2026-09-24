@@ -38,7 +38,7 @@ def write_pair(directory, *, ip=IP, days=90, starts=-1, names=None):
 def startup(directory, monkeypatch, capsys):
     config = AppConfig(server=ServerConfig(cert_dir=str(directory)))
     config.asr.engine = config.mt.engine = "fake"
-    monkeypatch.setattr(main, "load_config", lambda _: config)
+    monkeypatch.setattr(main, "load_config", lambda *_, **__: config)
     monkeypatch.setattr("sys.argv", ["server", "--config", "custom config.yaml"])
     info = {}
 

@@ -87,7 +87,7 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
         InterfaceAddress("Ethernet", "192.168.1.42", True, "physical"),
         InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical"),
     ])
-    monkeypatch.setattr(main, "load_config", lambda _: config)
+    monkeypatch.setattr(main, "load_config", lambda *_, **__: config)
     monkeypatch.setattr("sys.argv", ["server"])
     urls = {}
 

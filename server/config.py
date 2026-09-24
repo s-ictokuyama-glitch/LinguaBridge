@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 from ipaddress import IPv4Address
 from pathlib import Path
@@ -369,6 +370,68 @@ class AppConfig(BaseModel):
         return [lang.code for lang in self.languages]
 
 
-def load_config(path: str | Path = "config.yaml") -> AppConfig:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    return AppConfig.model_validate(data)
+def _read_yaml(path: Path) -> object:
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """override をキー単位で base に重ねる。両方が dict のときだけ潜り、リスト等は丸ごと置き換える。"""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_config(
+    path: str | Path = "config.yaml",
+    *,
+    override: str | Path | None = None,
+    data_root: str | Path | None = None,
+) -> AppConfig:
+    """既定の設定に上書き設定（あれば）を深く重ねてから検証する。
+
+    上書き設定のファイルが無い・空なら既定の設定だけと同じ結果になる。
+    data_root を指定すると、相対の証明書・授業記録の出力先をその配下で解決する
+    （現地データ領域）。モデルの場所は影響を受けない。未指定ならリポジトリルート基準のまま。
+    """
+    data = _read_yaml(Path(path))
+    if override is not None and Path(override).is_file():
+        layer = _read_yaml(Path(override))
+        if not isinstance(layer, dict):
+            raise ValueError(f"上書き設定の最上位はキーと値の組にすること: {override}")
+        if layer and isinstance(data, dict):  # 既定の設定側の不正は重ねずに従来どおり検証で落とす
+            data = _deep_merge(data, layer)
+    config = AppConfig.model_validate(data)
+    if data_root is not None:
+        root = Path(data_root).resolve()
+        config.server.cert_dir = str(root / config.server.cert_dir)
+        config.recording.out_dir = str(root / config.recording.out_dir)
+    return config
+
+
+def add_layer_arguments(parser: argparse.ArgumentParser) -> None:
+    """上書き設定とデータルートの起動引数。既定（未指定）は今までどおりの挙動。"""
+    parser.add_argument(
+        "--config-override", help="既定の設定に重ねる上書き設定（無ければ既定の設定のみ）"
+    )
+    parser.add_argument(
+        "--data-root", help="証明書・授業記録を置く現地データ領域（既定: リポジトリのルート）"
+    )
+
+
+def layer_cli_args(args: argparse.Namespace) -> str:
+    """案内する次のコマンドへ、同じ上書き設定とデータルートを引き継ぐための引数文字列。"""
+    parts: list[str] = []
+    if args.config_override is not None:
+        parts.append(f'--config-override "{args.config_override}"')
+    if args.data_root is not None:
+        parts.append(f'--data-root "{args.data_root}"')
+    return " ".join(parts)
+
+
+def config_cli_args(args: argparse.Namespace) -> str:
+    """案内する次のコマンドの設定引数（--config と、指定があれば上書き設定・データルート）。"""
+    return " ".join(filter(None, (f'--config "{args.config}"', layer_cli_args(args))))

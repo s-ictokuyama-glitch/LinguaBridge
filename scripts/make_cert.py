@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from server.config import ServerConfig, load_config  # noqa: E402
+from server.config import ServerConfig, add_layer_arguments, config_cli_args, load_config  # noqa: E402
 from server.certificates import certificate_ready, inspect_certificate, print_certificate_report  # noqa: E402
 from server.main import get_lan_ip  # noqa: E402
 from server.network import choose_ip  # noqa: E402
@@ -184,6 +184,7 @@ def main() -> int:
     operation.add_argument("--restore", type=Path, help="退避ディレクトリの一組を復元する（サーバー停止後）")
     parser.add_argument("--advertise-ip", help="起動と同じ公開IPv4（今回のみ）")
     parser.add_argument("--select-network", action="store_true", help="曖昧な接続先を対話選択")
+    add_layer_arguments(parser)
     args = parser.parse_args()
 
     try:
@@ -192,8 +193,8 @@ def main() -> int:
         print("cryptography が必要です: .venv\\Scripts\\pip install cryptography")
         return 1
 
-    config = load_config(args.config)
-    cert_path = config.server.cert_path()  # config 側でリポジトリルート基準に解決済み
+    config = load_config(args.config, override=args.config_override, data_root=args.data_root)
+    cert_path = config.server.cert_path()  # config 側でデータルート（既定はリポジトリルート）基準に解決済み
     key_path = config.server.key_path()
     keep_existing = not args.force and args.restore is None and (cert_path.exists() or key_path.exists())
     try:
@@ -215,11 +216,12 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"証明書の変更を完了できません: {exc}")
         return 1
+    config_args = config_cli_args(args)
     print(f"照合対象の公開IP: {ip}")
     print(f"{'復元' if args.restore else '生成'}しました:\n  {cert_path}\n  {key_path}")
     print_certificate_report(inspect_certificate(config.server, ip))
     print("サーバーを同じ接続先で再起動し、HTTPSを再確認してください。")
-    print(f'  .venv\\Scripts\\python -m server.diagnostics --config "{args.config}" --advertise-ip {ip} --json')
+    print(f'  .venv\\Scripts\\python -m server.diagnostics {config_args} --advertise-ip {ip} --json')
     print(f"  https://{ip}:{config.server.https_port}/healthz")
     print("警告承認・復元手順: docs/certificate-recovery.md")
     return 0
