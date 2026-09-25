@@ -128,3 +128,59 @@ function Invoke-FirstRun {
     Write-Host "初回の準備が完了しました。次回からは管理者の確認は出ません。" -ForegroundColor Green
     return $status
 }
+
+# 配布パッケージが OneDrive の配下（個人用・組織用。ドキュメントやデスクトップが OneDrive に
+# 移されている場合も含む）にあれば警告する。同期でモデルの読み込みが不安定になるため。
+# 起動は止めない。警告したら $true。
+function Write-LocationWarning([Parameter(Mandatory)][string]$PackageRoot) {
+    $package = [IO.Path]::GetFullPath($PackageRoot).TrimEnd('\') + '\'
+    foreach ($name in "OneDrive", "OneDriveConsumer", "OneDriveCommercial") {
+        $onedrive = [Environment]::GetEnvironmentVariable($name)
+        if (-not $onedrive) { continue }
+        $onedrive = [IO.Path]::GetFullPath($onedrive).TrimEnd('\') + '\'
+        if (-not $package.StartsWith($onedrive, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        Write-Host "============================================================" -ForegroundColor Yellow
+        Write-Host "  [注意] LinguaBridge が OneDrive の同期フォルダの中に置かれています。" -ForegroundColor Yellow
+        Write-Host "    今の場所: $($package.TrimEnd('\'))" -ForegroundColor Yellow
+        Write-Host "  同期の影響でモデルの読み込みが遅くなったり失敗したりすることがあります。" -ForegroundColor Yellow
+        Write-Host "  サーバーを止めてから、フォルダごと C:\LinguaBridge\ に移してください" -ForegroundColor Yellow
+        Write-Host "  （ドキュメントやデスクトップには置かないでください）。このまま起動は続けます。" -ForegroundColor Yellow
+        Write-Host "============================================================" -ForegroundColor Yellow
+        return $true
+    }
+    return $false
+}
+
+# 展開物に残った MOTW（インターネットから取得した印）を app 以下と、隣の start.bat から外す。
+# zip の「ブロックの解除」を忘れて展開しても、次回から SmartScreen の警告が出ないようにする。
+# 1万ファイル超の走査に数秒かかるので、済んだら app にマーカー（版情報の指紋入り）を書き、
+# 同じ版のあいだは走査しない。app を差し替えるか上書きコピーで更新して版情報が変わると、
+# もう一度行う。data には触れない。
+# 戻り値: not-needed / cleared / failed。どの場合も起動は続ける（例外も外へ出さない）。
+function Clear-MarkOfTheWeb([Parameter(Mandatory)][string]$AppRoot) {
+    try {
+        $marker = Join-Path $AppRoot ".motw-cleared"
+        $version = Join-Path $AppRoot "version.json"
+        $stamp = "version " + $(if (Test-Path -LiteralPath $version) { (Get-FileHash -LiteralPath $version).Hash } else { "none" })
+        if ((Test-Path -LiteralPath $marker) -and ((Get-Content -LiteralPath $marker -TotalCount 1) -eq $stamp)) {
+            return "not-needed"
+        }
+        Write-Host "展開したファイルのブロックを解除しています（この版で1回だけ）..."
+        $paths = [string[]]@(Get-ChildItem -LiteralPath $AppRoot -Recurse -File -Force | ForEach-Object { $_.FullName })
+        $startBat = Join-Path (Split-Path -Parent $AppRoot) "start.bat"
+        if (Test-Path -LiteralPath $startBat) { $paths += $startBat }
+        $failures = @()
+        if ($paths.Count -gt 0) {
+            Unblock-File -LiteralPath $paths -ErrorAction SilentlyContinue -ErrorVariable failures
+        }
+        if ($failures.Count -gt 0) {
+            throw "$($failures.Count) 件（例: $($failures[0].TargetObject)）"
+        }
+        $stamp | Set-Content -Encoding UTF8 -LiteralPath $marker
+        return "cleared"
+    } catch {
+        Write-Host "[注意] 展開したファイルのブロックを解除できませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  次回の start.bat でもう一度行います。このまま起動を続けます。" -ForegroundColor Yellow
+        return "failed"
+    }
+}

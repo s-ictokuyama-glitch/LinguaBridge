@@ -25,6 +25,9 @@ if ($Diagnose) {
 if ($plan.Mode -eq "distribution") {
     # 現地データ領域。証明書・授業記録・設定の上書きを置き、app の差し替えをまたいで残す
     New-Item -ItemType Directory -Force -Path $plan.DataRoot | Out-Null
+    # 配布パッケージのフォルダ（start.bat・app・data を含む）の置き場所を確かめる
+    $null = Write-LocationWarning -PackageRoot (Split-Path -Parent $root)
+    $null = Clear-MarkOfTheWeb -AppRoot $root
 }
 
 if ($plan.NeedsFirstRun) {
