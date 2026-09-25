@@ -82,6 +82,7 @@ MODELS_DIR_LINE = re.compile(r'^(  dir: )"%LOCALAPPDATA%/LinguaBridge/models"$',
 CODE_FILES = (
     "scripts/__init__.py", "scripts/run.ps1", "scripts/launcher.ps1", "scripts/make_cert.py",
     "scripts/diagnose_windows.ps1", "scripts/network_interfaces.ps1",
+    "scripts/first_run_admin.ps1", "scripts/os_setup.ps1",
 )
 READY_TIMEOUT_S = 120
 

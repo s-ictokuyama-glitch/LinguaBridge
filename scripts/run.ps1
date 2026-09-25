@@ -27,6 +27,29 @@ if ($plan.Mode -eq "distribution") {
     New-Item -ItemType Directory -Force -Path $plan.DataRoot | Out-Null
 }
 
+if ($plan.NeedsFirstRun) {
+    # 初回処理（完了マーカーか証明書が data に無いとき）。拒否・失敗してもサーバーは起動する。
+    $ports = (& $python -B -c "import sys; from server.config import load_config; c = load_config(sys.argv[1], override=sys.argv[2]); print(c.server.http_port, c.server.https_port)" `
+        (Join-Path $root "config.yaml") (Join-Path $plan.DataRoot "config.yaml"))
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[エラー] 設定を読み込めませんでした。data\config.yaml の内容を確認してください。" -ForegroundColor Red
+        exit 1
+    }
+    $parts = "$ports".Trim().Split(" ")
+    $httpPort = [int]$parts[0]
+    $httpsPort = [int]$parts[1]
+    $adminArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -HttpPort {1} -HttpsPort {2} -VcRedist "{3}" -LogPath "{4}"' -f `
+        (Join-Path $PSScriptRoot "first_run_admin.ps1"), $httpPort, $httpsPort,
+        (Join-Path $root "vc_redist.x64.exe"), $plan.FirstRunLog
+    $elevate = { Start-ElevatedScript -Arguments $adminArgs }
+    $makeCert = {
+        & $python -B (Join-Path $PSScriptRoot "make_cert.py") @configArgs | Out-Host
+        $LASTEXITCODE
+    }
+    $null = Invoke-FirstRun -Marker $plan.FirstRunMarker -CertFile $plan.CertFile -LogPath $plan.FirstRunLog `
+        -HttpPort $httpPort -HttpsPort $httpsPort -MakeCert $makeCert -Elevate $elevate
+}
+
 if ($plan.NeedsSetup) {
     Write-Host "============================================================" -ForegroundColor Yellow
     Write-Host "  セットアップが未完了です。自動で行います（前回が途中まで進んで" -ForegroundColor Yellow

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.build_package import BuildError, bundled_model_files, unknown_dependencies
+from scripts.build_package import CODE_FILES, ROOT, BuildError, bundled_model_files, unknown_dependencies
 
 
 def test_unknown_dependency_is_reported_per_module():
@@ -105,3 +105,11 @@ def test_partially_downloaded_model_names_the_missing_file(tmp_path):
 
     with pytest.raises(BuildError, match="tokens.txt"):
         bundled_model_files(tmp_path)
+
+
+def test_package_carries_every_script_the_launcher_dot_sources_or_starts():
+    # run.ps1 → launcher.ps1、初回処理の first_run_admin.ps1 → os_setup.ps1（#47）
+    for relative in ("scripts/run.ps1", "scripts/launcher.ps1", "scripts/first_run_admin.ps1",
+                     "scripts/os_setup.ps1", "scripts/make_cert.py"):
+        assert relative in CODE_FILES
+        assert (ROOT / relative).is_file()

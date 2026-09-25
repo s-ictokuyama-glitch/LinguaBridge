@@ -80,22 +80,13 @@ $httpPort = [int]$parts[0]
 $httpsPort = [int]$parts[1]
 
 if ($isAdmin) {
+    # 配布モードの初回処理（scripts\first_run_admin.ps1）と共通の処理
+    . "$root\scripts\os_setup.ps1"
     Section "ファイアウォール許可（受信TCP $httpPort, $httpsPort）"
-    foreach ($p in @($httpPort, $httpsPort)) {
-        $name = "LinguaBridge TCP $p"
-        if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
-            New-NetFirewallRule -DisplayName $name -Direction Inbound -Protocol TCP `
-                -LocalPort $p -Action Allow -Profile Any | Out-Null
-            Write-Host "追加: $name"
-        } else {
-            Write-Host "既存: $name"
-        }
-    }
+    Grant-LinguaBridgeFirewall -Ports @($httpPort, $httpsPort)
 
     Section "AC接続時のスリープ無効化"
-    powercfg /change standby-timeout-ac 0
-    powercfg /change hibernate-timeout-ac 0
-    Write-Host "AC接続中はスリープ・休止しません（授業中はAC電源につないでください）。"
+    $null = Disable-AcSleep
 }
 
 Section "完了"

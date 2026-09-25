@@ -182,6 +182,14 @@ zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LinguaBridge\`
 `app\python\python.exe` があるため配布モード（`setup.ps1` を呼ばず、隣の `data\` をデータルート・
 `data\config.yaml` を上書き設定にする）で起動する。同梱の Python が無いリポジトリでは従来どおり `.venv` の開発モード。
 
+配布モードの初回（`data\.first-run-complete` が無いとき、イシュー #47）は、UAC の確認を1回出して
+`scripts\first_run_admin.ps1` を昇格して実行する（VC++ ランタイムの無人インストール・HTTP/HTTPS ポートの受信許可・
+AC 接続時のスリープ・休止の無効化。経過は `data\first-run.log`）。続けて昇格の外で同梱の Python から
+`make_cert.py` を実行し、証明書を `data\certs\` に作る。昇格した処理が済んだらマーカーを書き、次回から UAC は出ない
+（証明書が無いときは、UAC 無しで証明書だけを作り直す）。
+「いいえ」を選んだ場合は省いた項目とやり直し方を表示してサーバーを起動し、次回また尋ねる。
+ファイアウォールと電源の処理は `scripts\os_setup.ps1` にまとめ、`setup.ps1` も同じものを使う。
+
 ## 性能受け入れ試験（イシュー #17）
 
 授業投入可否を機械判定する。45分の授業音声を実時間でリプレイ＋擬似生徒10接続で、
