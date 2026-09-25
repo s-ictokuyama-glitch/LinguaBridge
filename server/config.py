@@ -54,7 +54,8 @@ class ModelsConfig(BaseModel):
         expanded = os.path.expandvars(os.path.expanduser(self.dir))
         if "%" in expanded:
             raise ValueError(f"models.dir の環境変数が解決できない: {self.dir}")
-        return Path(expanded)
+        # 相対パスは本体領域（リポジトリ/配布パッケージの app）基準。データルートの影響は受けない
+        return _under_root(Path(expanded))
 
     def resolve(self, relative: str) -> Path:
         """models.dir からの相対パス（gguf_path / model_dir 等）を絶対パスにする。"""

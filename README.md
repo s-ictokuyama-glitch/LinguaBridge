@@ -165,6 +165,23 @@ powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベ�
 [docs/bench/2026-07-07-bench.md](docs/bench/2026-07-07-bench.md) を参照。
 **学校の実機（i5）へ導入する前に同コマンドで再計測すること。**
 
+## 配布パッケージのビルド（イシュー #46、ADR 0001）
+
+開発環境の無いサーバーPC向けに、埋め込み版 Python 3.12・依存・コード・Web・配布用の既定の設定・
+同梱モデル（reazonspeech-k2-v2 / hy-mt2 / NLLB）・`vc_redist.x64.exe`・版情報（`app\version.json`）を
+まとめた zip を開発機で作る。同梱モデルは先に `download_models.py` で取得しておく（欠けていれば取得コマンドを示して止まる）。
+
+```powershell
+.venv\Scripts\pip install -r requirements-dev.txt   # DLL 依存の検査に pefile を使う
+.venv\Scripts\python scripts\build_package.py       # → %LOCALAPPDATA%\LinguaBridge\dist\LinguaBridge-<日時>-<コミット>.zip
+```
+
+最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・同梱の Python でのサーバー起動と `/ready` 200）を行い、
+1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。
+zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LinguaBridge\`）で `start.bat` を実行すると、
+`app\python\python.exe` があるため配布モード（`setup.ps1` を呼ばず、隣の `data\` をデータルート・
+`data\config.yaml` を上書き設定にする）で起動する。同梱の Python が無いリポジトリでは従来どおり `.venv` の開発モード。
+
 ## 性能受け入れ試験（イシュー #17）
 
 授業投入可否を機械判定する。45分の授業音声を実時間でリプレイ＋擬似生徒10接続で、

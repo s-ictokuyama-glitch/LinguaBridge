@@ -123,5 +123,18 @@ def test_without_data_root_outputs_resolve_under_repository_root():
     assert config.recording.resolved_out_dir == ROOT / "sessions"
 
 
+def test_relative_models_dir_resolves_inside_app_regardless_of_cwd_and_data_root(
+    tmp_path, monkeypatch
+):
+    """#46: 配布パッケージの既定の設定は models.dir を app 内の相対パスで持つ。"""
+    base = write(tmp_path / "config.yaml", "models: { dir: models/ }\n")
+    monkeypatch.chdir(tmp_path)
+
+    config = load_config(base, data_root=tmp_path / "data")
+
+    assert config.models.resolved_dir == ROOT / "models"
+    assert config.models.resolve("hy-mt2/x.gguf") == ROOT / "models" / "hy-mt2" / "x.gguf"
+
+
 def _errors(exc: ValidationError) -> list[tuple]:
     return [(e["loc"], e["type"], e["msg"]) for e in exc.errors()]

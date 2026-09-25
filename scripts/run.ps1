@@ -5,24 +5,29 @@
 param([switch]$Diagnose)
 
 $ErrorActionPreference = "Stop"
+# 開発機ではリポジトリのルート、配布パッケージでは本体領域（app）
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
-$venvPython = "$root\.venv\Scripts\python.exe"
+. "$PSScriptRoot\launcher.ps1"
+$plan = Get-LaunchPlan -AppRoot $root
+$python = $plan.Python
+$configArgs = $plan.ConfigArgs
 if ($Diagnose) {
     # 診断ではセットアップ・モデル取得・OS設定変更へ進まない。
-    if (-not (Test-Path $venvPython)) {
+    if (-not (Test-Path $python)) {
         Write-Host "[未確認] .venv の Python がありません。設定担当者にセットアップ状況を確認してください。"
         exit 2
     }
-    & $venvPython -B -m server.diagnostics
+    & $python -B -m server.diagnostics @configArgs
     exit $LASTEXITCODE
 }
-# セットアップ要否は「.venvの有無」ではなく「完了マーカーの有無」で判定する。
-# モデルDL（数GB）の途中で中断されると .venv だけ残るため、.venv基準だと
-# 次回起動でセットアップをスキップしてしまい start.bat だけでは復旧できない。
-$setupComplete = "$root\.venv\.setup-complete"
 
-if (-not (Test-Path $setupComplete)) {
+if ($plan.Mode -eq "distribution") {
+    # 現地データ領域。証明書・授業記録・設定の上書きを置き、app の差し替えをまたいで残す
+    New-Item -ItemType Directory -Force -Path $plan.DataRoot | Out-Null
+}
+
+if ($plan.NeedsSetup) {
     Write-Host "============================================================" -ForegroundColor Yellow
     Write-Host "  セットアップが未完了です。自動で行います（前回が途中まで進んで" -ForegroundColor Yellow
     Write-Host "  いれば続きから再開します）。モデルのダウンロード等で数分から" -ForegroundColor Yellow
@@ -47,20 +52,26 @@ if (-not (Test-Path $setupComplete)) {
     Write-Host ""
 }
 
-if (-not (Test-Path $setupComplete) -or -not (Test-Path $venvPython)) {
+# setup.ps1 の後に判定し直す（完了マーカーが書かれたかを確かめる）
+if ((Get-LaunchPlan -AppRoot $root).NeedsSetup -or -not (Test-Path $python)) {
     Write-Host "[エラー] セットアップが完了していません。start.bat をもう一度実行してください。" -ForegroundColor Red
     Write-Host "（それでも直らない場合は setup.ps1 の出力を確認してください）" -ForegroundColor Red
     exit 1
 }
 
-& $venvPython -m server.main --open-browser --select-network
+& $python -m server.main --open-browser --select-network @configArgs
 $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
     Write-Host ""
     Write-Host "[エラー] サーバーが起動できませんでした。上のメッセージを確認してください。" -ForegroundColor Red
-    Write-Host "モデルの欠損や破損が疑われる場合は、まず start.bat をもう一度実行してください。" -ForegroundColor Red
-    Write-Host "直らないときは .venv フォルダ内の .setup-complete を削除してから start.bat を" -ForegroundColor Red
-    Write-Host "実行すると、セットアップ（モデル再取得を含む）をやり直せます。" -ForegroundColor Red
+    if ($plan.Mode -eq "distribution") {
+        Write-Host "モデルやプログラムの欠損が疑われる場合は、配布パッケージの app フォルダを" -ForegroundColor Red
+        Write-Host "展開し直したものと差し替えてください（data フォルダはそのまま残します）。" -ForegroundColor Red
+    } else {
+        Write-Host "モデルの欠損や破損が疑われる場合は、まず start.bat をもう一度実行してください。" -ForegroundColor Red
+        Write-Host "直らないときは .venv フォルダ内の .setup-complete を削除してから start.bat を" -ForegroundColor Red
+        Write-Host "実行すると、セットアップ（モデル再取得を含む）をやり直せます。" -ForegroundColor Red
+    }
 }
 Write-Host ""
 Write-Host "サーバーが停止しました。"
