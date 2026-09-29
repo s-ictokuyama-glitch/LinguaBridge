@@ -9,6 +9,10 @@ Windows 既定の ProactorEventLoop は、accept 中の OSError を種類を問�
 ここでは相手側リセット由来の失敗だけを接続1件の失敗として警告ログに残し、
 accept を続ける。それ以外の OSError は既定どおり例外ハンドラへ報告して待受を閉じる。
 
+接続の後始末でも同じ扱いにする（#50）。既定のトランスポートは後始末の shutdown() が
+相手側リセットで失敗するとソケットを閉じず、asyncio の Server から外さない。
+Server は接続が残っていると数え続け、Uvicorn の終了処理（wait_closed）が戻らない。
+
 戻し方: 環境変数 LINGUABRIDGE_STOCK_EVENT_LOOP=1 で再起動すると既定のループに戻る
 （docs/connection-reset-2026-09-23.md）。
 """
@@ -32,7 +36,7 @@ PEER_RESET_WINERRORS = frozenset({64, 1236, 10053, 10054})
 
 
 def is_peer_reset(exc: OSError) -> bool:
-    """accept 失敗が、待受ではなく接続してきた相手1件の切断によるものか。"""
+    """accept や接続の後始末の失敗が、待受ではなく接続してきた相手1件の切断によるものか。"""
     if isinstance(exc, (ConnectionResetError, ConnectionAbortedError)):
         return True
     return getattr(exc, "winerror", None) in PEER_RESET_WINERRORS
@@ -53,7 +57,7 @@ def run(main: Coroutine[Any, Any, T]) -> T:
 if sys.platform == "win32":
     import socket
     import struct
-    from asyncio import exceptions, tasks, trsock, windows_events
+    from asyncio import exceptions, proactor_events, sslproto, tasks, trsock, windows_events
 
     _overlapped = windows_events._overlapped  # type: ignore[attr-defined]
 
@@ -92,9 +96,65 @@ if sys.platform == "win32":
             tasks.ensure_future(coro, loop=self._loop)  # type: ignore[attr-defined]
             return future
 
+    class ResetTolerantSocketTransport(proactor_events._ProactorSocketTransport):
+        # CPython 3.12 の _ProactorBasePipeTransport._call_connection_lost の写し。違いは、
+        # shutdown() が相手側リセットで失敗しても警告を残して close と Server からの
+        # 切り離しまで進むこと（それ以外の OSError は既定どおり送出する）と、3.13 以降の
+        # server._detach(self) に合わせた呼び分けだけ。
+        def _call_connection_lost(self: Any, exc):  # 基底の非公開属性は型が付いていない
+            if self._called_connection_lost:
+                return
+            try:
+                self._protocol.connection_lost(exc)
+            finally:
+                # XXX If there is a pending overlapped read on the other
+                # end then it may fail with ERROR_NETNAME_DELETED if we
+                # just close our end.  First calling shutdown() seems to
+                # cure it, but maybe using DisconnectEx() would be better.
+                if hasattr(self._sock, 'shutdown') and self._sock.fileno() != -1:
+                    try:
+                        self._sock.shutdown(socket.SHUT_RDWR)
+                    except OSError as err:
+                        if not is_peer_reset(err):
+                            raise
+                        logger.warning(
+                            "切断済みの接続の後始末で shutdown が失敗したため、閉じて継続: %r", err
+                        )
+                self._sock.close()
+                self._sock = None
+                server = self._server
+                if server is not None:
+                    if sys.version_info >= (3, 13):  # 3.13 から接続を渡す
+                        server._detach(self)
+                    else:
+                        server._detach()
+                    self._server = None
+                self._called_connection_lost = True
+
     class ResetTolerantProactorEventLoop(asyncio.ProactorEventLoop):
         def __init__(self, proactor=None):
             super().__init__(proactor or ResetTolerantIocpProactor())
+
+        def _make_socket_transport(self, sock, protocol, waiter=None, extra=None, server=None):
+            return ResetTolerantSocketTransport(self, sock, protocol, waiter, extra, server)
+
+        # CPython 3.12 の BaseProactorEventLoop._make_ssl_transport の写し。違いは下の
+        # トランスポートが ResetTolerantSocketTransport であることだけ。
+        def _make_ssl_transport(
+            self, rawsock, protocol, sslcontext, waiter=None,
+            *, server_side=False, server_hostname=None,
+            extra=None, server=None,
+            ssl_handshake_timeout=None,
+            ssl_shutdown_timeout=None,
+        ):
+            ssl_protocol = sslproto.SSLProtocol(
+                self, protocol, sslcontext, waiter,
+                server_side, server_hostname,
+                ssl_handshake_timeout=ssl_handshake_timeout,
+                ssl_shutdown_timeout=ssl_shutdown_timeout)
+            ResetTolerantSocketTransport(self, rawsock, ssl_protocol,  # type: ignore[arg-type]
+                                         extra=extra, server=server)
+            return ssl_protocol._app_transport
 
         # CPython 3.12 の BaseProactorEventLoop._start_serving の写し。違いは、完了した
         # accept の結果が相手側リセットだった場合に警告を残して次の accept へ進むことだけ。
@@ -122,13 +182,13 @@ if sys.platform == "win32":
                                 )
                             protocol = protocol_factory()
                             if sslcontext is not None:
-                                self._make_ssl_transport(  # type: ignore[attr-defined]
+                                self._make_ssl_transport(
                                     conn, protocol, sslcontext, server_side=True,
                                     extra={"peername": addr}, server=server,
                                     ssl_handshake_timeout=ssl_handshake_timeout,
                                     ssl_shutdown_timeout=ssl_shutdown_timeout)
                             else:
-                                self._make_socket_transport(  # type: ignore[attr-defined]
+                                self._make_socket_transport(
                                     conn, protocol, extra={"peername": addr}, server=server)
                     if self.is_closed():
                         return

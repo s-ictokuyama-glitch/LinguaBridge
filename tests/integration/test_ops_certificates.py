@@ -102,6 +102,7 @@ def test_serve_without_certificate_is_http_only_and_opens_local_teacher_url(
             "host": "0.0.0.0",
             "port": 18009,
             "log_level": "info",
+            "timeout_graceful_shutdown": server_main.GRACEFUL_SHUTDOWN_S,
         }
     ]
     assert len(served_configs) == 1

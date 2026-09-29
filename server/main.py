@@ -470,13 +470,20 @@ def cert_days_remaining(cert_path: Path) -> int | None:
         return None
 
 
+# 終了要求から、接続の後始末を待つ上限（秒）。超えたら残りを打ち切って lifespan の終了
+# （pipeline.stop・授業記録の確定）へ進む。後始末が戻らない接続があっても終了できるように
+# する保険（#50。戻しスイッチ LINGUABRIDGE_STOCK_EVENT_LOOP=1 の既定ループでも効く）。
+GRACEFUL_SHUTDOWN_S = 10
+
+
 async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None:
     import signal
 
     import uvicorn
 
     server_configs = [
-        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info")
+        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info",
+                       timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S)
     ]
     teacher_url = f"http://127.0.0.1:{config.server.http_port}/teacher"
     if config.server.tls_ready():
@@ -487,6 +494,7 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
                 port=config.server.https_port,
                 log_level="warning",
                 lifespan="off",  # lifespan(モデル起動)はHTTP側で1度だけ走らせる
+                timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
                 ssl_certfile=str(config.server.cert_path()),
                 ssl_keyfile=str(config.server.key_path()),
             )
@@ -494,12 +502,16 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
         teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
 
     servers = [uvicorn.Server(c) for c in server_configs]
-    # 2サーバーが個別にSIGINTを奪い合うと、片方（lifespanを持つHTTP側）が終了せず
-    # pipeline.stop() が走らない。各サーバーの個別ハンドラを抑止し、共有ハンドラで
-    # 全サーバーに終了を伝える（Windowsは Ctrl+C=SIGINT）
+    # Uvicorn は serve() の間だけ自前の SIGINT/SIGTERM ハンドラを入れる（capture_signals）。
+    # 2サーバーでは後から入れた HTTPS 側だけが Ctrl+C を受け、lifespan を持つ HTTP 側へは
+    # HTTPS 側の終了後に再送されるだけなので、HTTPS 側が終わらないと HTTP 側も終わらない
+    # （#50）。各サーバーの捕捉を止め、共有ハンドラで全サーバーに同時に終了を伝える
+    # （Windowsは Ctrl+C=SIGINT）
     for server in servers:
-        server.install_signal_handlers = lambda: None  # type: ignore[attr-defined]
+        server.capture_signals = contextlib.nullcontext  # type: ignore[method-assign, assignment]
 
+    # 2回目の Ctrl+C でも force_exit にはしない。Uvicorn は force_exit だと lifespan の終了
+    # （pipeline.stop・授業記録の確定）を飛ばすため。終了待ちは GRACEFUL_SHUTDOWN_S で打ち切る
     def _request_shutdown(*_: object) -> None:
         for server in servers:
             server.should_exit = True

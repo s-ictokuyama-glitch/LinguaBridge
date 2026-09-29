@@ -44,6 +44,8 @@
 2. 同じPowerShellで `$env:LINGUABRIDGE_STOCK_EVENT_LOOP = "1"` を設定し、`start.bat` から再起動する。これで既定の `ProactorEventLoop` に戻る。
 3. 解除するには、`Remove-Item Env:LINGUABRIDGE_STOCK_EVENT_LOOP` の後に再起動する。コードごと戻す場合は本変更のコミットを `git revert` する。
 
+この変数は #50 の接続後始末の修正もまとめて既定に戻す。戻した状態での終了の挙動は `docs/shutdown-after-reset-2026-09-29.md` を参照。
+
 ローカルでの復元確認:
 
 - プローブ本体とログは、コミット対象外の `.tmp/issue42-evidence/` に置いた（`probe_reset.py`、`probe-{fixed,stock}-*.log`）。
