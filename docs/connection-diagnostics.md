@@ -29,6 +29,14 @@ Python環境が無い場合は未確認で終了します。管理ポリシー�
 .venv\Scripts\python -B -m server.diagnostics --config config.yaml --json > connection-report.json
 ```
 
+配布パッケージ（`C:\LinguaBridge\` に展開、`.venv` なし）では同梱の Python を使い、`start.bat --diagnose` と
+同じ設定の三層を指定します（`--data-root` が無いと `data` の証明書を見ません）。どのフォルダからでも実行できます。
+
+```powershell
+C:\LinguaBridge\app\python\python.exe -B -m server.diagnostics --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data
+C:\LinguaBridge\app\python\python.exe -B -m server.diagnostics --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --json > connection-report.json
+```
+
 `--json` は担当者向けの詳細と記録欄を出力します。記録欄は `config_file` に指定した設定ファイルだけを入れ、他は空または未確認です。リダイレクトで指定したファイル以外に診断結果を保存しません。
 終了コード0は診断結果を出力できた意味で、接続成功の意味ではありません。設定を読めない場合は2です。
 取得不能・タイムアウト・権限不足は未確認です。Windows以外ではOS情報を未確認とし、HTTP/TLSの確認を続けます。
@@ -61,7 +69,7 @@ Python環境が無い場合は未確認で終了します。管理ポリシー�
 | 採用IPのHTTP | 同じPCで `http://<IP>:<HTTPポート>/healthz`。ループバックだけ成功するなら採用IP、Wi-FiのIPv4、待受アドレスを照合。127.0.0.1だけの待受は別端末から使えない。通常起動は0.0.0.0で待ち受ける。 |
 | 別端末のHTTP | 既存の社内Wi-Fiにつないだ別端末で同じ採用IPの `/healthz` を開く。サーバーPCだけ成功するなら、時刻を揃え、実Wi-Fi、最終URL、サーバーPCのファイアウォールの適用プロファイル・受信規則・ポート・プログラム・アドレス条件を確認する。変更が必要なら担当者がサーバーPCで必要な範囲を判断し、変更後に同じ診断と端末操作を再実施する。 |
 | モデル準備 | `/ready` の503はモデル未準備。`/healthz` が成功していれば通信断と区別する。起動ログでロード中かモデル欠損・破損かを確認し、後者ならREADMEのモデル復旧手順へ進む。接続エラーだけを理由にモデルを再取得しない。 |
-| TLS | 診断の証明書SANと採用IP、有効期間、鍵の一致、提供中証明書のSHA256一致、HTTPS死活確認を見る。不整合ならサーバー停止後、同じ設定・IPで `python scripts\make_cert.py --config <設定ファイル> --advertise-ip <IP> --force` を実行する。旧ペアは自動退避される。再起動後に同じ診断を実行し、提供中証明書とHTTPS応答を再確認する。別端末の信頼は別に確認する。 |
+| TLS | 診断の証明書SANと採用IP、有効期間、鍵の一致、提供中証明書のSHA256一致、HTTPS死活確認を見る。不整合ならサーバー停止後、同じ設定・IPで `python scripts\make_cert.py --config <設定ファイル> --advertise-ip <IP> --force` を実行する（配布パッケージでは診断の「次の操作」が示す同梱 Python のコマンド）。旧ペアは自動退避される。再起動後に同じ診断を実行し、提供中証明書とHTTPS応答を再確認する。別端末の信頼は別に確認する。 |
 | 別端末のTLS | HTTPSを使う端末で `https://<IP>:<HTTPSポート>/healthz`。警告・管理ポリシー制限の文言を記録。承認できない場合は未解決として担当者へ引き継ぐ。HTTP成功をTLS成功に読み替えない。HTTPS未使用の端末は「未実施（未使用）」と記録する。 |
 | ページ取得 | 生徒は `http://<IP>:<HTTPポート>/`、HTTPSの先生は `https://<IP>:<HTTPSポート>/teacher`。アドレスバーの最終URLのスキーム・IP・ポート・パスを確認。HTTPSへの自動変更や別のエラーページへの遷移も記録する。HTTPの200だけでは操作画面が動いたことにはならない。 |
 | WS参加 | 生徒ページで参加して、接続状態と先生ページの人数を照合。失敗時は同じ時刻の起動ウィンドウのログ、取得できる場合のみブラウザのWSエラーを照合する。ページ取得成功とWS参加成功を区別する。コード誤り・人数上限などの表示に応じて担当者が対応する。 |

@@ -434,7 +434,7 @@ class TestConnectionDiagnostics:
 
         text = "\n".join(next_steps(self.steps_report(certificate="failed")))
         assert "docs/certificate-recovery.md" in text
-        assert ".venv\Scripts\python scripts\make_cert.py --config custom.yaml --advertise-ip 192.168.5.25" in text
+        assert r'.venv\Scripts\python scripts\make_cert.py --config "custom.yaml" --advertise-ip 192.168.5.25' in text
         assert "certificate-recovery" not in "\n".join(next_steps(self.steps_report(certificate="unknown")))
 
     def test_record_templates_share_one_field_list(self, monkeypatch):

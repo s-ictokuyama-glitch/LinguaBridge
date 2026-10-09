@@ -29,6 +29,7 @@ from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, add_layer_arguments, config_cli_args, load_config
+from server.launch_commands import launch_commands
 from server.diagnostics import record_template
 from server.certificates import certificate_ready, inspect_certificate, print_certificate_report
 from server.model_files import require_model_files
@@ -549,6 +550,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     config = load_config(args.config, override=args.config_override, data_root=args.data_root)
     config_args = config_cli_args(args)
+    commands = launch_commands()  # 配布モードでは同梱の python.exe を案内する（#51）
     try:
         requested_ip = args.advertise_ip or config.server.advertise_ip
         if args.select_network:
@@ -583,8 +585,8 @@ def main() -> None:
         print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
     if not https or (days is not None and days < 30):
         print("  サーバーを停止して次を実行（旧証明書・鍵は一組で自動退避）:")
-        print(f'    .venv\\Scripts\\python scripts\\make_cert.py {config_args} --advertise-ip {ip} --force')
-    print(f'  HTTPS再確認: 再起動後、.venv\\Scripts\\python -m server.diagnostics {config_args} --advertise-ip {ip} --json')
+        print(f"    {commands.make_cert} {config_args} --advertise-ip {ip} --force")
+    print(f"  HTTPS再確認: 再起動後、{commands.diagnostics} {config_args} --advertise-ip {ip} --json")
     print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:

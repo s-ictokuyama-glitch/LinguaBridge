@@ -37,6 +37,14 @@ server:
 ```
 
 カスタム設定を使う場合は3コマンドとも同じ `--config <設定ファイル>` を加える。
+
+配布パッケージ（`C:\LinguaBridge\` に展開、`.venv` なし）では、同梱の Python と設定の三層を使う。
+サーバーは `start.bat`（起動ウィンドウで番号選択）で起動し、診断・証明書CLIは起動画面の案内か次を使う。
+
+```powershell
+C:\LinguaBridge\app\python\python.exe -m server.diagnostics --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --advertise-ip 10.53.64.130 --json
+C:\LinguaBridge\app\python\python.exe C:\LinguaBridge\app\scripts\make_cert.py --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --advertise-ip 10.53.64.130 --force
+```
 証明書生成は自動では実施しない。再生成する場合はサーバーを停止してから実行する。
 証明書CLIは旧証明書と鍵を一組で自動退避し、確定した公開IPをSANへ渡す。
 再起動後の検証・復元・別端末の警告承認は [証明書の復旧手順](certificate-recovery.md) を参照する。

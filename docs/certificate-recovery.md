@@ -32,6 +32,14 @@
 .venv\Scripts\python scripts\make_cert.py --config config.yaml --advertise-ip 10.53.64.130 --force
 ```
 
+   配布パッケージ（`C:\LinguaBridge\` に展開、`.venv` なし）では同梱の Python を使い、
+   設定の三層（既定の設定・`data` の上書き設定・データルート）を指定する。どのフォルダからでも実行できる。
+   起動画面と診断も、この形のコマンドをそのまま案内する。
+
+```powershell
+C:\LinguaBridge\app\python\python.exe C:\LinguaBridge\app\scripts\make_cert.py --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --advertise-ip 10.53.64.130 --force
+```
+
 既存の証明書・鍵は、設定された証明書ディレクトリの `backups/<日時-ID>/` に一組で退避される。
 `manifest.json` は両方の復元先とSHA256、元々欠けていたファイルを記録する。
 退避先はコマンド出力に表示される。秘密鍵を含むためサーバーPC内で管理し、添付・共有しない。
@@ -52,6 +60,12 @@ Windowsでは元の証明書フォルダと同様にフォルダのアクセス�
 .venv\Scripts\python scripts\make_cert.py --config config.yaml --advertise-ip 10.53.64.130 --restore "<退避先>"
 ```
 
+配布パッケージでは:
+
+```powershell
+C:\LinguaBridge\app\python\python.exe C:\LinguaBridge\app\scripts\make_cert.py --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --advertise-ip 10.53.64.130 --restore "<退避先>"
+```
+
 復元先またはSHA256が異なる、不完全な退避は拒否する。
 復元前の現在の一組も別の退避先へ保存する。元々なかったファイルは復元時も欠損状態へ戻す。
 古いSANや期限切れも当時のまま戻るので、復元成功はTLS正常の意味ではない。
@@ -68,6 +82,16 @@ Windowsでは元の証明書フォルダと同様にフォルダのアクセス�
 ```powershell
 .venv\Scripts\python -m server.diagnostics --config config.yaml --advertise-ip 10.53.64.130 --json
 ```
+
+配布パッケージでは `start.bat` で再起動し、診断は次で実行する（`start.bat --diagnose` でもよい）。
+`--data-root` を落とすと `data` の証明書ではなく別の場所を見るため、三層とも指定する。
+
+```powershell
+C:\LinguaBridge\app\python\python.exe -m server.diagnostics --config C:\LinguaBridge\app\config.yaml --config-override C:\LinguaBridge\data\config.yaml --data-root C:\LinguaBridge\data --advertise-ip 10.53.64.130 --json
+```
+
+パスに空白を含む場所へ展開した場合、案内はパスを `"…"` で囲む。PowerShell では
+引用符で始まる行の先頭に `& ` を付けて実行する（コマンドプロンプトではそのまま）。
 
 `tls.certificate` と `tls.key_pair`、`tls.served_certificate`（設定ファイルと提供中証明書の
 SHA256一致）、`tls.https_health`（公開IPのHTTPS `/healthz` が200かつ `status:ok`）を照合する。

@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from server.config import ServerConfig, add_layer_arguments, config_cli_args, load_config  # noqa: E402
 from server.certificates import certificate_ready, inspect_certificate, print_certificate_report  # noqa: E402
+from server.launch_commands import launch_commands  # noqa: E402
 from server.main import get_lan_ip  # noqa: E402
 from server.network import choose_ip  # noqa: E402
 
@@ -221,7 +222,7 @@ def main() -> int:
     print(f"{'復元' if args.restore else '生成'}しました:\n  {cert_path}\n  {key_path}")
     print_certificate_report(inspect_certificate(config.server, ip))
     print("サーバーを同じ接続先で再起動し、HTTPSを再確認してください。")
-    print(f'  .venv\\Scripts\\python -m server.diagnostics {config_args} --advertise-ip {ip} --json')
+    print(f"  {launch_commands().diagnostics} {config_args} --advertise-ip {ip} --json")
     print(f"  https://{ip}:{config.server.https_port}/healthz")
     print("警告承認・復元手順: docs/certificate-recovery.md")
     return 0

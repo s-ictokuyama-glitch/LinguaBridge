@@ -20,6 +20,7 @@ import yaml
 
 from server.config import AppConfig, ServerConfig, add_layer_arguments, layer_cli_args, load_config
 from server.certificates import inspect_certificate
+from server.launch_commands import launch_commands
 from dataclasses import asdict
 
 from server import network as network_addresses
@@ -239,12 +240,13 @@ def next_steps(report: dict) -> list[str]:
         steps.append("サーバーPCでHTTP応答を確認しました。次は既存の社内Wi-Fiにつないだ別端末で比較します。")
     if any(report["tls"][name]["status"] == "failed" for name in ("certificate", "key_pair")):
         # 未確認は不整合と断定しない。失敗を観測した場合だけ再発行へ誘導する。
-        config_file = report["record"]["config_file"] or "<設定ファイル>"
+        config_file = report["record"]["config_file"]
+        config_args = f'--config "{config_file}"' if config_file else "--config <設定ファイル>"
         if report.get("config_layer_args"):
-            config_file += " " + report["config_layer_args"]
+            config_args += " " + report["config_layer_args"]
         steps.append(
             "証明書のIP・期限・鍵に不整合があります。サーバー停止後、同じ設定で "
-            f".venv\\Scripts\\python scripts\\make_cert.py --config {config_file} --advertise-ip {ip} --force を実行し、"
+            f"{launch_commands().make_cert} {config_args} --advertise-ip {ip} --force を実行し、"
             "再起動後に同じ診断で再確認してください。手順と復元: docs/certificate-recovery.md"
         )
     steps.extend([
