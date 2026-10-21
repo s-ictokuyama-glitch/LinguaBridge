@@ -109,7 +109,7 @@ def test_failed_shutdown_after_peer_reset_still_detaches(monkeypatch, tmp_path, 
                                                           secure, error):
     failing = FailingShutdown(monkeypatch, error)
     server_tls, client_tls = tls_contexts(tmp_path) if secure else (None, None)
-    with caplog.at_level(logging.WARNING, logger="server.event_loop"):
+    with caplog.at_level(logging.DEBUG, logger="server.event_loop"):
         loop_type, closed, active, handled = event_loop.run(
             close_after_reset(failing, server_tls, client_tls))
 
@@ -117,9 +117,11 @@ def test_failed_shutdown_after_peer_reset_still_detaches(monkeypatch, tmp_path, 
     assert closed, "server.wait_closed() must return: the reset connection is detached"
     assert active == 0
     assert not handled, "a per-connection reset is not reported as an unhandled error"
-    # Still observable: logged with its WinError, not silently swallowed.
+    # Logged with its WinError at DEBUG: routine browser RSTs must not flood the teacher console.
     winerror = str(failing.raised[0].winerror)
-    assert any(winerror in r.getMessage() for r in caplog.records if r.name == "server.event_loop")
+    logged = [r for r in caplog.records if r.name == "server.event_loop" and winerror in r.getMessage()]
+    assert logged
+    assert all(r.levelno == logging.DEBUG for r in logged)
 
 
 @pytest.mark.timeout(30)

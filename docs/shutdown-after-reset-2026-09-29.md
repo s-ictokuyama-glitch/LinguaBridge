@@ -10,7 +10,7 @@
 
 | 項目 | 判定 | 根拠 |
 |---|---|---|
-| 後始末の `shutdown()` が相手側リセットで失敗した接続 | **修正済み** | ソケットを閉じ、asyncio の Server から外す。`wait_closed()` が戻る。警告ログには残す |
+| 後始末の `shutdown()` が相手側リセットで失敗した接続 | **修正済み** | ソケットを閉じ、asyncio の Server から外す。`wait_closed()` が戻る。ログは DEBUG に残す（当初は警告。2026-10-21 に変更、下記） |
 | Ctrl+C 1回で HTTP・HTTPS の両方が終了 | **修正済み** | 共有ハンドラが両サーバーへ同時に終了を伝え、lifespan の終了（`pipeline.stop`）が走る |
 | 後始末が戻らない接続が残った場合 | **上限あり** | 終了要求から10秒（`GRACEFUL_SHUTDOWN_S`）で残りを打ち切り、lifespan の終了へ進む |
 | 現地の 10054 がこの経路であること | **未確定** | ループバックでは `shutdown()` は失敗せず、自然には再現しなかった（下記）。試験では失敗を注入した |
@@ -23,7 +23,8 @@
 
 ## 対応
 
-- **トランスポート**（`server/event_loop.py`）: `_ProactorBasePipeTransport._call_connection_lost` を写し、`shutdown()` の `OSError` が相手側リセット（#42 と同じ `is_peer_reset`）なら警告 `切断済みの接続の後始末で shutdown が失敗したため、閉じて継続: <例外>` を出して close と `Server._detach()` まで進む。それ以外の `OSError` は既定どおり送出する（例外ハンドラへ報告され、接続は残る）。平文・TLS の両方で使うよう、`_make_socket_transport` と `_make_ssl_transport` を差し替えた。
+- **トランスポート**（`server/event_loop.py`）: `_ProactorBasePipeTransport._call_connection_lost` を写し、`shutdown()` の `OSError` が相手側リセット（#42 と同じ `is_peer_reset`）なら DEBUG ログ `切断済みの接続の後始末で shutdown が失敗したため、閉じて継続: <例外>` を残して close と `Server._detach()` まで進む。それ以外の `OSError` は既定どおり送出する（例外ハンドラへ報告され、接続は残る）。平文・TLS の両方で使うよう、`_make_socket_transport` と `_make_ssl_transport` を差し替えた。
+  - このログは当初は警告だった。2026-10-21 の #52 の別PCでの再確認では、授業中に同じ警告が数十行続いた。ブラウザが接続を RST で閉じるたびに起きる平常の出来事で、字幕の配信にも影響しなかった。先生のコンソールを埋めないよう DEBUG に下げた。サーバーは INFO で起動するので、通常は表示されない。接続確立前のリセット（#42、`接続確立前に相手側が切断したため…`）は警告のまま。
 - **シグナル**（`server/main.py` の `_serve`）: uvicorn 0.50 の `serve()` は `capture_signals()` で自前の SIGINT/SIGTERM ハンドラを入れるため、従来の `install_signal_handlers` の上書き（0.50 には存在しない）は効いていなかった。各サーバーの `capture_signals` を無効化し、共有ハンドラで全サーバーへ同時に `should_exit` を伝える。2回目以降の Ctrl+C も同じ扱いで、uvicorn の `force_exit` にはしない（`force_exit` では lifespan の終了＝`pipeline.stop`・授業記録の確定が飛ぶため）。
 - **終了待ちの上限**（意図した挙動変更）: 両サーバーの `timeout_graceful_shutdown` を10秒にした。uvicorn は最後の `wait_closed()` を期限なしで待ち、`force_exit` でも解けない。上限はその保険で、超えると残りのタスクを取り消して lifespan の終了へ進む。リセットが無い通常の終了でも、10秒を超えて続く要求・WS接続の処理は取り消される（WS接続は終了要求の時点でサーバーから閉じるので、通常は上限に達しない）。
 - 写した CPython 関数（`_call_connection_lost` は 3.12.10 と 3.14.2、`_make_ssl_transport`）のソースハッシュを試験で照合する。3.13 以降は `server._detach(self)` と接続を渡すので、写しは版で呼び分ける。
@@ -47,5 +48,5 @@
 
 ## #43への引き継ぎ
 
-- **F7**: 現地で配信 → Ctrl+C を行い、終了案内が出て 8000・8443 の両待受が解放されること、授業記録ONなら記録が確定することを確認する。直前に 10054 のログ（修正後は警告 `切断済みの接続の後始末で shutdown が失敗…`）が出ていたかも記録する。
+- **F7**: 現地で配信 → Ctrl+C を行い、終了案内が出て 8000・8443 の両待受が解放されること、授業記録ONなら記録が確定することを確認する。直前に 10054 のログ（修正後は警告 `切断済みの接続の後始末で shutdown が失敗…`）が出ていたかも記録する。2026-10-21 以降の版ではこのログは DEBUG で、起動ウィンドウには出ない。
 - 戻しスイッチを試す場合、Ctrl+C から終了まで最長10秒かかることがあるのは想定どおり。

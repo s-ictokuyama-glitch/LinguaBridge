@@ -12,6 +12,7 @@ accept を続ける。それ以外の OSError は既定どおり例外ハンド�
 接続の後始末でも同じ扱いにする（#50）。既定のトランスポートは後始末の shutdown() が
 相手側リセットで失敗するとソケットを閉じず、asyncio の Server から外さない。
 Server は接続が残っていると数え続け、Uvicorn の終了処理（wait_closed）が戻らない。
+こちらは平常の切断で頻繁に起きるので、ログは DEBUG に留める。
 
 戻し方: 環境変数 LINGUABRIDGE_STOCK_EVENT_LOOP=1 で再起動すると既定のループに戻る
 （docs/connection-reset-2026-09-23.md）。
@@ -117,7 +118,9 @@ if sys.platform == "win32":
                     except OSError as err:
                         if not is_peer_reset(err):
                             raise
-                        logger.warning(
+                        # ブラウザが接続を RST で閉じるたびに起きる平常の出来事で、授業中に
+                        # 何十回も出る。先生のコンソールを埋めないよう DEBUG に留める
+                        logger.debug(
                             "切断済みの接続の後始末で shutdown が失敗したため、閉じて継続: %r", err
                         )
                 self._sock.close()
