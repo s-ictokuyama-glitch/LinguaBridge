@@ -236,8 +236,29 @@ powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベ�
 .venv\Scripts\python scripts\build_package.py       # → %LOCALAPPDATA%\LinguaBridge\dist\LinguaBridge-<日時>-<コミット>.zip
 ```
 
-最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・同梱の Python でのサーバー起動と `/ready` 200）を行い、
-1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。
+最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・llama.cpp の CPU 対応と Hy-MT2 の翻訳・
+同梱の Python でのサーバー起動と `/ready` 200）を行い、1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。
+
+### llama.cpp（llama-cpp-python）の入れ方と対象 CPU（イシュー #52）
+
+`requirements.txt` の CPU 版インデックスにあるビルド済み wheel は AVX-512 を前提にしていて、AVX-512 の無い CPU
+（近年の Intel の一般向け CPU の多く）では Hy-MT2 の読み込みで `0xc000001d`（STATUS_ILLEGAL_INSTRUCTION）になる。
+そこで `build_package.py` は、開発機の `.venv` と**同じ版**の llama-cpp-python をソースからビルドして同梱する。
+
+- CMake の引数は `build_package.py` の `LLAMA_CPP_CMAKE_ARGS`（`-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON
+  -DGGML_BACKEND_DIR:STRING=llama_cpp/lib -DGGML_NATIVE=OFF` ほか）。命令セットごとの `ggml-cpu-*.dll` が9種
+  （`x64`・`sse42`・`sandybridge`（AVX）・`haswell`（AVX2）・`alderlake`（AVX-VNNI）・`skylakex` / `cascadelake` /
+  `cannonlake` / `icelake`（AVX-512 系））でき、起動時にその CPU で動くうち最も合うものを読む
+  （`server/mt/hymt_engine.py` の `load_cpu_backends`）。MSVC では `zen4` などの版は作られない
+- 必要なもの: **Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」**。CMake はビルド時に pip が取ってくる
+- ビルドは初回だけ（開発機で約10分）。wheel は作業領域 `%LOCALAPPDATA%\LinguaBridge\build\cache\llama-cpp-python-<版>-<引数の指紋>\`
+  にキャッシュし、版か引数が変わるまで毎回同じ wheel を使う。`.venv` の llama-cpp-python の版を上げたら、次のビルドで作り直す
+- 対象 CPU: x86-64（SSE4.2 も無い CPU 向けの `x64` 版まで入る）。AVX-512 の無い CPU では AVX2 版などが選ばれる
+- 速さ（2026-10-21・開発機 Ryzen 7 8840U・Hy-MT2 4スレッド・6文×5回の中央値）: ビルド済み wheel 633 ms、
+  CPU 判定版（`cascadelake` が選ばれる）638 ms、AVX2 の `haswell` 版に固定 642 ms。差は 1.5% 以内
+- 自己検証 (3) は、同梱の llama.cpp が CPU を判定しない作りなのに `llama_print_system_info()` が `AVX512 = 1` を返したら、
+  理由と直し方を示して zip を作らない（ビルド済み wheel を二度と配布しないための関所）。続けて同梱の Python で Hy-MT2 を
+  ロードし、1文訳せることを確かめる
 zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LinguaBridge\`）で `start.bat` を実行すると、
 `app\python\python.exe` があるため配布モード（`setup.ps1` を呼ばず、隣の `data\` をデータルート・
 `data\config.yaml` を上書き設定にする）で起動する。同梱の Python が無いリポジトリでは従来どおり `.venv` の開発モード。

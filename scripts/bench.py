@@ -209,9 +209,12 @@ def load_hymt(models_dir: Path, config, n_threads: int | None = None):
     """Hy-MT2 の Llama インスタンスを作る。スレッド数は #26 の計測で振るので引数にする。"""
     from llama_cpp import Llama
 
+    from server.mt.hymt_engine import load_cpu_backends
+
     gguf = models_dir / config.mt.hy_mt2.gguf_path
     if not gguf.exists():
         raise FileNotFoundError(f"GGUFが無い: {gguf}（scripts/download_models.py を実行のこと）")
+    load_cpu_backends()
     return Llama(
         model_path=str(gguf),
         n_ctx=2048,

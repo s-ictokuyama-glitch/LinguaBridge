@@ -9,7 +9,55 @@ from pathlib import Path
 
 import pytest
 
-from scripts.build_package import CODE_FILES, ROOT, BuildError, bundled_model_files, unknown_dependencies
+from scripts.build_package import (
+    CODE_FILES,
+    ROOT,
+    BuildError,
+    bundled_model_files,
+    llama_cpu_problem,
+    pinned_version,
+    unknown_dependencies,
+)
+
+# requirements.txt の CPU 版インデックスから入る llama-cpp-python 0.3.33 の wheel（#52 で配布して落ちたもの）を
+# 開発機（Ryzen 7 8840U）で読んだ値
+PREBUILT_0_3_33_SYSTEM_INFO = (
+    "CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | AVX512 = 1 | "
+    "LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | "
+)
+PREBUILT_0_3_33_LIB = [
+    "ggml-base.dll", "ggml-base.lib", "ggml-cpu.dll", "ggml-cpu.lib", "ggml.dll", "ggml.lib",
+    "llama.dll", "llama.lib", "mtmd.dll", "mtmd.lib",
+]
+
+
+def test_prebuilt_avx512_llama_cpp_stops_the_build():
+    problem = llama_cpu_problem(PREBUILT_0_3_33_SYSTEM_INFO, PREBUILT_0_3_33_LIB)
+
+    assert problem is not None
+    assert "AVX-512" in problem
+    assert "GGML_CPU_ALL_VARIANTS" in problem
+
+
+def test_cpu_selecting_llama_cpp_passes_even_when_it_picked_avx512_here():
+    lib = ["ggml-base.dll", "ggml.dll", "llama.dll", "mtmd.dll",
+           "ggml-cpu-x64.dll", "ggml-cpu-haswell.dll", "ggml-cpu-zen4.dll"]
+
+    assert llama_cpu_problem(PREBUILT_0_3_33_SYSTEM_INFO, lib) is None
+
+
+def test_single_cpu_backend_without_avx512_passes():
+    avx2_only = PREBUILT_0_3_33_SYSTEM_INFO.replace("AVX512 = 1 | ", "")
+
+    assert llama_cpu_problem(avx2_only, PREBUILT_0_3_33_LIB) is None
+
+
+def test_pinned_version_normalizes_the_distribution_name():
+    frozen = "fastapi==0.115.0\nllama_cpp_python==0.3.33\nnumpy==2.1.0\n"
+
+    assert pinned_version(frozen, "llama-cpp-python") == "0.3.33"
+    with pytest.raises(BuildError, match="sherpa-onnx"):
+        pinned_version(frozen, "sherpa-onnx")
 
 
 def test_unknown_dependency_is_reported_per_module():

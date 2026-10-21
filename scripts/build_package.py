@@ -8,8 +8,14 @@ VC++ ランタイムのインストーラー・版情報を載せた本体領域
 
   (1) 同梱したネイティブDLLの依存先が「同梱物・Windows 標準・VC++ ランタイム」のどれか
   (2) 実エンジンのネイティブモジュールを同梱の Python で import できる
-  (3) 同梱の Python から、フェイクのエンジン構成と一時的なデータルートでサーバーを起動し、
+  (3) 同梱の llama.cpp が CPU を判定して命令セットを選ぶ作りで（AVX-512 前提でない、#52）、
+      同梱の Python で Hy-MT2 をロードして翻訳できる
+  (4) 同梱の Python から、フェイクのエンジン構成と一時的なデータルートでサーバーを起動し、
       準備完了のエンドポイントが 200 を返す
+
+llama-cpp-python は PyPI 向けのビルド済み wheel（AVX-512 前提）を使わず、開発機の .venv と同じ版の
+ソースを LLAMA_CPP_CMAKE_ARGS でビルドして作業領域にキャッシュする（初回のみ。Visual Studio
+Build Tools の C++ が必要）。
 
 作業領域と出力先は既定で %LOCALAPPDATA%/LinguaBridge 配下（GB級のため OneDrive の外、plan.md R-08）。
 """
@@ -26,6 +32,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import urllib.error
@@ -86,6 +93,31 @@ CODE_FILES = (
 )
 READY_TIMEOUT_S = 120
 
+# 起動時に CPU を判定し、命令セットごとの ggml-cpu-*.dll から動くものを読む作り（#52）。
+# AVX-512 の無い CPU でも動き、AVX-512 のある CPU では AVX-512 版を使う。
+# GGML_BACKEND_DIR が無いと ggml-cpu-*.dll は wheel の bin\ に入り、llama_cpp\lib の隣に来ない。
+# PATH 型で渡すと CMake がビルド時のカレント基準の絶対パスに変え、wheel の外に置かれるので STRING 型
+LLAMA_CPP_CMAKE_ARGS = (
+    "-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_BACKEND_DIR:STRING=llama_cpp/lib -DGGML_NATIVE=OFF "
+    "-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_SERVER=OFF"
+)
+# llama.cpp の Web UI。ビルドに使わず、パスが長く MAX_PATH を超えて展開に失敗する
+LLAMA_CPP_SKIPPED_SOURCE = "vendor/llama.cpp/tools/ui/"
+CPU_VARIANT_DLL = re.compile(r"ggml-cpu-[\w.]+\.dll", re.IGNORECASE)
+HYMT_SAMPLE = "こんにちは。"
+LLAMA_PROBE = """\
+import json, sys
+import llama_cpp
+from server.config import load_config
+from server.mt.hymt_engine import HyMt2Engine, load_cpu_backends
+load_cpu_backends()
+print(json.dumps({"system_info": llama_cpp.llama_print_system_info().decode()}), flush=True)
+config = load_config(sys.argv[1])
+engine = HyMt2Engine(config.models.resolve(config.mt.hy_mt2.gguf_path))
+engine.warmup()
+print(json.dumps({"translation": engine.translate(sys.argv[2], "en")}), flush=True)
+"""
+
 
 class BuildError(Exception):
     """ビルドを止める理由。メッセージはそのまま開発者に見せる。"""
@@ -116,6 +148,34 @@ def unknown_dependencies(
         if missing:
             unknown[module] = missing
     return unknown
+
+
+def llama_cpu_problem(system_info: str, lib_files: Iterable[str]) -> str | None:
+    """同梱の llama.cpp が、AVX-512 の無い CPU で落ちる作りなら理由と直し方（#52）。"""
+    if any(CPU_VARIANT_DLL.fullmatch(name) for name in lib_files):
+        return None  # 起動時に CPU を判定して ggml-cpu-*.dll を選ぶ作り
+    if "AVX512 = 1" not in system_info:
+        return None
+    return (
+        "同梱の llama.cpp は AVX-512 を前提にビルドされていて、CPU を判定して命令を選ぶ作りでもありません。\n"
+        "AVX-512 の無い CPU（近年の Intel の一般向け CPU の多く）では、翻訳モデルの読み込みで\n"
+        "STATUS_ILLEGAL_INSTRUCTION（0xc000001d）になり、生徒に字幕が届きません（#52）。\n"
+        f"  llama_print_system_info(): {system_info.strip()}\n"
+        "直し方: PyPI のビルド済み wheel を同梱しないこと。build_package.py は LLAMA_CPP_CMAKE_ARGS\n"
+        "（GGML_BACKEND_DL=ON・GGML_CPU_ALL_VARIANTS=ON）でソースからビルドした wheel を入れる。\n"
+        "引数を変えた場合は戻すか、少なくとも -DGGML_NATIVE=OFF -DGGML_AVX512=OFF にする"
+    )
+
+
+def pinned_version(frozen: str, distribution: str) -> str:
+    """pip list --format=freeze の出力から、ある配布物の版。"""
+    for line in frozen.splitlines():
+        name, _, version = line.partition("==")
+        if re.sub(r"[-_.]+", "-", name).lower() == distribution:
+            return version.strip()
+    raise BuildError(
+        f"開発機の .venv に {distribution} がありません（.venv\\Scripts\\pip install -r requirements-dev.txt）"
+    )
 
 
 def _visible_files(directory: Path) -> list[Path]:
@@ -222,21 +282,78 @@ def install_embedded_python(cache: Path, python_dir: Path) -> Path:
     return python
 
 
-def install_dependencies(site_packages: Path, work_dir: Path) -> None:
-    # 開発機の Python（3.12・win_amd64）の pip で、同じ ABI の wheel だけを同梱先に入れる。
-    # 版は開発機の .venv に入っているもの（テストを通した版）に揃える。
-    # CPU 版 llama-cpp の追加インデックスは requirements.txt に書かれたものを使う
-    frozen = _run(
+def venv_frozen() -> str:
+    return _run(
         [sys.executable, "-m", "pip", "list", "--format=freeze", "--exclude-editable",
          "--disable-pip-version-check"],
         "開発機の依存の版の取得", capture_output=True, encoding="utf-8",
     ).stdout
+
+
+def _pypi_sdist(distribution: str, version: str) -> tuple[str, str]:
+    url = f"https://pypi.org/pypi/{distribution}/{version}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=60) as response:
+            release = json.load(response)
+    except (OSError, urllib.error.URLError) as exc:
+        raise BuildError(f"{url} を取得できませんでした: {exc}") from exc
+    for item in release["urls"]:
+        if item["packagetype"] == "sdist":
+            return item["url"], item["digests"]["sha256"]
+    raise BuildError(f"{distribution} {version} のソース配布物が PyPI にありません")
+
+
+def build_llama_cpp_wheel(cache: Path, version: str) -> Path:
+    """LLAMA_CPP_CMAKE_ARGS で llama-cpp-python をソースからビルドする（#52）。
+
+    版と引数ごとにキャッシュし、再ビルドでは同じ wheel を使う。
+    """
+    key = hashlib.sha256(LLAMA_CPP_CMAKE_ARGS.encode("utf-8")).hexdigest()[:8]
+    wheels = cache / f"llama-cpp-python-{version}-{key}"
+    built = sorted(wheels.glob("llama_cpp_python-*.whl"))
+    if built:
+        print(f"キャッシュを使用: {built[0]}")
+        return built[0]
+    url, sha256 = _pypi_sdist("llama-cpp-python", version)
+    sdist = _download(url, cache / Path(url).name)
+    if _sha256(sdist) != sha256:
+        sdist.unlink()
+        raise BuildError(f"{sdist.name} のハッシュが PyPI の値と一致しません（取得し直してください）")
+    source_root = cache / "llama-cpp-python-src"
+    shutil.rmtree(source_root, ignore_errors=True)
+    with tarfile.open(sdist) as archive:
+        members = [
+            member for member in archive.getmembers()
+            if LLAMA_CPP_SKIPPED_SOURCE not in member.name
+        ]
+        archive.extractall(source_root, members=members, filter="data")
+    (source,) = source_root.iterdir()
+    print(f"llama-cpp-python {version} をビルド（数十分。CMAKE_ARGS={LLAMA_CPP_CMAKE_ARGS}）")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", str(source), "--no-deps", "-w", str(wheels),
+         "--disable-pip-version-check",
+         f"--config-settings=build-dir={cache / 'llama-cpp-python-build'}"],
+        env={**os.environ, "CMAKE_ARGS": LLAMA_CPP_CMAKE_ARGS},
+    )
+    built = sorted(wheels.glob("llama_cpp_python-*.whl"))
+    if result.returncode != 0 or not built:
+        raise BuildError(
+            f"llama-cpp-python のビルドに失敗しました（終了コード {result.returncode}）。"
+            "Visual Studio Build Tools 2022 の「C++ によるデスクトップ開発」が要ります"
+        )
+    return built[0]
+
+
+def install_dependencies(site_packages: Path, work_dir: Path, frozen: str, llama_wheel: Path) -> None:
+    # 開発機の Python（3.12・win_amd64）の pip で、同じ ABI の wheel だけを同梱先に入れる。
+    # 版は開発機の .venv に入っているもの（テストを通した版）に揃える。
+    # llama-cpp-python だけは、同じ版をソースからビルドした wheel を渡す（#52）
     constraints = work_dir / "constraints.txt"
     constraints.write_text(frozen, encoding="utf-8")
     _run(
         [sys.executable, "-m", "pip", "install", "--target", str(site_packages),
          "--only-binary=:all:", "--no-warn-script-location", "--disable-pip-version-check",
-         "-r", str(ROOT / "requirements.txt"), "-c", str(constraints)],
+         "-r", str(ROOT / "requirements.txt"), "-c", str(constraints), str(llama_wheel)],
         "依存パッケージの同梱",
     )
     # --target では wheel のデータ領域・コンソールスクリプトが site-packages\bin に落ちる。
@@ -389,6 +506,31 @@ def verify_native_modules(python: Path) -> None:
     print(f"import: {', '.join(NATIVE_MODULES)}")
 
 
+def verify_llama_cpp(app: Path, python: Path) -> None:
+    result = subprocess.run(
+        [str(python), "-B", "-c", LLAMA_PROBE, str(app / "config.yaml"), HYMT_SAMPLE],
+        env=_clean_env(), capture_output=True, encoding="utf-8", errors="replace",
+    )
+    reports: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        if line.startswith("{"):
+            reports.update(json.loads(line))
+    lib_files = [path.name for path in (app / "python" / "Lib" / "site-packages" / "llama_cpp" / "lib").iterdir()]
+    if "system_info" in reports:
+        problem = llama_cpu_problem(reports["system_info"], lib_files)
+        if problem is not None:
+            raise BuildError(problem)
+    if result.returncode != 0 or not reports.get("translation"):
+        raise BuildError(
+            f"同梱の Python で Hy-MT2 をロードして翻訳できませんでした（終了コード {result.returncode}）:\n"
+            + (result.stdout + result.stderr)[-4000:]
+        )
+    variants = sum(1 for name in lib_files if CPU_VARIANT_DLL.fullmatch(name))
+    kind = f"CPU 判定版（{variants} 種の ggml-cpu-*.dll）" if variants else "CPU 判定なし・AVX-512 不使用"
+    print(f"llama.cpp: {kind}。この開発機での命令セット: {reports['system_info'].strip()}")
+    print(f"Hy-MT2: {HYMT_SAMPLE} → {reports['translation']}")
+
+
 def _free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -484,10 +626,13 @@ def build(work_dir: Path, out_dir: Path, models_dir: Path) -> Path:
         shutil.rmtree(stage)
     app.mkdir(parents=True)
 
+    frozen = venv_frozen()
+    _step("llama-cpp-python（CPU 判定版）")
+    llama_wheel = build_llama_cpp_wheel(cache, pinned_version(frozen, "llama-cpp-python"))
     _step(f"埋め込み版 Python {EMBED_PYTHON_VERSION}")
     python = install_embedded_python(cache, app / "python")
     _step("依存パッケージ")
-    install_dependencies(app / "python" / "Lib" / "site-packages", work_dir)
+    install_dependencies(app / "python" / "Lib" / "site-packages", work_dir, frozen, llama_wheel)
     _step("コード・Web・既定の設定")
     copy_code(app, stage)
     _step("モデル")
@@ -502,7 +647,9 @@ def build(work_dir: Path, out_dir: Path, models_dir: Path) -> Path:
     verify_dll_dependencies(app)
     _step("自己検証 (2) 実エンジンのネイティブモジュール")
     verify_native_modules(python)
-    _step("自己検証 (3) 同梱の Python でサーバーの準備完了")
+    _step("自己検証 (3) llama.cpp の CPU 対応と Hy-MT2 の翻訳")
+    verify_llama_cpp(app, python)
+    _step("自己検証 (4) 同梱の Python でサーバーの準備完了")
     verify_server_ready(app, python)
 
     _step("zip 化")

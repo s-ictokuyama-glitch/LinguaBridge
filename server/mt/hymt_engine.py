@@ -66,6 +66,29 @@ def max_tokens_for(input_tokens: int, cap: int) -> int:
     return max(MIN_MAX_TOKENS, min(cap, estimated))
 
 
+def load_cpu_backends() -> None:
+    """配布パッケージの llama.cpp（GGML_BACKEND_DL・CPU 判定版、#52）の CPU バックエンドを読み込む。
+
+    この作りでは CPU 向けの処理が命令セットごとの ggml-cpu-*.dll に分かれ、実行時にその CPU で
+    動くものを選んで読む。llama.cpp 自身は python.exe の隣とカレントしか探さないので、
+    llama_cpp\\lib を指定して先に読ませる。CPU バックエンドを静的に持つビルド（pip の
+    ビルド済み wheel）では登録済みなので何もしない。
+    """
+    import ctypes
+
+    import llama_cpp
+
+    lib_dir = Path(llama_cpp.__file__).parent / "lib"
+    ggml = ctypes.CDLL(str(lib_dir / "ggml.dll"))
+    ggml.ggml_backend_reg_count.restype = ctypes.c_size_t
+    if ggml.ggml_backend_reg_count() > 0:
+        return
+    ggml.ggml_backend_load_all_from_path.argtypes = [ctypes.c_char_p]
+    ggml.ggml_backend_load_all_from_path(str(lib_dir).encode("utf-8"))
+    if ggml.ggml_backend_reg_count() == 0:
+        raise RuntimeError(f"llama.cpp の CPU バックエンド（ggml-cpu-*.dll）を {lib_dir} から読めませんでした")
+
+
 class HyMt2Engine(TranslationEngine):
     def __init__(
         self,
@@ -98,6 +121,7 @@ class HyMt2Engine(TranslationEngine):
         if self._llm is not None:
             return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("Hy-MT2モデルをロード中: %s", self._gguf_path.name)
+        load_cpu_backends()
         llm = Llama(
             model_path=str(self._gguf_path),
             n_ctx=2048,
