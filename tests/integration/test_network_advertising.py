@@ -8,7 +8,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from server.main import create_app
-from server.network import InterfaceAddress
+from server.network import InterfaceAddress, list_addresses
 from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.teacher_page import run_teacher_script
 from server.asr.fake_engine import FakeASREngine
@@ -49,6 +49,50 @@ def test_auto_selected_network_change_requires_restart(monkeypatch):
         response = client.get("/api/teacher-info")
         assert response.status_code == 503
         assert "join_url" not in response.json()
+
+
+@pytest.mark.parametrize("failure", ["timeout", "denied", "invalid_json"])
+def test_unchanged_wifi_survives_windows_inventory_fallback(monkeypatch, failure):
+    import socket
+    import subprocess
+    from types import SimpleNamespace
+
+    monkeypatch.setattr("server.network.list_addresses", list_addresses)
+    monkeypatch.setattr("server.network.platform.system", lambda: "Windows")
+    unavailable = False
+
+    def inventory(args, **kwargs):
+        if unavailable:
+            if failure == "timeout":
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+            if failure == "denied":
+                raise PermissionError("CIM unavailable")
+            return subprocess.CompletedProcess(args, 0, "invalid JSON")
+        return subprocess.CompletedProcess(args, 0, json.dumps([
+            {"name": "Wi-Fi", "ip": "10.53.64.130", "up": True, "role": "physical"},
+        ]))
+
+    monkeypatch.setattr("server.network.subprocess.run", inventory)
+    monkeypatch.setattr("server.network.psutil.net_if_stats", lambda: {
+        "Wi-Fi": SimpleNamespace(isup=True),
+    })
+    monkeypatch.setattr("server.network.psutil.net_if_addrs", lambda: {
+        "Wi-Fi": [SimpleNamespace(family=socket.AF_INET, address="10.53.64.130")],
+    })
+    config = make_ws_test_config()
+    config.server.advertise_ip = "10.53.64.130"
+    with TestClient(make_app(config)) as client:
+        initial = client.get("/api/teacher-info")
+        assert initial.status_code == 200
+        unavailable = True
+        response = client.get("/api/teacher-info")
+        assert response.status_code == 200, response.json()
+        for field in ("code", "join_url", "teacher_url", "languages"):
+            assert response.json()[field] == initial.json()[field]
+        unavailable = False
+        recovered = client.get("/api/teacher-info")
+        assert recovered.status_code == 200
+        assert recovered.json()["join_url"] == initial.json()["join_url"]
 
 
 def test_certificate_cli_uses_same_configured_wifi(tmp_path, monkeypatch):
