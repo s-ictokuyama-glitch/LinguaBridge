@@ -64,7 +64,13 @@ Assert-ExitOk "モデルのダウンロード"
 
 Section "自己署名証明書の生成"
 & $venvPy "$root\scripts\make_cert.py"
-Assert-ExitOk "証明書の生成"
+if ($LASTEXITCODE -eq 3) {  # make_cert.py の EXIT_UNCHANGED_NOT_READY と一致させる
+    # 既存の証明書・鍵は変更していない。起動時も同じ検証を行い、不整合ならこのPCのHTTP先生URLで起動する。
+    Write-Warning "既存の証明書は採用IPに対して正常と確認できませんでした（上の検証結果を参照）。"
+    Write-Warning "別端末でHTTPSを使う場合は docs\certificate-recovery.md の手順で再発行してください。"
+} else {
+    Assert-ExitOk "証明書の生成"
+}
 
 # 設定ファイルからポートを取得
 $ports = (& $venvPy -c "from server.config import load_config; c=load_config('config.yaml'); print(c.server.http_port, c.server.https_port)")
@@ -74,22 +80,13 @@ $httpPort = [int]$parts[0]
 $httpsPort = [int]$parts[1]
 
 if ($isAdmin) {
+    # 配布モードの初回処理（scripts\first_run_admin.ps1）と共通の処理
+    . "$root\scripts\os_setup.ps1"
     Section "ファイアウォール許可（受信TCP $httpPort, $httpsPort）"
-    foreach ($p in @($httpPort, $httpsPort)) {
-        $name = "LinguaBridge TCP $p"
-        if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
-            New-NetFirewallRule -DisplayName $name -Direction Inbound -Protocol TCP `
-                -LocalPort $p -Action Allow -Profile Any | Out-Null
-            Write-Host "追加: $name"
-        } else {
-            Write-Host "既存: $name"
-        }
-    }
+    Grant-LinguaBridgeFirewall -Ports @($httpPort, $httpsPort)
 
     Section "AC接続時のスリープ無効化"
-    powercfg /change standby-timeout-ac 0
-    powercfg /change hibernate-timeout-ac 0
-    Write-Host "AC接続中はスリープ・休止しません（授業中はAC電源につないでください）。"
+    $null = Disable-AcSleep
 }
 
 Section "完了"

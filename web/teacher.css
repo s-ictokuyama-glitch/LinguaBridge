@@ -21,6 +21,11 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 #pause-btn { background: #e0a812; color: #fff; }
 #end-btn { background: #c62828; color: #fff; }
 
+/* マイク選択（#30: 外付けピンマイクを使う教室運用で必須） */
+.mic-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.mic-row select { flex: 1; min-width: 0; padding: 7px 8px; font-size: 0.9rem; border: 1px solid #cbd6e0; border-radius: 8px; background: #fff; color: #1c2733; }
+.mic-row select:disabled { background: #eef2f6; color: #8a99a8; }
+
 /* マイク入力レベルメーター（E-01: ミュートのまま話す事故を防ぐ常設表示） */
 .meter-row { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; }
 .meter-label { font-size: 0.85rem; color: #5a6b7c; white-space: nowrap; }
@@ -42,6 +47,15 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 #stats { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; font-size: 0.95rem; }
 #stats li { color: #40556a; }
 #stats span { font-weight: 700; color: #1c2733; }
+/* 遅延の内訳（#30）。総遅延にぶら下げて「どこが詰まっているか」を段ごとに読ませる */
+#stats .breakdown > ul { list-style: none; margin: 2px 0 2px 14px; padding-left: 10px; border-left: 2px solid #e0e8ef; display: flex; flex-direction: column; gap: 2px; }
+#stats .breakdown li { font-size: 0.88rem; color: #5a6b7c; }
+/* 「処理中」は待ちに従属させる。先生が読むべきは「待ち」の方で、
+   括弧の中は「いま話した分を処理している」の意（滞留ではない） */
+#stats .sub, #stats .sub span { font-weight: 400; color: #8a99a8; font-size: 0.85em; }
 
 #transcript { list-style: none; max-height: 45vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 #transcript li { background: #f7f9fb; border: 1px solid #e4ebf1; border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; }
+/* 確定前の partial（#29）。確定済みと見分けが付くよう淡色・イタリック・破線枠にする。
+   ここを読み間違えて「もう生徒に届いた」と思わせないことが目的 */
+.partial { margin: 6px 0 0; background: #fbfcfd; border: 1px dashed #d5dfe8; border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; color: #7a8894; font-style: italic; }

@@ -208,3 +208,40 @@ class TestJoinRateLimit:
                 for _ in range(4):
                     join_student(ws, "en", code="0000")
                 assert join_student(ws, "en")["type"] == "joined"  # まだブロックされない
+
+class TestReplayIsExactlyTheMissingRange:
+    """不変条件: `reconnect = missing final utterances restored`（#23）。
+
+    既存テストは代表的な last_seq を1つずつ確かめている。ここでは履歴内の
+    すべての last_seq について「復元されたseq集合 == 欠落seq集合」を主張し、
+    欠落も重複も余計な再送も無いことを固定する。turn連結（#27）で1発話の
+    粒度が変わったとき、この不変条件が最初に壊れる。
+    """
+
+    TOTAL = 5
+
+    @pytest.mark.parametrize("last_seq", [0, 1, 2, 3, 4, 5])
+    def test_restored_seqs_are_exactly_the_missing_ones(self, client, last_seq):
+        with client.websocket_connect("/ws") as teacher:
+            join_teacher(teacher)
+            start_session(teacher)
+            # 生徒0人の間に発話を溜める（選択者がいないので翻訳はまだ走らない）
+            for _ in range(self.TOTAL):
+                send_utterance(teacher, key=1000)
+            finals = 0
+            while finals < self.TOTAL:
+                if teacher.receive_json()["type"] == "asr_final":
+                    finals += 1
+
+            with client.websocket_connect("/ws") as student:
+                assert join_student(student, "en", last_seq=last_seq)["type"] == "joined"
+                restored = [
+                    student.receive_json()["seq"]
+                    for _ in range(self.TOTAL - last_seq)
+                ]
+                assert restored == list(range(last_seq + 1, self.TOTAL + 1))
+
+                # 復元が終わってから新しい発話を1件流す。次に届くのがその発話なら、
+                # 復元とライブの間に重複も余計な再送も挟まっていない
+                send_utterance(teacher, key=2000)
+                assert student.receive_json()["seq"] == self.TOTAL + 1

@@ -9,7 +9,7 @@
 実機デモでも「話すと生徒画面にカードが出る」ことを確認できる。
 
 warmup_gate（threading.Event）を渡すと warmup がそれをセットされるまでブロックする。
-モデルロード中の /healthz 503 を決定的に検証するテスト用。
+モデルロード中の /ready 503 を決定的に検証するテスト用。
 """
 
 from __future__ import annotations

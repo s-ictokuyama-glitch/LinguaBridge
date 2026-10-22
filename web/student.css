@@ -3,6 +3,7 @@ body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", s
 
 /* 参加画面 */
 #join-screen { max-width: 420px; margin: 8vh auto 0; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+#join-screen[hidden] { display: none; }
 #join-screen h1 { font-size: 1.6rem; }
 #join-screen .lead { color: #5a6b7c; font-size: 0.95rem; }
 #join-screen label, #join-screen .label { font-weight: 600; margin-top: 8px; }
@@ -25,6 +26,9 @@ body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", s
 .banner.idle, .banner.disconnected { background: #fde3e0; color: #b3362a; }
 .record-indicator { font-size: 0.8rem; font-weight: 700; color: #c62828; white-space: nowrap; }
 .record-indicator[hidden] { display: none; }
+/* 「発話中」インジケーター（#29）。記録中の赤と区別が付く色にする */
+.speaking-indicator { font-size: 0.8rem; font-weight: 600; color: #1565c0; white-space: nowrap; }
+.speaking-indicator[hidden] { display: none; }
 
 .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ja-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: #40556a; cursor: pointer; white-space: nowrap; }

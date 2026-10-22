@@ -4,3 +4,4 @@ pytest-timeout>=2.3
 httpx>=0.27
 mypy>=1.10
 types-PyYAML
+pefile>=2023.2         # 配布パッケージのビルドの DLL 依存検査（#46 scripts/build_package.py）

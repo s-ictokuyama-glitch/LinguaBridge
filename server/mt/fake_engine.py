@@ -23,6 +23,10 @@ class FakeTranslationEngine(TranslationEngine):
         self._gate = gate
         self.calls: list[tuple[str, str]] = []  # テストからの検査用
 
+    @property
+    def model_version(self) -> str:
+        return "fake-v1"
+
     def translate(self, text_ja: str, target_lang: str) -> str:
         if self._gate is not None:
             self._gate.wait()  # gate がセットされるまでワーカーを止める

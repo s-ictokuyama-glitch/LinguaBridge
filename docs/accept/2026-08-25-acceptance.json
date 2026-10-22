@@ -1,0 +1,246 @@
+{
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-08-25"
+  },
+  "results": [
+    {
+      "engine": "hy-mt2",
+      "minutes": 60.0,
+      "students": 10,
+      "corpus": "ja_ext",
+      "langs": [
+        "en",
+        "zh"
+      ],
+      "captions": 1232,
+      "latency": {
+        "count": 1232,
+        "median_s": 0.09,
+        "p95_s": 0.51,
+        "max_s": 1.83
+      },
+      "memory": {
+        "samples": 1769,
+        "baseline_mb": 2544,
+        "final_mb": 2545,
+        "peak_mb": 2634,
+        "increase_mb": 1,
+        "increasing": false
+      },
+      "first_caption_s": 4.14,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 2.3,
+        "p95": 55.3,
+        "max": 550.1,
+        "samples": 1768
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 8.0,
+        "samples": 1799
+      },
+      "queue_depth": {
+        "median": 0,
+        "max": 2
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 615,
+        "turns_with_partial": 0,
+        "preceded_rate": 0.0,
+        "partials": 0,
+        "revisions_per_turn": null,
+        "revisions_max": null,
+        "mismatch_rate": null,
+        "exact_match_rate": null,
+        "first_partial_s": null,
+        "first_final_s": 3.7960000000020955,
+        "lead_median_s": null,
+        "lead_max_s": null,
+        "lead_min_s": null
+      },
+      "mt_cache": {
+        "hit_rate": 0.928,
+        "hits": 1142,
+        "size": 88
+      },
+      "drift": {
+        "window_s": 300.0,
+        "first_median_s": 0.48,
+        "last_median_s": 0.35,
+        "increase_s": -0.13,
+        "drifting": false,
+        "empty_windows": 0,
+        "windows": [
+          {
+            "index": 0,
+            "start_s": 0.0,
+            "count": 100,
+            "median_s": 0.48,
+            "max_s": 1.83
+          },
+          {
+            "index": 1,
+            "start_s": 300.0,
+            "count": 92,
+            "median_s": 0.09,
+            "max_s": 1.5
+          },
+          {
+            "index": 2,
+            "start_s": 600.0,
+            "count": 90,
+            "median_s": 0.09,
+            "max_s": 1.64
+          },
+          {
+            "index": 3,
+            "start_s": 900.0,
+            "count": 94,
+            "median_s": 0.09,
+            "max_s": 0.81
+          },
+          {
+            "index": 4,
+            "start_s": 1200.0,
+            "count": 88,
+            "median_s": 0.09,
+            "max_s": 0.16
+          },
+          {
+            "index": 5,
+            "start_s": 1500.0,
+            "count": 86,
+            "median_s": 0.09,
+            "max_s": 0.22
+          },
+          {
+            "index": 6,
+            "start_s": 1800.0,
+            "count": 88,
+            "median_s": 0.11,
+            "max_s": 0.2
+          },
+          {
+            "index": 7,
+            "start_s": 2100.0,
+            "count": 88,
+            "median_s": 0.11,
+            "max_s": 0.19
+          },
+          {
+            "index": 8,
+            "start_s": 2400.0,
+            "count": 90,
+            "median_s": 0.11,
+            "max_s": 0.19
+          },
+          {
+            "index": 9,
+            "start_s": 2700.0,
+            "count": 92,
+            "median_s": 0.11,
+            "max_s": 0.19
+          },
+          {
+            "index": 10,
+            "start_s": 3000.0,
+            "count": 85,
+            "median_s": 0.11,
+            "max_s": 0.2
+          },
+          {
+            "index": 11,
+            "start_s": 3300.0,
+            "count": 90,
+            "median_s": 0.11,
+            "max_s": 0.19
+          },
+          {
+            "index": 12,
+            "start_s": 3600.0,
+            "count": 2,
+            "median_s": 0.35,
+            "max_s": 0.44
+          }
+        ]
+      },
+      "resources": [
+        {
+          "name": "threads",
+          "samples": 1769,
+          "baseline": 31.0,
+          "final": 31.0,
+          "peak": 44.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "handles",
+          "samples": 1769,
+          "baseline": 454.0,
+          "final": 454.0,
+          "peak": 467.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "tasks",
+          "samples": 1799,
+          "baseline": 31.0,
+          "final": 31.0,
+          "peak": 31.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "audio_queue_seconds",
+          "samples": 1799,
+          "baseline": 0.0,
+          "final": 0.0,
+          "peak": 8.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "mt_queue_depth",
+          "samples": 1799,
+          "baseline": 0.0,
+          "final": 0.0,
+          "peak": 2.0,
+          "increase": 0.0,
+          "growing": false
+        }
+      ],
+      "dropped": {
+        "segments": 0,
+        "seconds": 0.0,
+        "frames_rejected": 0,
+        "notices": {}
+      },
+      "calls": {
+        "asr": 698,
+        "asr_partial": 0,
+        "mt": 88,
+        "tasks": 31
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 3620.1,
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    }
+  ]
+}

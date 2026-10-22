@@ -10,23 +10,30 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import socket
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from typing import AsyncIterator
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from server import event_loop
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
-from server.config import AppConfig, load_config
+from server.config import AppConfig, add_layer_arguments, config_cli_args, load_config
+from server.launch_commands import launch_commands
+from server.diagnostics import record_template
+from server.certificates import certificate_ready, inspect_certificate, print_certificate_report
 from server.model_files import require_model_files
+from server.network import PublishedAddress, choose_ip, resolve_ip
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -55,6 +62,22 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
             model_dir,
             compute_type=config.asr.compute_type,
             language=config.asr.language,
+            cpu_threads=config.asr.cpu_threads,
+        )
+    if config.asr.engine == "sherpa":
+        # 遅延import: 他構成では sherpa-onnx を要求しない
+        from server.asr.sherpa_engine import SherpaOnnxEngine
+
+        model_dir = config.models.resolve(config.asr.sherpa.model)
+        require_model_files(model_dir, 10_000_000, "ASRモデル")
+        hotwords = config.asr.sherpa.resolved_hotwords_file()
+        return SherpaOnnxEngine(
+            model_dir,
+            num_threads=config.asr.cpu_threads,
+            decoding_method=config.asr.sherpa.decoding_method,
+            lead_in_ms=config.asr.sherpa.lead_in_ms,
+            hotwords_file=hotwords,
+            hotwords_score=config.asr.sherpa.hotwords_score,
         )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
@@ -92,19 +115,36 @@ def build_mt_engine(config: AppConfig) -> TranslationEngine:
             gguf_path,
             threads=config.mt.hy_mt2.threads,
             temperature=config.mt.hy_mt2.temperature,
+            max_tokens_cap=config.mt.hy_mt2.max_tokens_cap,
         )
     raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
 
 
 def get_lan_ip() -> str:
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))  # UDPなので実送信はしない。経路のあるIF判定のみ
-            return str(s.getsockname()[0])
-    except OSError:
-        with contextlib.suppress(OSError):
-            return socket.gethostbyname(socket.gethostname())
-    return "127.0.0.1"
+    """ローカルNICの状態・役割から公開IPを選ぶ。曖昧なら明示選択を要求する。"""
+    return resolve_ip()
+
+
+def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
+    """WSの Origin を検証する（#25 A-4）。
+
+    - Origin ヘッダが無い接続は許可する。ブラウザは必ず付けるので、無いのは
+      `scripts/replay_client.py` のような非ブラウザのツール（LAN内・信頼済み）。
+    - 明示的な許可リストに完全一致すれば許可する。
+    - それ以外は「Origin のホストが接続先ホストと同一」であることを求める。
+      学校LANでは生徒も先生も同じホスト名（IP）で開くので通常は素通りし、
+      外部サイトに置かれたページからのWS接続だけが落ちる。
+    """
+    if origin is None:
+        return True
+    if origin in allowed:
+        return True
+    origin_host = urlsplit(origin).hostname
+    if origin_host is None:  # "null"（file:// やサンドボックス）
+        return False
+    # Host ヘッダはポート付き。ホスト名だけ取り出して比べる
+    host_only = urlsplit(f"//{host}").hostname if host else None
+    return host_only is not None and origin_host == host_only
 
 
 def create_app(
@@ -140,6 +180,8 @@ def create_app(
     app.state.session = session
     app.state.pipeline = pipeline
     app.state.config = config
+    public_address = PublishedAddress(config.server.advertise_ip)
+    app.state.public_address = public_address
 
     @app.get("/")
     async def student_page() -> FileResponse:
@@ -149,10 +191,37 @@ def create_app(
     async def teacher_page() -> FileResponse:
         return FileResponse(WEB_DIR / "teacher.html")
 
+    @app.get("/connection-help", response_class=HTMLResponse)
+    def connection_help() -> HTMLResponse:
+        page = (WEB_DIR / "connection-help.html").read_text(encoding="utf-8")
+        values: dict[str, object] = {
+            "http_port": config.server.http_port, "https_port": config.server.https_port,
+            "record_template": record_template(),
+        }
+        # テンプレートは <!-- remote-steps --> と <!-- unavailable-steps --> の2区間を持ち、片方だけ残す。
+        try:
+            values["ip"] = public_address.current_ip()
+            hidden, status_code = "unavailable-steps", 200
+        except ValueError as exc:
+            # 別端末用URLは出さず、利用者向け説明とサーバーPC内の確認だけを残す。
+            values["error"] = str(exc)
+            hidden, status_code = "remote-steps", 503
+        page = re.sub(rf"<!-- {hidden} -->.*?<!-- /{hidden} -->\s*", "", page, flags=re.S)
+        for name, value in values.items():
+            page = page.replace("{{" + name + "}}", escape(str(value)))
+        return HTMLResponse(page, status_code=status_code, headers={"Cache-Control": "no-store"})
+
     @app.get("/healthz")
     async def healthz() -> JSONResponse:
-        # モデルの事前ロード完了まで 503（E-13）。start.bat はこれが 200 になってから
-        # ブラウザを開く。ロード中でもサーバー自体は起動済みで応答する
+        # liveness: プロセスが生きて応答できるか（#25 W-2）。モデルのロード状況とは
+        # 独立で、常に 200 を返す。「生きているが未準備」を区別するために
+        # readiness は /ready に分けてある
+        return JSONResponse({"status": "ok", "ready": pipeline.ready})
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        # readiness: モデルの事前ロード完了まで 503（E-13）。start.bat はこれが
+        # 200 になってからブラウザを開く
         if not pipeline.ready:
             return JSONResponse({"status": "loading"}, status_code=503)
         return JSONResponse({"status": "ok"})
@@ -162,19 +231,30 @@ def create_app(
         return {"languages": [lang.model_dump() for lang in config.languages]}
 
     @app.get("/api/teacher-info")
-    async def teacher_info(request: Request) -> JSONResponse:
+    def teacher_info(request: Request) -> JSONResponse:
         # 参加コードを晒す口。先生ページは HTTPS(8443) 側で開く運用なので https は許可、
         # 平文HTTP(生徒用)からはループバックのみ許可し部外者のコード取得を抑止（R-10）
         host = request.client.host if request.client else None
         if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
             return JSONResponse({"detail": "forbidden"}, status_code=403)
-        join_url = f"http://{get_lan_ip()}:{config.server.http_port}/?code={session.join_code}"
+        try:
+            ip = public_address.current_ip()
+        except ValueError as exc:
+            logger.warning("公開接続先を利用できません: %s", exc)
+            return JSONResponse({"detail": str(exc)}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+        join_url = f"http://{ip}:{config.server.http_port}/?code={session.join_code}"
+        tls = inspect_certificate(config.server, ip)
         return JSONResponse(
             {
                 "code": session.join_code,
                 "join_url": join_url,
+                "teacher_url": (f"https://{ip}:{config.server.https_port}/teacher"
+                                if certificate_ready(tls) else
+                                f"http://127.0.0.1:{config.server.http_port}/teacher"),
+                "tls": tls,
                 "languages": [lang.model_dump() for lang in config.languages],
-            }
+            }, headers={"Cache-Control": "no-store"}
         )
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -184,23 +264,34 @@ def create_app(
     ) -> Client | None:
         if limiter.is_blocked(client_ip):
             # 総当たり対策（E-09）: コードの正誤にかかわらず一定時間拒否
-            await ws.send_json(proto.JoinRejected(reason="rate_limited").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="rate_limited").model_dump())
             return current
         if not session.check_code(msg.code):
             limiter.record_failure(client_ip)
-            await ws.send_json(proto.JoinRejected(reason="bad_code").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="bad_code").model_dump())
             return current
         limiter.record_success(client_ip)
         if msg.role == "student" and msg.lang not in config.language_codes:
-            await ws.send_json(proto.JoinRejected(reason="bad_lang").model_dump())
+            await send_now(ws, proto.JoinRejected(reason="bad_lang").model_dump())
+            return current
+        if (
+            msg.role == "student"
+            and (current is None or current.role != "student")
+            and len(session.students()) >= config.limits.max_students
+        ):
+            # 生徒数の明示上限（#25 A-4 / whisper-flow W-4）。既に入っている生徒の
+            # 入り直しは席を増やさないので数えない
+            await send_now(ws, proto.JoinRejected(reason="full").model_dump())
             return current
         if current is not None:
             session.remove_client(current.id)
+            await pipeline.drop_client(current.id)
         if msg.role == "teacher":
             old = session.teacher()
             if old is not None:
                 # 後勝ち（E-08）: 旧接続を code 4000 で切断（クライアントは再接続しない）
                 session.remove_client(old.id)
+                await pipeline.drop_client(old.id)
                 if old.ws is not None:
                     with contextlib.suppress(Exception):
                         await old.ws.close(code=4000)
@@ -211,13 +302,15 @@ def create_app(
             ws=ws,
         )
         session.add_client(client)
-        await ws.send_json(
+        await send_now(
+            ws,
             proto.Joined(
                 seq_head=session.seq_head,
                 history_from=session.history_from,
                 languages=config.languages,
                 session_state=session.state,
                 recording=session.recording,
+                speaking=pipeline.speaking,  # 発話の途中で参加した生徒にも出す（#29）
             ).model_dump()
         )
         if msg.role == "student" and msg.last_seq is not None:
@@ -257,8 +350,28 @@ def create_app(
             await pipeline.flush_audio()
             await pipeline.broadcast_session_state()
 
+    async def send_now(ws: WebSocket, payload: dict) -> None:
+        """join 前後の直接送信（拒否・エラー通知）。送信タイムアウト付き（#25 A-4）。
+
+        字幕の配信は pipeline のクライアント別送信キューを通るが、ここは
+        まだクライアントが登録されていない・登録できない経路なので直接送る。
+        タイムアウトが無いと、応答しない接続がこの受信ループを永久に止める。
+        """
+        with contextlib.suppress(Exception):  # TimeoutError もここに含まれる
+            await asyncio.wait_for(
+                ws.send_json(payload), timeout=config.limits.send_timeout_s
+            )
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
+        if not origin_allowed(
+            ws.headers.get("origin"), ws.headers.get("host"), config.limits.allowed_origins
+        ):
+            # 他サイトに置かれたページからのWS接続を断る（#25 A-4）。
+            # accept 前に閉じるのでハンドシェイク自体が成立しない
+            logger.warning("Origin が不許可のWS接続を拒否: %s", ws.headers.get("origin"))
+            await ws.close(code=1008)
+            return
         await ws.accept()
         client_ip = ws.client.host if ws.client else "unknown"
         client: Client | None = None
@@ -269,34 +382,53 @@ def create_app(
                     break
                 data = message.get("bytes")
                 if data is not None:
+                    if len(data) > config.limits.max_audio_bytes:
+                        # 100msフレーム(3200B)を大きく超えるバイナリは捨てる。
+                        # 接続は維持する（先生の操作は効いたままにする）
+                        logger.warning("上限超過の音声フレームを破棄: %d bytes", len(data))
+                        pipeline.audio_frames_rejected += 1  # 長時間試験の破棄内訳（#32）
+                        continue
                     if client is not None and client.role == "teacher":
                         await pipeline.feed_audio(data)
                     continue
                 text = message.get("text")
                 if text is None:
                     continue
+                # 文字数ではなくバイト数で測る（日本語は1文字3バイト）
+                if len(text.encode("utf-8", "ignore")) > config.limits.max_text_bytes:
+                    await send_now(
+                        ws,
+                        proto.ErrorMsg(
+                            code="too_large", message="メッセージが大きすぎます"
+                        ).model_dump(),
+                    )
+                    continue
                 try:
                     msg = proto.parse_client_message(text)
                 except proto.ProtocolError as exc:
-                    await ws.send_json(
-                        proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
+                    await send_now(
+                        ws, proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
                     )
                     continue
                 if isinstance(msg, proto.JoinMessage):
                     client = await handle_join(ws, client, msg, client_ip)
                 elif client is None:
-                    await ws.send_json(
-                        proto.ErrorMsg(code="not_joined", message="先に join してください").model_dump()
+                    await send_now(
+                        ws,
+                        proto.ErrorMsg(
+                            code="not_joined", message="先に join してください"
+                        ).model_dump(),
                     )
                 elif isinstance(msg, proto.SetLangMessage):
                     if client.role == "student":
                         if msg.lang in config.language_codes:
                             client.lang = msg.lang
                         else:
-                            await ws.send_json(
+                            await send_now(
+                                ws,
                                 proto.ErrorMsg(
                                     code="bad_lang", message=f"未対応の言語: {msg.lang}"
-                                ).model_dump()
+                                ).model_dump(),
                             )
                 elif isinstance(msg, proto.ControlMessage):
                     if client.role == "teacher":
@@ -310,6 +442,7 @@ def create_app(
         finally:
             if client is not None:
                 session.remove_client(client.id)
+                await pipeline.drop_client(client.id)  # 送信キューを畳む（#25 A-3）
                 if client.role == "teacher":
                     await handle_teacher_disconnect()
 
@@ -338,13 +471,20 @@ def cert_days_remaining(cert_path: Path) -> int | None:
         return None
 
 
+# 終了要求から、接続の後始末を待つ上限（秒）。超えたら残りを打ち切って lifespan の終了
+# （pipeline.stop・授業記録の確定）へ進む。後始末が戻らない接続があっても終了できるように
+# する保険（#50。戻しスイッチ LINGUABRIDGE_STOCK_EVENT_LOOP=1 の既定ループでも効く）。
+GRACEFUL_SHUTDOWN_S = 10
+
+
 async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None:
     import signal
 
     import uvicorn
 
     server_configs = [
-        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info")
+        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info",
+                       timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S)
     ]
     teacher_url = f"http://127.0.0.1:{config.server.http_port}/teacher"
     if config.server.tls_ready():
@@ -355,6 +495,7 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
                 port=config.server.https_port,
                 log_level="warning",
                 lifespan="off",  # lifespan(モデル起動)はHTTP側で1度だけ走らせる
+                timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
                 ssl_certfile=str(config.server.cert_path()),
                 ssl_keyfile=str(config.server.key_path()),
             )
@@ -362,12 +503,16 @@ async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None
         teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
 
     servers = [uvicorn.Server(c) for c in server_configs]
-    # 2サーバーが個別にSIGINTを奪い合うと、片方（lifespanを持つHTTP側）が終了せず
-    # pipeline.stop() が走らない。各サーバーの個別ハンドラを抑止し、共有ハンドラで
-    # 全サーバーに終了を伝える（Windowsは Ctrl+C=SIGINT）
+    # Uvicorn は serve() の間だけ自前の SIGINT/SIGTERM ハンドラを入れる（capture_signals）。
+    # 2サーバーでは後から入れた HTTPS 側だけが Ctrl+C を受け、lifespan を持つ HTTP 側へは
+    # HTTPS 側の終了後に再送されるだけなので、HTTPS 側が終わらないと HTTP 側も終わらない
+    # （#50）。各サーバーの捕捉を止め、共有ハンドラで全サーバーに同時に終了を伝える
+    # （Windowsは Ctrl+C=SIGINT）
     for server in servers:
-        server.install_signal_handlers = lambda: None  # type: ignore[attr-defined]
+        server.capture_signals = contextlib.nullcontext  # type: ignore[method-assign, assignment]
 
+    # 2回目の Ctrl+C でも force_exit にはしない。Uvicorn は force_exit だと lifespan の終了
+    # （pipeline.stop・授業記録の確定）を飛ばすため。終了待ちは GRACEFUL_SHUTDOWN_S で打ち切る
     def _request_shutdown(*_: object) -> None:
         for server in servers:
             server.should_exit = True
@@ -397,39 +542,55 @@ def main() -> None:
     parser.add_argument(
         "--open-browser", action="store_true", help="起動後に先生ページを既定ブラウザで開く"
     )
+    parser.add_argument("--advertise-ip", help="案内に使う、このPCのIPv4（今回のみ）")
+    parser.add_argument("--select-network", action="store_true", help="曖昧・無効な接続先を対話選択")
+    add_layer_arguments(parser)
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    config = load_config(args.config)
+    config = load_config(args.config, override=args.config_override, data_root=args.data_root)
+    config_args = config_cli_args(args)
+    commands = launch_commands()  # 配布モードでは同梱の python.exe を案内する（#51）
     try:
+        requested_ip = args.advertise_ip or config.server.advertise_ip
+        if args.select_network:
+            ip = choose_ip(requested_ip, interactive=True)
+        else:
+            ip = resolve_ip(requested_ip) if requested_ip else get_lan_ip()
+        config.server.advertise_ip = ip
         app = create_app(config)
     except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
     session: Session = app.state.session
-    ip = get_lan_ip()
-    https = config.server.tls_ready()
+    tls = inspect_certificate(config.server, ip)
+    https = certificate_ready(tls)
     teacher_line = (
-        f"https://{ip}:{config.server.https_port}/teacher（別端末可・初回のみ証明書警告を承認）"
+        f"https://{ip}:{config.server.https_port}/teacher（証明書整合性確認済み・別端末での利用は未確認）"
         if https
-        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは要 setup.ps1）"
+        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
     )
     print("=" * 66)
     print("LinguaBridge サーバー起動")
+    print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
+    print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
     print(f"  参加コード : {session.join_code}")
     print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
     print(f"  先生ページ : {teacher_line}")
-    if not https:
-        print("    （マイクにはセキュアコンテキストが必要。証明書が無いため localhost 運用）")
-    else:
-        days = cert_days_remaining(config.server.cert_path())
-        if days is not None and days < 30:
-            state = "期限切れ" if days < 0 else f"残り{days}日"
-            print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
-            print("    python scripts\\make_cert.py --force で再生成してください。")
+    print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")
+    print_certificate_report(tls)
+    days = tls["certificate"].get("days_remaining")
+    if days is not None and days < 30:
+        state = "期限切れ" if days < 0 else f"残り{days}日"
+        print(f"  ⚠ 証明書の有効期限が近い/切れています（{state}）。")
+    if not https or (days is not None and days < 30):
+        print("  サーバーを停止して次を実行（旧証明書・鍵は一組で自動退避）:")
+        print(f"    {commands.make_cert} {config_args} --advertise-ip {ip} --force")
+    print(f"  HTTPS再確認: 再起動後、{commands.diagnostics} {config_args} --advertise-ip {ip} --json")
+    print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:
-        asyncio.run(_serve(app, config, open_browser=args.open_browser))
+        event_loop.run(_serve(app, config, open_browser=args.open_browser))
     except KeyboardInterrupt:
         pass
 

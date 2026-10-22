@@ -161,6 +161,9 @@ LinguaBridge/
     ├── unit/                     # vad / protocol / recorder / engineアダプタ
     ├── integration/              # 小型モデルでのパイプライン結合試験
     ├── fixtures/                 # 授業想定の日本語音声WAV・期待テキスト
+    │   ├── ja/ + ja_sentences.txt  # ベースライン10文（構成を変えない）
+    │   ├── ja_corpus.json        # 拡張コーパス定義（話速・間・言い淀み・雑音＋区切りの正解）
+    │   └── ja_ext/               # その生成物（gitignore・再生成可能）
     └── e2e/                      # replay_client による遅延・負荷計測
 ```
 
@@ -221,16 +224,24 @@ asr:
   model: faster-whisper-small   # models.dir配下のディレクトリ名。切替: kotoba-whisper-v2.0-faster
   compute_type: int8
   language: ja
+  cpu_threads: 0             # CTranslate2の内部スレッド数。0=ライブラリ既定（#26 B-6で据置と判定）
 vad:
   engine: silero             # "silero" | "energy"（テスト・フォールバック用）
   threshold: 0.5             # silero: 音声確率 / energy: int16 RMS
   min_silence_ms: 500        # 発話終了判定
   max_utterance_s: 30        # 強制分割（§8 E-03）
   pre_roll_ms: 240           # 発話開始前の音声を含める（語頭の欠け防止）
+turn:                        # Segment（ASR単位）→ Turn（字幕カード）の連結（#27）
+  strategy: morph            # "morph"（既定・文法境界で連結） | "simple"（無音長のみ＝#27以前）
+  classifier: surface        # 文法境界の判定器。surface = 形態素解析器なしの表層判定
+  # morph 時のみ有効。既定は docs/bench/2026-08-23-turn-detection.md の実測の勝者
+  morph: { check_silence_ms: 500, start_speech_ms: 96, force_silence_ms: 1000, max_turn_s: 30.0, max_segments: 12 }
 mt:
   engine: hy-mt2             # "hy-mt2" | "nllb"（判断ゲート①で hy-mt2 に確定）
-  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4, temperature: 0.7 }   # models.dir相対
+  # temperature 0 = 貪欲デコード（#26 B-5 で確定）。max_tokens_cap は出力上限の頭打ち（#26 B-7）
+  hy_mt2: { gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf, threads: 4, temperature: 0.0, max_tokens_cap: 512 }
   nllb:   { model_dir: nllb-200-distilled-600M-ct2, tokenizer_dir: nllb-tokenizer, beam_size: 1 }
+  cache_size: 512            # 発話をまたぐ翻訳キャッシュの上限件数。0=無効（#26 B-4）
 languages:                   # 生徒が選択可能な言語（F-12）
   - { code: en, label: English }
   - { code: zh, label: 中文（简体） }
@@ -262,7 +273,8 @@ history_resend: 50
 | `GET /teacher` | 先生ページ（HTTPS側でのみ案内） |
 | `GET /api/config` | 言語リスト・UI文言など公開設定のJSON |
 | `GET /api/teacher-info` | 参加コード・参加URL（QR用）。ループバック接続のみ応答（先生ページ用。別端末HTTPS運用時は #16 でトークン方式に変更） |
-| `GET /healthz` | 死活監視（モデルロード完了で200） |
+| `GET /healthz` | 死活監視 liveness（常に200・`ready` を含む） |
+| `GET /ready` | readiness（モデルロード完了で200、それまで503） |
 | 静的配信 `/static/*` | web/ 以下 |
 
 ### 6.2 WebSocketプロトコル
@@ -294,12 +306,16 @@ history_resend: 50
 { "type": "caption", "seq": 13, "ja": "光合成には日光が必要です。",
   "text": "光合作用需要阳光。", "lang": "zh", "delay_ms": 4200 }
 { "type": "session", "state": "paused" | "live" | "ended" }   // バナー表示用
+{ "type": "speaking", "on": true }   // 先生が発話中（#29）。変化時のみ。日本語の原文は送らない
 ```
 
 **サーバー → 先生**
 
 ```jsonc
-{ "type": "asr_final", "seq": 13, "ja": "...", "asr_ms": 1400 }
+{ "type": "asr_final", "seq": 13, "turn_id": 7, "ja": "...", "asr_ms": 1400 }
+// 確定前の暫定テキスト（#29）。**先生のみ**。履歴・記録・翻訳のいずれにも載らない。
+// 同じ turn_id 内で revision が単調増加し、後着が前を上書きする
+{ "type": "turn.partial", "turn_id": 7, "revision": 2, "ja": "光合成には日光が" }
 { "type": "stats", "students": 9, "langs": {"zh": 5, "en": 4}, "queue_depth": 1,
   "median_delay_ms": 4100, "overloaded": false }   // 2秒ごと。overloadedは解消でfalseに戻る
 { "type": "error", "code": "mic_silent", "message": "..." }   // 過負荷はstats.overloadedで通知
@@ -357,6 +373,8 @@ class TranslationEngine(ABC):
     def translate(self, text_ja: str, target_lang: str) -> str: ...
     def supported_languages(self) -> list[str]: ...
     def warmup(self) -> None: ...   # 起動時ロード＆ダミー推論（初回遅延対策）
+    @property
+    def model_version(self) -> str: ...  # 翻訳キャッシュのキー。デコード設定を含む（#26）
 ```
 
 ---
@@ -375,7 +393,7 @@ class TranslationEngine(ABC):
 ### Phase 1 — MVP（音声→字幕の一気通貫）
 
 7. `server/config.py`＋`config.yaml` ロード（pydantic検証）
-8. `server/main.py`: FastAPI起動、HTTP(8000)/HTTPS(8443)二重リッスン、静的配信、`/healthz`。`scripts/make_cert.py` で証明書生成
+8. `server/main.py`: FastAPI起動、HTTP(8000)/HTTPS(8443)二重リッスン、静的配信、`/healthz` と `/ready`。`scripts/make_cert.py` で証明書生成
 9. `server/ws_protocol.py`＋`server/session.py`: WSスキーマ、参加コード検証、クライアント管理、履歴re-send
 10. `web/audio-worklet.js`＋先生ページのマイク取得〜PCM送信（まずローカルループバックで波形確認）
 11. `server/audio/ingest.py`＋`server/audio/vad.py`: PCM受信→Silero VADで発話セグメント化（fixture WAVでユニットテスト）
@@ -420,7 +438,7 @@ class TranslationEngine(ABC):
 | E-10 | サーバーIPがDHCPで変わる | start.bat 起動時に現IPでQR再生成（毎授業QR読み直し運用）。README にIP固定の推奨手順も記載 |
 | E-11 | Windows機のスリープ・画面ロック | setup.ps1 で電源プラン変更（AC接続時スリープ無効）。README に授業中はAC接続と明記 |
 | E-12 | iPhone Safari特有の挙動（バックグラウンドでWS切断） | E-06の再接続で吸収。画面ロック中の受信は諦め、復帰時に履歴復元 |
-| E-13 | モデルファイル欠損・破損での起動失敗 | 起動時チェックでファイル存在＋サイズ検証。欠損時はコンソールに `download_models.py` 再実行を案内し、`/healthz` は503 |
+| E-13 | モデルファイル欠損・破損での起動失敗 | 起動時チェックでファイル存在＋サイズ検証。欠損時はコンソールに `download_models.py` 再実行を案内し、`/ready` は503 |
 | E-14 | 対応外言語コードでの join / 全員退出した言語 | join時に config の言語リストで検証。選択者0名になった言語は翻訳ジョブ停止（§6.3） |
 | E-15 | HTTPS証明書の期限切れ | 証明書は有効期間825日で生成し、起動時に残存期間チェック→30日未満で警告＋再生成案内 |
 

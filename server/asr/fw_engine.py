@@ -22,7 +22,11 @@ SAMPLE_RATE = 16000
 
 class FasterWhisperEngine(ASREngine):
     def __init__(
-        self, model_dir: Path, compute_type: str = "int8", language: str = "ja"
+        self,
+        model_dir: Path,
+        compute_type: str = "int8",
+        language: str = "ja",
+        cpu_threads: int = 0,
     ) -> None:
         if not model_dir.exists():
             raise FileNotFoundError(
@@ -32,6 +36,9 @@ class FasterWhisperEngine(ASREngine):
         self._model_dir = model_dir
         self._compute_type = compute_type
         self._language = language
+        # 0 = CTranslate2 の既定（全論理コア）。llama.cpp と足して論理コア数を
+        # 超えないようにするのが #26 B-6 の狙い
+        self._cpu_threads = cpu_threads
         self._model: Any = None
 
     def warmup(self) -> None:
@@ -42,7 +49,10 @@ class FasterWhisperEngine(ASREngine):
             return  # 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("ASRモデルをロード中: %s (%s)", self._model_dir.name, self._compute_type)
         self._model = WhisperModel(
-            str(self._model_dir), device="cpu", compute_type=self._compute_type
+            str(self._model_dir),
+            device="cpu",
+            compute_type=self._compute_type,
+            cpu_threads=self._cpu_threads,
         )
         self.transcribe(np.zeros(SAMPLE_RATE, dtype=np.int16), SAMPLE_RATE)
         logger.info("ASRウォームアップ完了")

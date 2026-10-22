@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>LinguaBridge - 接続に困ったとき</title>
+  <style>
+    body { max-width: 50rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.7 sans-serif; color: #18212b; }
+    a { color: #164ca0; overflow-wrap: anywhere; }
+    code, pre { background: #f0f3f6; overflow-wrap: anywhere; white-space: pre-wrap; }
+    pre { padding: 1rem; }
+    summary { cursor: pointer; font-weight: bold; }
+    li { margin: .6rem 0; }
+  </style>
+</head>
+<body>
+  <h1>接続に困ったとき</h1>
+  <p>先生から案内されたURLを開き直してください。開けないときは、試した時刻と画面のエラーを先生・設定担当者に伝えてください。
+    URLや画面を共有するときは参加コードを伏せてください。</p>
+  <p>端末が既存の社内Wi-Fiに接続していることを確認してください。証明書警告や管理者による制限が出た場合は、その文言を担当者へ伝えてください。</p>
+  <details>
+    <summary>設定担当者向け：診断と次の操作</summary>
+    <p>サーバーPCで、起動ウィンドウを残して別のターミナルを開き、アプリのフォルダで
+      <code>start.bat --diagnose</code> を実行します。OS設定を変更せず、接続先・待受・HTTP・TLS・ファイアウォールを調べます。
+      詳細の保存は <code>.venv\Scripts\python -m server.diagnostics --json &gt; connection-report.json</code>。
+      カスタム設定で起動した場合は、診断にも同じ <code>--config</code> を指定してください。</p>
+    <!-- remote-steps -->
+    <p>このページは操作案内です。診断を自動実行した結果ではありません。以下のIPは起動時と同じ規則による現在の候補で、Wi-Fiの実アダプターと照合してください。</p>
+    <p>IPが127.0.0.1や169.254で始まる場合は、別端末用のURLとして使わず、担当者がWi-FiのIPv4と候補の取得状況を確認してください。</p>
+    <ol>
+      <li>サーバーPCで <a href="http://127.0.0.1:{{http_port}}/healthz">http://127.0.0.1:{{http_port}}/healthz</a> を開きます。
+        statusがokならHTTPの死活確認は成功です。失敗したら起動ログと診断の設定ポート・待受PIDを確認します。</li>
+      <li>サーバーPCと別端末の両方で、同じ <a href="http://{{ip}}:{{http_port}}/healthz">http://{{ip}}:{{http_port}}/healthz</a> を開き、結果を比較します。
+        サーバーPCだけ成功する場合は、採用IP・実Wi-Fi・待受アドレス・サーバーPCのファイアウォールを担当者が確認します。
+        ping失敗やログ不在だけでAP分離と断定しません。</li>
+      <li><a href="http://{{ip}}:{{http_port}}/ready">/ready</a> の503はモデル未準備です。
+        /healthzの成功と両立します。モデルの準備状況は起動ログで確認してください。</li>
+      <li>HTTPSを使う別端末では <a href="https://{{ip}}:{{https_port}}/healthz">https://{{ip}}:{{https_port}}/healthz</a> を確認します。
+        証明書のIP・期限・鍵・提供中証明書の一致と、端末側の信頼は別です。警告やポリシー制限があれば文言を記録して担当者へ引き継ぎます。</li>
+      <li><a href="http://{{ip}}:{{http_port}}/">生徒ページ</a>、必要なら
+        <a href="https://{{ip}}:{{https_port}}/teacher">先生ページ</a>を開きます。
+        ブラウザのアドレスバーにある最終URLのスキーム・IP・ポート・パスを確認してください。
+        HTTPからHTTPSへの自動変更、エラーページへの遷移も記録します。ページ取得成功とWS参加成功は別段階です。</li>
+      <li>生徒ページで参加し、接続状態と先生ページの接続人数を照合します。
+        失敗時は同じ時刻のサーバーログと、取得できる場合だけブラウザのWebSocketエラーを記録します。
+        ログが無いときは「該当ログなし・原因未確認」とします。</li>
+    </ol>
+    <p>証明書の不整合は、サーバーPCで停止・再発行・再起動してから同じHTTPS URLで再確認します。
+      再発行は旧証明書と鍵を一組で退避します。操作・復元手順は <code>docs/certificate-recovery.md</code> を参照してください。</p>
+    <p>Chromebook Chrome・iPhone Chromeで自己署名証明書の警告が出た場合は、担当者が案内したIPと照合し、
+      現地で許可されている場合に「詳細設定」から当該IPへ進むリンクを選びます。
+      表示が違う・進むリンクがない場合は文言を記録し、設定を変えず担当者へ渡してください。
+      承認後は上記HTTPSの /healthz と先生ページの最終URLを確認します。
+      警告承認・HTTPS接続の成功だけでは、マイク入力や字幕配信の成功にはなりません。</p>
+    <!-- /remote-steps -->
+    <!-- unavailable-steps -->
+    <p>現在の接続先IPを確認できません（{{error}}）。別端末用のURLは案内しません。</p>
+    <ol>
+      <li>サーバーPCで <a href="http://127.0.0.1:{{http_port}}/healthz">http://127.0.0.1:{{http_port}}/healthz</a> を開き、statusがokかを確認します。</li>
+      <li><code>start.bat --diagnose</code> でネットワーク候補・採用IP・待受を確認し、Wi-FiのIPv4と照合します。</li>
+      <li>接続先を選び直して再起動し、起動画面に出た新しいURLで別端末から再確認します。前のURLや参加コードは使い続けません。</li>
+    </ol>
+    <!-- /unavailable-steps -->
+    <p>復旧の変更対象はアプリとサーバーPCです。診断はファイアウォール許可や証明書再生成を自動実行しません。
+      社内ネットワーク変更、代替接続、別端末への証明書導入・ポリシー変更は行わず、現地操作は後日担当者と協働します。
+      詳しい復旧分岐はリポジトリの <code>docs/connection-diagnostics.md</code> を参照してください。</p>
+    <h2>記録欄（コピーして端末ごとに記入）</h2>
+    <p>参加コードはURL・エラー・ログ・画面から伏せます。秘密鍵を収集・添付しないでください。版を取得できない場合も未確認と記録します。</p>
+    <pre>{{record_template}}</pre>
+  </details>
+</body>
+</html>

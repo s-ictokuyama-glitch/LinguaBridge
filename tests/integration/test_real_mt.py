@@ -17,6 +17,11 @@ from server.asr.fake_engine import FakeASREngine
 from tests.conftest import JOIN_CODE
 from tests.helpers import utterance_bytes
 
+# モデル読込（module fixture の setup）も制限時間に含まれる。ディスクキャッシュが冷えた
+# 初回や、ウイルス対策の走査中は既定の20秒を超えうる。thread 方式の timeout は
+# プロセスごと終了させ全体試験の結果を失うため、このファイルだけ読込に見合う上限にする。
+pytestmark = pytest.mark.timeout(180)
+
 MODELS_DIR = AppConfig().models.resolved_dir
 SENTENCE = "光合成には日光と水と二酸化炭素が必要です。"
 

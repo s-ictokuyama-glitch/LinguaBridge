@@ -1,0 +1,4893 @@
+{
+  "info": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-08-24"
+  },
+  "results": {
+    "asr-ext:small": {
+      "model": "small",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 0.7,
+      "rss_mb": 301,
+      "peak_rss_mb": 375,
+      "cer": {
+        "rate": 0.0962,
+        "substitutions": 65,
+        "deletions": 15,
+        "insertions": 3,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.1051,
+      "wer": {
+        "rate": 0.1452,
+        "substitutions": 40,
+        "deletions": 7,
+        "insertions": 6,
+        "ref_len": 365
+      },
+      "rtf_median": 0.273,
+      "rtf_max": 0.491,
+      "decode_s_median": 1.34,
+      "cost_model": {
+        "fixed_s": 1.088,
+        "marginal_s_per_audio_s": 0.0472,
+        "r2": 0.782,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.08,
+          "wer": 0.0887,
+          "rtf_median": 0.261
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0328,
+          "wer": 0.375,
+          "rtf_median": 0.327
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.1362,
+          "wer": 0.1474,
+          "rtf_median": 0.186
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.1329,
+          "wer": 0.2182,
+          "rtf_median": 0.251
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0643,
+          "wer": 0.1333,
+          "rtf_median": 0.282
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 18.422,
+          "rtf": 0.921,
+          "hallucinated_chars": 0,
+          "hyp": ""
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 1.223,
+          "rtf": 0.31,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "今日は植物の構合性について勉強します。",
+          "ref_chars": 18,
+          "cer": 0.1111,
+          "cer_raw": 0.1053,
+          "wer": 0.125
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 1.269,
+          "rtf": 0.286,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "交合性には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.1,
+          "cer_raw": 0.1429,
+          "wer": 0.1
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 1.222,
+          "rtf": 0.354,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の42ページを開いてください。",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.1579,
+          "wer": 0.1429
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 1.508,
+          "rtf": 0.183,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "用力体は植物の細胞の中にある小さな機関で、ここで光のエネルギーを使って電分が作られます。",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.1739,
+          "wer": 0.1364
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 1.292,
+          "rtf": 0.292,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 1.362,
+          "rtf": 0.209,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の通りにショーテストを行うので、今日の内容をよく復習しておいてください。",
+          "ref_chars": 35,
+          "cer": 0.1714,
+          "cer_raw": 0.1622,
+          "wer": 0.2667
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 1.221,
+          "rtf": 0.397,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください。",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 1.388,
+          "rtf": 0.191,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0256,
+          "wer": 0.0667
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 1.33,
+          "rtf": 0.236,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 1.356,
+          "rtf": 0.206,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 1.286,
+          "rtf": 0.26,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "交合性には日光と水と2酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.15,
+          "cer_raw": 0.1905,
+          "wer": 0.3
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 1.285,
+          "rtf": 0.36,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "交合性には日光と水と2酸化炭素が必要です。",
+          "ref_chars": 20,
+          "cer": 0.15,
+          "cer_raw": 0.1429,
+          "wer": 0.3
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 1.273,
+          "rtf": 0.491,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "交合声には日光と水と二酸化炭素が必要です。",
+          "ref_chars": 20,
+          "cer": 0.1,
+          "cer_raw": 0.0952,
+          "wer": 0.1
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 1.419,
+          "rtf": 0.16,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この科学反応式の左側と右側で、 原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0256,
+          "wer": 0.0667
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 1.406,
+          "rtf": 0.22,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0256,
+          "wer": 0.0667
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 1.41,
+          "rtf": 0.305,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0256,
+          "wer": 0.0667
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 1.43,
+          "rtf": 0.206,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えーとですね、 工合性というのは、植物が光のエネルギーを使って電分を作る働きのことです。",
+          "ref_chars": 44,
+          "cer": 0.2045,
+          "cer_raw": 0.2444,
+          "wer": 0.2941
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 1.269,
+          "rtf": 0.295,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の42ページの下の方にある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.1923,
+          "cer_raw": 0.2222,
+          "wer": 0.3636
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 1.475,
+          "rtf": 0.186,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた範から、前に出てきてください。",
+          "ref_chars": 44,
+          "cer": 0.0227,
+          "cer_raw": 0.0435,
+          "wer": 0.0556
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 1.303,
+          "rtf": 0.407,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験で一番大事なのは温度をきちんと管理することです。",
+          "ref_chars": 29,
+          "cer": 0.1379,
+          "cer_raw": 0.1333,
+          "wer": 0.2222
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 1.225,
+          "rtf": 0.327,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども、次回はですね。",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0833,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 1.218,
+          "rtf": 0.309,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですねちょっとわかりにくいと思うんですけれども",
+          "ref_chars": 28,
+          "cer": 0.0357,
+          "cer_raw": 0.0357,
+          "wer": 0.4286
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 1.164,
+          "rtf": 0.403,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はい、ええと、それでは。",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.1818,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 1.507,
+          "rtf": 0.183,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "用力体は植物の細胞の中にある小さな機関で、ここで光のエネルギーを使って連分が作られます。",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.1739,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 1.534,
+          "rtf": 0.186,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "用力台は、処分の細胞の中にある小さな機関で、ここで光のエネルギーを使って連分が作られます。",
+          "ref_chars": 44,
+          "cer": 0.25,
+          "cer_raw": 0.2609,
+          "wer": 0.1818
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 1.458,
+          "rtf": 0.183,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた範から前に出てきてください。",
+          "ref_chars": 44,
+          "cer": 0.0227,
+          "cer_raw": 0.0217,
+          "wer": 0.0556
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 1.501,
+          "rtf": 0.189,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果を、ブループごとに発表してもらいます。準備ができたはんから、前に出てきてください。",
+          "ref_chars": 44,
+          "cer": 0.0682,
+          "cer_raw": 0.1087,
+          "wer": 0.2222
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 1.42,
+          "rtf": 0.307,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この科学園同士区の左側と右側で、原子の風が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.1622,
+          "cer_raw": 0.1538,
+          "wer": 0.1333
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 18.422,
+          "rtf": 0.921,
+          "ref": "",
+          "hyp": "",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:kotoba": {
+      "model": "kotoba",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 2.3,
+      "rss_mb": 829,
+      "peak_rss_mb": 899,
+      "cer": {
+        "rate": 0.0394,
+        "substitutions": 27,
+        "deletions": 7,
+        "insertions": 0,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.0619,
+      "wer": {
+        "rate": 0.0685,
+        "substitutions": 17,
+        "deletions": 6,
+        "insertions": 2,
+        "ref_len": 365
+      },
+      "rtf_median": 1.02,
+      "rtf_max": 1.883,
+      "decode_s_median": 4.91,
+      "cost_model": {
+        "fixed_s": 4.717,
+        "marginal_s_per_audio_s": 0.0357,
+        "r2": 0.687,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.0255,
+          "wer": 0.0323,
+          "rtf_median": 0.99
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0164,
+          "wer": 0.1875,
+          "rtf_median": 1.295
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.0469,
+          "wer": 0.0737,
+          "rtf_median": 0.63
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.1119,
+          "wer": 0.2,
+          "rtf_median": 0.928
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0,
+          "wer": 0.0,
+          "rtf_median": 1.02
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 4.864,
+          "rtf": 0.243,
+          "hallucinated_chars": 3,
+          "hyp": "ごめん"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 4.812,
+          "rtf": 1.221,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "今日は植物の光合成について勉強します。",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 4.836,
+          "rtf": 1.089,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です。",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 4.782,
+          "rtf": 1.386,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の42ページを開いてください。",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.1579,
+          "wer": 0.1429
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 5.01,
+          "rtf": 0.608,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってでんぷんが作られます。",
+          "ref_chars": 44,
+          "cer": 0.0909,
+          "cer_raw": 0.087,
+          "wer": 0.1364
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 4.828,
+          "rtf": 1.092,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 4.954,
+          "rtf": 0.759,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "ref_chars": 35,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 4.775,
+          "rtf": 1.553,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください。",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 4.93,
+          "rtf": 0.678,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0256,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 5.028,
+          "rtf": 0.891,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 4.911,
+          "rtf": 0.747,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0571,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 4.846,
+          "rtf": 0.981,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 4.845,
+          "rtf": 1.357,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です。",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 4.877,
+          "rtf": 1.883,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 4.961,
+          "rtf": 0.559,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 4.932,
+          "rtf": 0.772,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0256,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 4.9,
+          "rtf": 1.058,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0256,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 4.985,
+          "rtf": 0.719,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えーとですね、光合成というのは、植物が光のエネルギーを使ってでんぷんを作る働きのことです。",
+          "ref_chars": 44,
+          "cer": 0.1591,
+          "cer_raw": 0.2,
+          "wer": 0.2941
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 4.894,
+          "rtf": 1.138,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の42ページの下の方にある図を見てください。",
+          "ref_chars": 26,
+          "cer": 0.1923,
+          "cer_raw": 0.1852,
+          "wer": 0.3636
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 4.979,
+          "rtf": 0.626,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 4.913,
+          "rtf": 1.535,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験で一番大事なのは温度をきちんと管理することです。",
+          "ref_chars": 29,
+          "cer": 0.1379,
+          "cer_raw": 0.1333,
+          "wer": 0.2222
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 4.842,
+          "rtf": 1.295,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども、次回はですね。",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0833,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 4.829,
+          "rtf": 1.226,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですね、ちょっと分かりにくいと思うんですけれども。",
+          "ref_chars": 28,
+          "cer": 0.0,
+          "cer_raw": 0.0714,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 4.814,
+          "rtf": 1.666,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はい、えっと、それでは",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.0909,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 5.092,
+          "rtf": 0.618,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってでんぷんが作られます。",
+          "ref_chars": 44,
+          "cer": 0.0909,
+          "cer_raw": 0.087,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 5.051,
+          "rtf": 0.613,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉列体は植物の細胞の中にある小さな期間でここで光のエネルギーを使ってレンクンが作られます",
+          "ref_chars": 44,
+          "cer": 0.1136,
+          "cer_raw": 0.1522,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 5.007,
+          "rtf": 0.63,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 5.012,
+          "rtf": 0.63,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた半から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0227,
+          "cer_raw": 0.0652,
+          "wer": 0.0556
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 4.953,
+          "rtf": 1.07,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0256,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 4.864,
+          "rtf": 0.243,
+          "ref": "",
+          "hyp": "ごめん",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:reazon": {
+      "model": "reazon",
+      "label": "ReazonSpeech (既定: beam + lead600)",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 1.8,
+      "rss_mb": 459,
+      "peak_rss_mb": 509,
+      "cer": {
+        "rate": 0.0209,
+        "substitutions": 12,
+        "deletions": 5,
+        "insertions": 1,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.0642,
+      "wer": {
+        "rate": 0.0575,
+        "substitutions": 11,
+        "deletions": 8,
+        "insertions": 2,
+        "ref_len": 365
+      },
+      "rtf_median": 0.026,
+      "rtf_max": 0.033,
+      "decode_s_median": 0.13,
+      "cost_model": {
+        "fixed_s": 0.027,
+        "marginal_s_per_audio_s": 0.0211,
+        "r2": 0.93,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.0218,
+          "wer": 0.0484,
+          "rtf_median": 0.026
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0164,
+          "wer": 0.1875,
+          "rtf_median": 0.03
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.0047,
+          "wer": 0.0105,
+          "rtf_median": 0.026
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.0699,
+          "wer": 0.2,
+          "rtf_median": 0.028
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0,
+          "wer": 0.0,
+          "rtf_median": 0.028
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 0.531,
+          "rtf": 0.027,
+          "hallucinated_chars": 2,
+          "hyp": "あっ"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 0.1,
+          "rtf": 0.025,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "共和植物の光合成について勉強します",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.2105,
+          "wer": 0.375
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 0.097,
+          "rtf": 0.022,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 0.095,
+          "rtf": 0.027,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の四十二ページを開いてください",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0526,
+          "wer": 0.0
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 0.178,
+          "rtf": 0.022,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 0.1,
+          "rtf": 0.023,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0385,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 0.146,
+          "rtf": 0.022,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うのできょうの内容をよく復習しておいてください",
+          "ref_chars": 35,
+          "cer": 0.0857,
+          "cer_raw": 0.1081,
+          "wer": 0.2
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 0.097,
+          "rtf": 0.031,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0588,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 0.195,
+          "rtf": 0.027,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 0.146,
+          "rtf": 0.026,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0645,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 0.178,
+          "rtf": 0.027,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0571,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 0.129,
+          "rtf": 0.026,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 0.116,
+          "rtf": 0.033,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 0.084,
+          "rtf": 0.032,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 0.205,
+          "rtf": 0.023,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 0.155,
+          "rtf": 0.024,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 0.134,
+          "rtf": 0.029,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 0.175,
+          "rtf": 0.025,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.2,
+          "wer": 0.4706
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 0.129,
+          "rtf": 0.03,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の四十二ページの下のほうにある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.0,
+          "cer_raw": 0.037,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 0.208,
+          "rtf": 0.026,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.0455,
+          "cer_raw": 0.087,
+          "wer": 0.1667
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 0.101,
+          "rtf": 0.032,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0333,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 0.111,
+          "rtf": 0.03,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども次回はですね",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 0.115,
+          "rtf": 0.029,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "ref_chars": 28,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 0.094,
+          "rtf": 0.033,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はいええとそれでは",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.2727,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.21,
+          "rtf": 0.025,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.212,
+          "rtf": 0.026,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.193,
+          "rtf": 0.024,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.206,
+          "rtf": 0.026,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 0.118,
+          "rtf": 0.026,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0769,
+          "wer": 0.0667
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 0.531,
+          "rtf": 0.027,
+          "ref": "",
+          "hyp": "あっ",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:reazon-greedy": {
+      "model": "reazon",
+      "label": "ReazonSpeech (lead 600ms)",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 1.7,
+      "rss_mb": 458,
+      "peak_rss_mb": 508,
+      "cer": {
+        "rate": 0.0348,
+        "substitutions": 22,
+        "deletions": 7,
+        "insertions": 1,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.0774,
+      "wer": {
+        "rate": 0.0904,
+        "substitutions": 15,
+        "deletions": 12,
+        "insertions": 6,
+        "ref_len": 365
+      },
+      "rtf_median": 0.021,
+      "rtf_max": 0.028,
+      "decode_s_median": 0.11,
+      "cost_model": {
+        "fixed_s": 0.025,
+        "marginal_s_per_audio_s": 0.0169,
+        "r2": 0.898,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.0436,
+          "wer": 0.0968,
+          "rtf_median": 0.019
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0164,
+          "wer": 0.1875,
+          "rtf_median": 0.026
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.0235,
+          "wer": 0.0421,
+          "rtf_median": 0.02
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.0839,
+          "wer": 0.2545,
+          "rtf_median": 0.021
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0,
+          "wer": 0.0,
+          "rtf_median": 0.024
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 0.421,
+          "rtf": 0.021,
+          "hallucinated_chars": 2,
+          "hyp": "あっ"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 0.083,
+          "rtf": 0.021,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "共和植物の光合成について勉強します",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.2105,
+          "wer": 0.375
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 0.085,
+          "rtf": 0.019,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 0.089,
+          "rtf": 0.026,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の四十二ページを開いてください",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0526,
+          "wer": 0.0
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 0.136,
+          "rtf": 0.017,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官で個々で光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.1364,
+          "cer_raw": 0.1739,
+          "wer": 0.2727
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 0.081,
+          "rtf": 0.018,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0385,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 0.117,
+          "rtf": 0.018,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うのできょうの内容をよく復習しておいてください",
+          "ref_chars": 35,
+          "cer": 0.0857,
+          "cer_raw": 0.1081,
+          "wer": 0.2
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 0.066,
+          "rtf": 0.021,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0588,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 0.14,
+          "rtf": 0.019,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 0.112,
+          "rtf": 0.02,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0645,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 0.142,
+          "rtf": 0.022,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0571,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 0.114,
+          "rtf": 0.023,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 0.09,
+          "rtf": 0.025,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 0.073,
+          "rtf": 0.028,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 0.197,
+          "rtf": 0.022,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 0.138,
+          "rtf": 0.022,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 0.124,
+          "rtf": 0.027,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 0.144,
+          "rtf": 0.021,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.2,
+          "wer": 0.4706
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 0.092,
+          "rtf": 0.021,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の四十二ページの下の方にある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.0769,
+          "cer_raw": 0.1111,
+          "wer": 0.2727
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 0.159,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.0455,
+          "cer_raw": 0.087,
+          "wer": 0.1667
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 0.087,
+          "rtf": 0.027,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0333,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 0.098,
+          "rtf": 0.026,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども次回はですね",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 0.091,
+          "rtf": 0.023,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "ref_chars": 28,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 0.079,
+          "rtf": 0.027,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はいえとそれでは",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.2727,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.175,
+          "rtf": 0.021,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.0909,
+          "cer_raw": 0.1304,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.168,
+          "rtf": 0.02,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.159,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.158,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 0.1,
+          "rtf": 0.022,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0769,
+          "wer": 0.0667
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 0.421,
+          "rtf": 0.021,
+          "ref": "",
+          "hyp": "あっ",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:reazon-nolead": {
+      "model": "reazon",
+      "label": "ReazonSpeech (lead なし)",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 1.7,
+      "rss_mb": 455,
+      "peak_rss_mb": 505,
+      "cer": {
+        "rate": 0.197,
+        "substitutions": 21,
+        "deletions": 148,
+        "insertions": 1,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.2323,
+      "wer": {
+        "rate": 0.2301,
+        "substitutions": 23,
+        "deletions": 57,
+        "insertions": 4,
+        "ref_len": 365
+      },
+      "rtf_median": 0.02,
+      "rtf_max": 0.024,
+      "decode_s_median": 0.1,
+      "cost_model": {
+        "fixed_s": 0.013,
+        "marginal_s_per_audio_s": 0.0172,
+        "r2": 0.931,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.12,
+          "wer": 0.1371,
+          "rtf_median": 0.018
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.2131,
+          "wer": 0.375,
+          "rtf_median": 0.023
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.3005,
+          "wer": 0.3263,
+          "rtf_median": 0.02
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.3706,
+          "wer": 0.4909,
+          "rtf_median": 0.021
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0409,
+          "wer": 0.04,
+          "rtf_median": 0.02
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 0.391,
+          "rtf": 0.02,
+          "hallucinated_chars": 2,
+          "hyp": "うん"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 0.073,
+          "rtf": 0.019,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "植物の光合成について勉強します",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.2105,
+          "wer": 0.25
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 0.085,
+          "rtf": 0.019,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 0.072,
+          "rtf": 0.021,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の四十二ページを開いてください",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0526,
+          "wer": 0.0
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 0.13,
+          "rtf": 0.016,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.1364,
+          "cer_raw": 0.1739,
+          "wer": 0.1818
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 0.075,
+          "rtf": 0.017,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "実験の結果をグループごとに発表してもらいます",
+          "ref_chars": 25,
+          "cer": 0.12,
+          "cer_raw": 0.1538,
+          "wer": 0.2
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 0.111,
+          "rtf": 0.017,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うのできょうの内容をよく復習しておいてください",
+          "ref_chars": 35,
+          "cer": 0.0857,
+          "cer_raw": 0.1081,
+          "wer": 0.2
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 0.059,
+          "rtf": 0.019,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0588,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 0.131,
+          "rtf": 0.018,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 0.098,
+          "rtf": 0.017,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "器具は使い終わったら水で洗って元の場所に戻してください",
+          "ref_chars": 29,
+          "cer": 0.069,
+          "cer_raw": 0.129,
+          "wer": 0.0625
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 0.115,
+          "rtf": 0.018,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.4848,
+          "cer_raw": 0.5143,
+          "wer": 0.3846
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 0.101,
+          "rtf": 0.02,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "星には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.15,
+          "cer_raw": 0.1905,
+          "wer": 0.1
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 0.071,
+          "rtf": 0.02,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 0.062,
+          "rtf": 0.024,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 0.168,
+          "rtf": 0.019,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 0.13,
+          "rtf": 0.02,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 0.101,
+          "rtf": 0.022,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.1081,
+          "cer_raw": 0.1538,
+          "wer": 0.1333
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 0.137,
+          "rtf": 0.02,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+          "ref_chars": 44,
+          "cer": 0.2955,
+          "cer_raw": 0.3111,
+          "wer": 0.4706
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 0.092,
+          "rtf": 0.022,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "下の方にある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.5,
+          "cer_raw": 0.5185,
+          "wer": 0.5455
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 0.163,
+          "rtf": 0.021,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.6136,
+          "cer_raw": 0.6304,
+          "wer": 0.7222
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 0.069,
+          "rtf": 0.021,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0333,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 0.087,
+          "rtf": 0.023,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども次回はですね",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 0.089,
+          "rtf": 0.023,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "ちょっと分かりにくいと思うんですけれども",
+          "ref_chars": 28,
+          "cer": 0.2857,
+          "cer_raw": 0.2857,
+          "wer": 0.4286
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 0.068,
+          "rtf": 0.024,
+          "ref": "はい、えーと、それでは",
+          "hyp": "それでは",
+          "ref_chars": 9,
+          "cer": 0.5556,
+          "cer_raw": 0.6364,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.162,
+          "rtf": 0.02,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.155,
+          "rtf": 0.019,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.1364,
+          "cer_raw": 0.1739,
+          "wer": 0.1818
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.162,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.5682,
+          "cer_raw": 0.587,
+          "wer": 0.5556
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.161,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.6136,
+          "cer_raw": 0.6304,
+          "wer": 0.7222
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 0.097,
+          "rtf": 0.021,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "反応式の左側と右側で原始の風が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.1622,
+          "cer_raw": 0.2051,
+          "wer": 0.2667
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 0.391,
+          "rtf": 0.02,
+          "ref": "",
+          "hyp": "うん",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:reazon-int8": {
+      "model": "reazon",
+      "label": "ReazonSpeech (全int8)",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 1.7,
+      "rss_mb": 449,
+      "peak_rss_mb": 500,
+      "cer": {
+        "rate": 0.0394,
+        "substitutions": 26,
+        "deletions": 8,
+        "insertions": 0,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.083,
+      "wer": {
+        "rate": 0.0904,
+        "substitutions": 17,
+        "deletions": 12,
+        "insertions": 4,
+        "ref_len": 365
+      },
+      "rtf_median": 0.021,
+      "rtf_max": 0.028,
+      "decode_s_median": 0.11,
+      "cost_model": {
+        "fixed_s": 0.024,
+        "marginal_s_per_audio_s": 0.0167,
+        "r2": 0.886,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.0327,
+          "wer": 0.0726,
+          "rtf_median": 0.021
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0328,
+          "wer": 0.25,
+          "rtf_median": 0.023
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.0423,
+          "wer": 0.0737,
+          "rtf_median": 0.021
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.0979,
+          "wer": 0.2364,
+          "rtf_median": 0.023
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0,
+          "wer": 0.0,
+          "rtf_median": 0.022
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 0.419,
+          "rtf": 0.021,
+          "hallucinated_chars": 2,
+          "hyp": "あれ"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 0.081,
+          "rtf": 0.021,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "共和植物の光合成について勉強します",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.2105,
+          "wer": 0.375
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 0.091,
+          "rtf": 0.021,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 0.071,
+          "rtf": 0.021,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の四十二ページを開いてください",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0526,
+          "wer": 0.0
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 0.131,
+          "rtf": 0.016,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官で個々で光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.1364,
+          "cer_raw": 0.1739,
+          "wer": 0.2727
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 0.087,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0385,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 0.11,
+          "rtf": 0.017,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うので今日の内容をよく復習しておいてください",
+          "ref_chars": 35,
+          "cer": 0.0,
+          "cer_raw": 0.0541,
+          "wer": 0.0
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 0.087,
+          "rtf": 0.028,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0588,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 0.124,
+          "rtf": 0.017,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 0.123,
+          "rtf": 0.022,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0645,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 0.141,
+          "rtf": 0.021,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0571,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 0.114,
+          "rtf": 0.023,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 0.09,
+          "rtf": 0.025,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 0.063,
+          "rtf": 0.024,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 0.183,
+          "rtf": 0.021,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 0.129,
+          "rtf": 0.02,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 0.101,
+          "rtf": 0.022,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 0.152,
+          "rtf": 0.022,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.2,
+          "wer": 0.4706
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 0.103,
+          "rtf": 0.024,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の四十二ページの下のほうにある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.0,
+          "cer_raw": 0.037,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 0.169,
+          "rtf": 0.021,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.0455,
+          "cer_raw": 0.087,
+          "wer": 0.1667
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 0.081,
+          "rtf": 0.025,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験で一番大事なのは温度をきちんと管理することです",
+          "ref_chars": 29,
+          "cer": 0.1379,
+          "cer_raw": 0.1667,
+          "wer": 0.2222
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 0.087,
+          "rtf": 0.023,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども次回はですね",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 0.088,
+          "rtf": 0.022,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですねちょっと分かりにくいと思うんですけれど",
+          "ref_chars": 28,
+          "cer": 0.0357,
+          "cer_raw": 0.0357,
+          "wer": 0.1429
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 0.075,
+          "rtf": 0.026,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はいええとそれでは",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.2727,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.181,
+          "rtf": 0.022,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.0909,
+          "cer_raw": 0.1304,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.171,
+          "rtf": 0.021,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってでんぷんが作られます",
+          "ref_chars": 44,
+          "cer": 0.0909,
+          "cer_raw": 0.1304,
+          "wer": 0.1364
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.161,
+          "rtf": 0.02,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.15,
+          "rtf": 0.019,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 0.117,
+          "rtf": 0.025,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0769,
+          "wer": 0.0667
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 0.419,
+          "rtf": 0.021,
+          "ref": "",
+          "hyp": "あれ",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "asr-ext:reazon-hotwords": {
+      "model": "reazon",
+      "label": "ReazonSpeech (beam + 教科用語 hotwords)",
+      "corpus": "ja_ext",
+      "clips": 29,
+      "audio_s_total": 174.5,
+      "wer_tokenizer": "charclass",
+      "load_s": 1.8,
+      "rss_mb": 458,
+      "peak_rss_mb": 509,
+      "cer": {
+        "rate": 0.0209,
+        "substitutions": 12,
+        "deletions": 5,
+        "insertions": 1,
+        "ref_len": 863
+      },
+      "cer_raw_rate": 0.0642,
+      "wer": {
+        "rate": 0.0575,
+        "substitutions": 11,
+        "deletions": 8,
+        "insertions": 2,
+        "ref_len": 365
+      },
+      "rtf_median": 0.027,
+      "rtf_max": 0.037,
+      "decode_s_median": 0.14,
+      "cost_model": {
+        "fixed_s": 0.027,
+        "marginal_s_per_audio_s": 0.0223,
+        "r2": 0.865,
+        "n": 28
+      },
+      "by_category": {
+        "base": {
+          "clips": 10,
+          "cer": 0.0218,
+          "wer": 0.0484,
+          "rtf_median": 0.024
+        },
+        "hesitation": {
+          "clips": 3,
+          "cer": 0.0164,
+          "wer": 0.1875,
+          "rtf_median": 0.034
+        },
+        "noise": {
+          "clips": 5,
+          "cer": 0.0047,
+          "wer": 0.0105,
+          "rtf_median": 0.027
+        },
+        "pause": {
+          "clips": 4,
+          "cer": 0.0699,
+          "wer": 0.2,
+          "rtf_median": 0.029
+        },
+        "rate": {
+          "clips": 6,
+          "cer": 0.0,
+          "wer": 0.0,
+          "rtf_median": 0.03
+        }
+      },
+      "empty_reference": [
+        {
+          "id": "noise-only",
+          "audio_s": 20.0,
+          "decode_s": 0.556,
+          "rtf": 0.028,
+          "hallucinated_chars": 2,
+          "hyp": "あっ"
+        }
+      ],
+      "items": [
+        {
+          "id": "base-01",
+          "category": "base",
+          "audio_s": 3.94,
+          "decode_s": 0.089,
+          "rtf": 0.023,
+          "ref": "今日は植物の光合成について勉強します。",
+          "hyp": "共和植物の光合成について勉強します",
+          "ref_chars": 18,
+          "cer": 0.1667,
+          "cer_raw": 0.2105,
+          "wer": 0.375
+        },
+        {
+          "id": "base-02",
+          "category": "base",
+          "audio_s": 4.44,
+          "decode_s": 0.098,
+          "rtf": 0.022,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "base-03",
+          "category": "base",
+          "audio_s": 3.45,
+          "decode_s": 0.083,
+          "rtf": 0.024,
+          "ref": "教科書の四十二ページを開いてください。",
+          "hyp": "教科書の四十二ページを開いてください",
+          "ref_chars": 18,
+          "cer": 0.0,
+          "cer_raw": 0.0526,
+          "wer": 0.0
+        },
+        {
+          "id": "base-04",
+          "category": "base",
+          "audio_s": 8.24,
+          "decode_s": 0.172,
+          "rtf": 0.021,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "base-05",
+          "category": "base",
+          "audio_s": 4.42,
+          "decode_s": 0.1,
+          "rtf": 0.023,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます",
+          "ref_chars": 25,
+          "cer": 0.0,
+          "cer_raw": 0.0385,
+          "wer": 0.0
+        },
+        {
+          "id": "base-06",
+          "category": "base",
+          "audio_s": 6.53,
+          "decode_s": 0.145,
+          "rtf": 0.022,
+          "ref": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "hyp": "来週の火曜日に小テストを行うのできょうの内容をよく復習しておいてください",
+          "ref_chars": 35,
+          "cer": 0.0857,
+          "cer_raw": 0.1081,
+          "wer": 0.2
+        },
+        {
+          "id": "base-07",
+          "category": "base",
+          "audio_s": 3.08,
+          "decode_s": 0.079,
+          "rtf": 0.026,
+          "ref": "質問がある人は手を挙げてください。",
+          "hyp": "質問がある人は手を挙げてください",
+          "ref_chars": 16,
+          "cer": 0.0,
+          "cer_raw": 0.0588,
+          "wer": 0.0
+        },
+        {
+          "id": "base-08",
+          "category": "base",
+          "audio_s": 7.27,
+          "decode_s": 0.198,
+          "rtf": 0.027,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "base-09",
+          "category": "base",
+          "audio_s": 5.64,
+          "decode_s": 0.161,
+          "rtf": 0.029,
+          "ref": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "hyp": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0645,
+          "wer": 0.0
+        },
+        {
+          "id": "base-10",
+          "category": "base",
+          "audio_s": 6.57,
+          "decode_s": 0.16,
+          "rtf": 0.024,
+          "ref": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "hyp": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "ref_chars": 33,
+          "cer": 0.0,
+          "cer_raw": 0.0571,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "decode_s": 0.145,
+          "rtf": 0.029,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "decode_s": 0.119,
+          "rtf": 0.033,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "decode_s": 0.091,
+          "rtf": 0.035,
+          "ref": "光合成には日光と水と二酸化炭素が必要です。",
+          "hyp": "光合成には日光と水と二酸化炭素が必要です",
+          "ref_chars": 20,
+          "cer": 0.0,
+          "cer_raw": 0.0476,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "decode_s": 0.212,
+          "rtf": 0.024,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "decode_s": 0.189,
+          "rtf": 0.03,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "decode_s": 0.139,
+          "rtf": 0.03,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.0,
+          "cer_raw": 0.0513,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "decode_s": 0.182,
+          "rtf": 0.026,
+          "ref": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "hyp": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+          "ref_chars": 44,
+          "cer": 0.1818,
+          "cer_raw": 0.2,
+          "wer": 0.4706
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "decode_s": 0.143,
+          "rtf": 0.033,
+          "ref": "教科書の四十二ページの下のほうにある図を見てください。",
+          "hyp": "教科書の四十二ページの下のほうにある図を見てください",
+          "ref_chars": 26,
+          "cer": 0.0,
+          "cer_raw": 0.037,
+          "wer": 0.0
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "decode_s": 0.207,
+          "rtf": 0.026,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきて下さい",
+          "ref_chars": 44,
+          "cer": 0.0455,
+          "cer_raw": 0.087,
+          "wer": 0.1667
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "decode_s": 0.113,
+          "rtf": 0.035,
+          "ref": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "hyp": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "ref_chars": 29,
+          "cer": 0.0,
+          "cer_raw": 0.0333,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "decode_s": 0.126,
+          "rtf": 0.034,
+          "ref": "今日の内容はここまでなんですけれども次回はですね",
+          "hyp": "今日の内容はここまでなんですけれども次回はですね",
+          "ref_chars": 24,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "decode_s": 0.112,
+          "rtf": 0.028,
+          "ref": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "hyp": "この部分がですねちょっと分かりにくいと思うんですけれども",
+          "ref_chars": 28,
+          "cer": 0.0,
+          "cer_raw": 0.0,
+          "wer": 0.0
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "decode_s": 0.107,
+          "rtf": 0.037,
+          "ref": "はい、えーと、それでは",
+          "hyp": "はいええとそれでは",
+          "ref_chars": 9,
+          "cer": 0.1111,
+          "cer_raw": 0.2727,
+          "wer": 1.0
+        },
+        {
+          "id": "noise-snr20-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.226,
+          "rtf": 0.027,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-base04",
+          "category": "noise",
+          "audio_s": 8.24,
+          "decode_s": 0.223,
+          "rtf": 0.027,
+          "ref": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "hyp": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.228,
+          "rtf": 0.029,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "decode_s": 0.209,
+          "rtf": 0.026,
+          "ref": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "hyp": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "ref_chars": 44,
+          "cer": 0.0,
+          "cer_raw": 0.0435,
+          "wer": 0.0
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "decode_s": 0.132,
+          "rtf": 0.028,
+          "ref": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "hyp": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+          "ref_chars": 37,
+          "cer": 0.027,
+          "cer_raw": 0.0769,
+          "wer": 0.0667
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "decode_s": 0.556,
+          "rtf": 0.028,
+          "ref": "",
+          "hyp": "あっ",
+          "ref_chars": 0,
+          "cer": null,
+          "cer_raw": null,
+          "wer": null
+        }
+      ]
+    },
+    "turn:morph:reazon": {
+      "vad": "silero",
+      "strategy": "morph",
+      "min_silence_ms": 500,
+      "start_speech_ms": 96,
+      "force_silence_ms": 1000,
+      "frame_ms": 32,
+      "asr": "reazon",
+      "clips": 17,
+      "audio_s_total": 104.5,
+      "cards": 19,
+      "expected_turns": 19,
+      "cards_per_expected_turn": 1.0,
+      "unnatural_splits": 0,
+      "natural_breaks_total": 3,
+      "natural_breaks_hit": 3,
+      "merged_turns": 2,
+      "turn_reasons": {
+        "predicate_end": 15,
+        "flush": 4
+      },
+      "asr_calls": 22,
+      "asr_decode_s_total": 2.03,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 512,
+      "card_chars_mean": 26.1,
+      "card_chars_median": 25,
+      "mt_calls": 38,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "segments": 2,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+              "chars": 41
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "教科書の四十二ページの下の方にある図を見てください",
+              "chars": 25
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "flush",
+              "text": "準備ができた班から前に出てきて下さい",
+              "chars": 18
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この実験でいちばん大事なのは温度をきちんと管理することです",
+              "chars": 29
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "segments": 1,
+              "reason": "flush",
+              "text": "今日の内容はここまでなんですけれども次回はですね",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "segments": 1,
+              "reason": "flush",
+              "text": "この部分がですねちょっと分かりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "segments": 3,
+              "reason": "flush",
+              "text": "はいえっとそれでは",
+              "chars": 9
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができた班から前に出てきてください",
+              "chars": 19
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができたもんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ]
+    },
+    "turn:simple:reazon": {
+      "vad": "silero",
+      "strategy": "simple",
+      "min_silence_ms": 500,
+      "start_speech_ms": 0,
+      "force_silence_ms": null,
+      "frame_ms": 32,
+      "asr": "reazon",
+      "clips": 17,
+      "audio_s_total": 104.5,
+      "cards": 22,
+      "expected_turns": 19,
+      "cards_per_expected_turn": 1.16,
+      "unnatural_splits": 3,
+      "natural_breaks_total": 3,
+      "natural_breaks_hit": 3,
+      "merged_turns": 0,
+      "turn_reasons": {
+        "segment": 22
+      },
+      "asr_calls": 22,
+      "asr_decode_s_total": 2.04,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 512,
+      "card_chars_mean": 22.5,
+      "card_chars_median": 24,
+      "mt_calls": 44,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "segments": 1,
+              "reason": "segment",
+              "text": "光合成には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 2,
+          "unnatural_splits": 1,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.87,
+              "closed_at_s": 4.38,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で",
+              "chars": 14
+            },
+            {
+              "t_start": 4.38,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "segments": 1,
+              "reason": "segment",
+              "text": "原子の数が同じになっていることを確認しましょう",
+              "chars": 23
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "segment",
+              "text": "えとですね光合成というのは植物が光のエネルギーを使ってでんぷんを作る働きのことです",
+              "chars": 41
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "segments": 1,
+              "reason": "segment",
+              "text": "教科書の四十二ページの下の方にある図を見てください",
+              "chars": 25
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができた班から前に出てきて下さい",
+              "chars": 18
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この実験でいちばん大事なのは温度をきちんと管理することです",
+              "chars": 29
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "segments": 1,
+              "reason": "segment",
+              "text": "今日の内容はここまでなんですけれども次回はですね",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この部分がですねちょっと分かりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 3,
+          "unnatural_splits": 2,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 0.42,
+              "closed_at_s": 0.93,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "はい",
+              "chars": 2
+            },
+            {
+              "t_start": 0.93,
+              "t_end": 1.63,
+              "closed_at_s": 2.14,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "えっと",
+              "chars": 3
+            },
+            {
+              "t_start": 2.14,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "segments": 1,
+              "reason": "segment",
+              "text": "それでは",
+              "chars": 4
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができた班から前に出てきてください",
+              "chars": 19
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "segment",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "segment",
+              "text": "準備ができたもんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "segment",
+              "text": "この化学反応式の左側と右側で原子の風が同じになっていることを確認しましょう",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ]
+    },
+    "turn:morph:small": {
+      "vad": "silero",
+      "strategy": "morph",
+      "min_silence_ms": 500,
+      "start_speech_ms": 96,
+      "force_silence_ms": 1000,
+      "frame_ms": 32,
+      "asr": "small",
+      "clips": 17,
+      "audio_s_total": 104.5,
+      "cards": 19,
+      "expected_turns": 19,
+      "cards_per_expected_turn": 1.0,
+      "unnatural_splits": 0,
+      "natural_breaks_total": 3,
+      "natural_breaks_hit": 3,
+      "merged_turns": 2,
+      "turn_reasons": {
+        "predicate_end": 6,
+        "strong_end": 10,
+        "flush": 3
+      },
+      "asr_calls": 22,
+      "asr_decode_s_total": 59.03,
+      "endpoint_latency_ms_median": 512,
+      "endpoint_latency_ms_max": 512,
+      "card_chars_mean": 26.1,
+      "card_chars_median": 25,
+      "mt_calls": 38,
+      "langs": 2,
+      "per_clip": [
+        {
+          "id": "rate-slow-a",
+          "category": "rate",
+          "audio_s": 4.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.9,
+              "closed_at_s": 4.94,
+              "endpoint_latency_ms": 44,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "交合性には日光と水と2酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-a",
+          "category": "rate",
+          "audio_s": 3.57,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.55,
+              "closed_at_s": 3.57,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "交合性には日光と水と二酸化炭素が必要です。",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-a",
+          "category": "rate",
+          "audio_s": 2.59,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.56,
+              "closed_at_s": 2.59,
+              "endpoint_latency_ms": 30,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "交合声には日光と水と二酸化炭素が必要です",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "rate-slow-b",
+          "category": "rate",
+          "audio_s": 8.87,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 8.83,
+              "closed_at_s": 8.87,
+              "endpoint_latency_ms": 38,
+              "segments": 2,
+              "reason": "strong_end",
+              "text": "この科学反応式の左側と右側で原子の数が同じになっていることを確認しましょう。",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-normal-b",
+          "category": "rate",
+          "audio_s": 6.39,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.37,
+              "closed_at_s": 6.39,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "rate-fast-b",
+          "category": "rate",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "この科学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+              "chars": 37
+            }
+          ]
+        },
+        {
+          "id": "pause-01",
+          "category": "pause",
+          "audio_s": 6.93,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 6.91,
+              "closed_at_s": 6.93,
+              "endpoint_latency_ms": 18,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "えーとですね、 工業生というのは、植物が光のエネルギーを使って電分を作る働きのことです",
+              "chars": 40
+            }
+          ]
+        },
+        {
+          "id": "pause-02",
+          "category": "pause",
+          "audio_s": 4.3,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.29,
+              "closed_at_s": 4.3,
+              "endpoint_latency_ms": 12,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "教科書の42ページの下の方にある図を見てください",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "pause-03",
+          "category": "pause",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.97,
+              "closed_at_s": 4.48,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "準備ができたはんから、前に出てきてください。",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "pause-04",
+          "category": "pause",
+          "audio_s": 3.2,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.2,
+              "closed_at_s": 3.2,
+              "endpoint_latency_ms": 0,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "この実験で一番大事なのは温度をきちんと管理することです。",
+              "chars": 27
+            }
+          ]
+        },
+        {
+          "id": "hes-01",
+          "category": "hesitation",
+          "audio_s": 3.74,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.71,
+              "closed_at_s": 3.74,
+              "endpoint_latency_ms": 28,
+              "segments": 1,
+              "reason": "flush",
+              "text": "今日の内容はここまでなんですけれども、次回はですね。",
+              "chars": 24
+            }
+          ]
+        },
+        {
+          "id": "hes-02",
+          "category": "hesitation",
+          "audio_s": 3.94,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.94,
+              "closed_at_s": 3.94,
+              "endpoint_latency_ms": 4,
+              "segments": 1,
+              "reason": "flush",
+              "text": "この部分がですねちょっとわかりにくいと思うんですけれども",
+              "chars": 28
+            }
+          ]
+        },
+        {
+          "id": "hes-03",
+          "category": "hesitation",
+          "audio_s": 2.89,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 2.88,
+              "closed_at_s": 2.89,
+              "endpoint_latency_ms": 10,
+              "segments": 3,
+              "reason": "flush",
+              "text": "はいえーとそれでは",
+              "chars": 9
+            }
+          ]
+        },
+        {
+          "id": "noise-snr20-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.9,
+              "closed_at_s": 4.42,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "昨日の実験の結果をグループごとに発表してもらいます。",
+              "chars": 25
+            },
+            {
+              "t_start": 4.7,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "predicate_end",
+              "text": "準備ができたはんから前に出てきてください",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-pause03",
+          "category": "noise",
+          "audio_s": 7.95,
+          "expected_turns": 2,
+          "cards": 2,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 3.81,
+              "closed_at_s": 4.32,
+              "endpoint_latency_ms": 512,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "昨日の実験の結果を、ルールとことに発表してもらいます。",
+              "chars": 25
+            },
+            {
+              "t_start": 4.77,
+              "t_end": 7.94,
+              "closed_at_s": 7.95,
+              "endpoint_latency_ms": 14,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "準備ができたなんから、前に出てきてください。",
+              "chars": 20
+            }
+          ]
+        },
+        {
+          "id": "noise-snr10-rate-fast-b",
+          "category": "noise",
+          "audio_s": 4.63,
+          "expected_turns": 1,
+          "cards": 1,
+          "unnatural_splits": 0,
+          "detail": [
+            {
+              "t_start": 0.0,
+              "t_end": 4.61,
+              "closed_at_s": 4.63,
+              "endpoint_latency_ms": 22,
+              "segments": 1,
+              "reason": "strong_end",
+              "text": "この科学園同士区の左側と右側で、原子の風が同じになっていることを確認しましょう。",
+              "chars": 38
+            }
+          ]
+        },
+        {
+          "id": "noise-only",
+          "category": "noise_only",
+          "audio_s": 20.0,
+          "expected_turns": 0,
+          "cards": 0,
+          "unnatural_splits": 0,
+          "detail": []
+        }
+      ],
+      "runs": 2,
+      "asr_decode_s_median": 58.96,
+      "asr_decode_s_all": [
+        59.03,
+        58.89
+      ]
+    },
+    "mt-punct:hy-mt2": {
+      "sentences": 15,
+      "temperature": 0.0,
+      "by_lang": {
+        "en": {
+          "pairs": 15,
+          "identical": 12,
+          "identical_rate": 0.8,
+          "disagreement_median_when_changed": 0.2211,
+          "disagreement_max": 0.2222
+        },
+        "zh": {
+          "pairs": 15,
+          "identical": 5,
+          "identical_rate": 0.333,
+          "disagreement_median_when_changed": 0.1193,
+          "disagreement_max": 1.0
+        }
+      },
+      "items": [
+        {
+          "ja": "今日は植物の光合成について勉強します。",
+          "ja_stripped": "今日は植物の光合成について勉強します",
+          "lang": "en",
+          "with_punct": "Today, we will study about plant photosynthesis.",
+          "without_punct": "Today, we will study about plant photosynthesis.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.485,
+          "latency_without_s": 0.298
+        },
+        {
+          "ja": "今日は植物の光合成について勉強します。",
+          "ja_stripped": "今日は植物の光合成について勉強します",
+          "lang": "zh",
+          "with_punct": "今天我们将学习关于植物的光合作用。",
+          "without_punct": "今天我们将学习关于植物的光合作用。",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.35,
+          "latency_without_s": 0.246
+        },
+        {
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "ja_stripped": "光合成には日光と水と二酸化炭素が必要です",
+          "lang": "en",
+          "with_punct": "Photosynthesis requires sunlight, water, and carbon dioxide.",
+          "without_punct": "Photosynthesis requires sunlight, water, and carbon dioxide.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.487,
+          "latency_without_s": 0.356
+        },
+        {
+          "ja": "光合成には日光と水と二酸化炭素が必要です。",
+          "ja_stripped": "光合成には日光と水と二酸化炭素が必要です",
+          "lang": "zh",
+          "with_punct": "光合作用需要阳光、水和二氧化碳。",
+          "without_punct": "光合作用需要阳光、水和二氧化碳。",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.356,
+          "latency_without_s": 0.238
+        },
+        {
+          "ja": "教科書の四十二ページを開いてください。",
+          "ja_stripped": "教科書の四十二ページを開いてください",
+          "lang": "en",
+          "with_punct": "Please open page 42 of the textbook.",
+          "without_punct": "Please open page 42 of the textbook.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.409,
+          "latency_without_s": 0.296
+        },
+        {
+          "ja": "教科書の四十二ページを開いてください。",
+          "ja_stripped": "教科書の四十二ページを開いてください",
+          "lang": "zh",
+          "with_punct": "请打开教科书的第四十二页。",
+          "without_punct": "请打开教科书的第四十二页。",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.367,
+          "latency_without_s": 0.263
+        },
+        {
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "ja_stripped": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "lang": "en",
+          "with_punct": "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+          "without_punct": "Chloroplasts are small organs found inside plant cells, where light energy is used to produce starch.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.807,
+          "latency_without_s": 0.711
+        },
+        {
+          "ja": "葉緑体は植物の細胞の中にある小さな器官で、ここで光のエネルギーを使ってデンプンが作られます。",
+          "ja_stripped": "葉緑体は植物の細胞の中にある小さな器官でここで光のエネルギーを使ってデンプンが作られます",
+          "lang": "zh",
+          "with_punct": "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+          "without_punct": "叶绿体是植物细胞中的小器官，在这里利用光能来合成淀粉。",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.686,
+          "latency_without_s": 0.561
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "ja_stripped": "昨日の実験の結果をグループごとに発表してもらいます",
+          "lang": "en",
+          "with_punct": "We will have each group present the results of yesterday’s experiment.",
+          "without_punct": "We will have each group present the results of yesterday’s experiment.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.572,
+          "latency_without_s": 0.441
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。",
+          "ja_stripped": "昨日の実験の結果をグループごとに発表してもらいます",
+          "lang": "zh",
+          "with_punct": "将按小组分别汇报昨天的实验结果。",
+          "without_punct": "将按小组分别发布昨天的实验结果。",
+          "identical": false,
+          "disagreement": 0.1333,
+          "latency_with_s": 0.481,
+          "latency_without_s": 0.327
+        },
+        {
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "ja_stripped": "来週の火曜日に小テストを行うので今日の内容をよく復習しておいてください",
+          "lang": "en",
+          "with_punct": "There will be a mini-test on Tuesday next week, so please review the material from today thoroughly.",
+          "without_punct": "There will be a mini-test on Tuesday next week, so please review the material from today thoroughly.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.783,
+          "latency_without_s": 0.676
+        },
+        {
+          "ja": "来週の火曜日に小テストを行うので、今日の内容をよく復習しておいてください。",
+          "ja_stripped": "来週の火曜日に小テストを行うので今日の内容をよく復習しておいてください",
+          "lang": "zh",
+          "with_punct": "下周二会进行小测试，请好好复习今天的内容。",
+          "without_punct": "下周星期二会进行小测试，请好好复习今天的内容。",
+          "identical": false,
+          "disagreement": 0.1053,
+          "latency_with_s": 0.606,
+          "latency_without_s": 0.503
+        },
+        {
+          "ja": "質問がある人は手を挙げてください。",
+          "ja_stripped": "質問がある人は手を挙げてください",
+          "lang": "en",
+          "with_punct": "Those with questions, please raise your hands.",
+          "without_punct": "Those with questions, please raise your hands.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.427,
+          "latency_without_s": 0.295
+        },
+        {
+          "ja": "質問がある人は手を挙げてください。",
+          "ja_stripped": "質問がある人は手を挙げてください",
+          "lang": "zh",
+          "with_punct": "有问题的请举手。",
+          "without_punct": "有问题的请举手",
+          "identical": false,
+          "disagreement": 0.0,
+          "latency_with_s": 0.292,
+          "latency_without_s": 0.148
+        },
+        {
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "ja_stripped": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "lang": "en",
+          "with_punct": "Let’s check that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+          "without_punct": "Let’s confirm that the number of atoms is the same on both the left and right sides of this chemical reaction equation.",
+          "identical": false,
+          "disagreement": 0.0638,
+          "latency_with_s": 0.943,
+          "latency_without_s": 0.833
+        },
+        {
+          "ja": "この化学反応式の左側と右側で、原子の数が同じになっていることを確認しましょう。",
+          "ja_stripped": "この化学反応式の左側と右側で原子の数が同じになっていることを確認しましょう",
+          "lang": "zh",
+          "with_punct": "请确认该化学反应式的左侧和右侧，原子的数量是否相同。",
+          "without_punct": "请确认该化学反应式的左侧和右侧的原子数相同。",
+          "identical": false,
+          "disagreement": 0.2083,
+          "latency_with_s": 0.673,
+          "latency_without_s": 0.51
+        },
+        {
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "ja_stripped": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "lang": "en",
+          "with_punct": "After using the experimental equipment, wash it with water and put it back in its original place.",
+          "without_punct": "After using the experimental equipment, wash it with water and put it back in its original place.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.753,
+          "latency_without_s": 0.633
+        },
+        {
+          "ja": "実験器具は使い終わったら水で洗って、元の場所に戻してください。",
+          "ja_stripped": "実験器具は使い終わったら水で洗って元の場所に戻してください",
+          "lang": "zh",
+          "with_punct": "实验器具用完后，请用水清洗，然后放回原处。",
+          "without_punct": "实验器具用完后，请用水清洗后放回原处。",
+          "identical": false,
+          "disagreement": 0.0556,
+          "latency_with_s": 0.651,
+          "latency_without_s": 0.488
+        },
+        {
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "ja_stripped": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "lang": "en",
+          "with_punct": "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+          "without_punct": "So, that’s all for today’s class. Next time, we will learn about the differences between it and breathing.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.973,
+          "latency_without_s": 0.846
+        },
+        {
+          "ja": "それでは今日の授業はここまでです。次回は呼吸との違いについて学びます。",
+          "ja_stripped": "それでは今日の授業はここまでです次回は呼吸との違いについて学びます",
+          "lang": "zh",
+          "with_punct": "那么，今天的课程就到这里。下期我们将学习与呼吸不同的特点。",
+          "without_punct": "那么，今天的课程就到这里。下次我们将学习与呼吸的区别。",
+          "identical": false,
+          "disagreement": 0.1923,
+          "latency_with_s": 0.707,
+          "latency_without_s": 0.521
+        },
+        {
+          "ja": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "ja_stripped": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです",
+          "lang": "en",
+          "with_punct": "Well, photosynthesis is the process by which plants use light energy to produce starch.",
+          "without_punct": "Well, photosynthesis is the process by which plants use light energy to produce starch.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.725,
+          "latency_without_s": 0.504
+        },
+        {
+          "ja": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです。",
+          "ja_stripped": "えーとですね光合成というのは植物が光のエネルギーを使ってデンプンを作るはたらきのことです",
+          "lang": "zh",
+          "with_punct": "嗯，光合成指的是植物利用光能来制造淀粉的过程。",
+          "without_punct": "嗯，光合成就是植物利用光能来制造淀粉的过程。",
+          "identical": false,
+          "disagreement": 0.0952,
+          "latency_with_s": 0.681,
+          "latency_without_s": 0.445
+        },
+        {
+          "ja": "教科書の四十二ページの下のほうにある図を見てください。",
+          "ja_stripped": "教科書の四十二ページの下のほうにある図を見てください",
+          "lang": "en",
+          "with_punct": "Please look at the diagram at the bottom of page 42 of the textbook.",
+          "without_punct": "Please look at the diagram at the bottom of page 42 of the textbook.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.644,
+          "latency_without_s": 0.509
+        },
+        {
+          "ja": "教科書の四十二ページの下のほうにある図を見てください。",
+          "ja_stripped": "教科書の四十二ページの下のほうにある図を見てください",
+          "lang": "zh",
+          "with_punct": "请看看教科书第四十二页下方的图。",
+          "without_punct": "请看看教科书第四十二页下方的图。",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.439,
+          "latency_without_s": 0.301
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "ja_stripped": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "lang": "en",
+          "with_punct": "Please present the results of yesterday’s experiment by group. The groups that are ready should come forward first.",
+          "without_punct": "We will present the results of yesterday’s experiment by group. The group that is ready, please come forward.",
+          "identical": false,
+          "disagreement": 0.2211,
+          "latency_with_s": 0.878,
+          "latency_without_s": 0.788
+        },
+        {
+          "ja": "昨日の実験の結果をグループごとに発表してもらいます。準備ができた班から前に出てきてください。",
+          "ja_stripped": "昨日の実験の結果をグループごとに発表してもらいます準備ができた班から前に出てきてください",
+          "lang": "zh",
+          "with_punct": "请按小组分别汇报昨天的实验结果。准备就绪的小组请先发言。",
+          "without_punct": "将按小组发布昨天的实验结果。准备就绪的小组请上前来。",
+          "identical": false,
+          "disagreement": 0.3077,
+          "latency_with_s": 0.783,
+          "latency_without_s": 0.61
+        },
+        {
+          "ja": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "ja_stripped": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "lang": "en",
+          "with_punct": "The most important thing in this experiment is to properly control the temperature.",
+          "without_punct": "The most important thing in this experiment is to properly control the temperature.",
+          "identical": true,
+          "disagreement": 0.0,
+          "latency_with_s": 0.596,
+          "latency_without_s": 0.45
+        },
+        {
+          "ja": "この実験でいちばん大事なのは温度をきちんと管理することです。",
+          "ja_stripped": "この実験でいちばん大事なのは温度をきちんと管理することです",
+          "lang": "zh",
+          "with_punct": "在这个实验中，最重要的是严格控制温度。",
+          "without_punct": "在这个实验中，最重要的是要严格控制温度。",
+          "identical": false,
+          "disagreement": 0.0588,
+          "latency_with_s": 0.428,
+          "latency_without_s": 0.296
+        },
+        {
+          "ja": "はい、えーと、それでは",
+          "ja_stripped": "はいえーとそれでは",
+          "lang": "en",
+          "with_punct": "Yes, um, then...",
+          "without_punct": "Yes, then...",
+          "identical": false,
+          "disagreement": 0.2222,
+          "latency_with_s": 0.332,
+          "latency_without_s": 0.197
+        },
+        {
+          "ja": "はい、えーと、それでは",
+          "ja_stripped": "はいえーとそれでは",
+          "lang": "zh",
+          "with_punct": "是的，呃，那么……",
+          "without_punct": "那么，是的",
+          "identical": false,
+          "disagreement": 1.0,
+          "latency_with_s": 0.503,
+          "latency_without_s": 0.222
+        }
+      ]
+    },
+    "e2e": {
+      "faster-whisper": {
+        "engine": "hy-mt2",
+        "minutes": 2.0,
+        "students": 10,
+        "captions": 38,
+        "latency": {
+          "count": 38,
+          "median_s": 2.23,
+          "p95_s": 3.19,
+          "max_s": 3.61
+        },
+        "memory": {
+          "samples": 70,
+          "baseline_mb": 2518,
+          "final_mb": 2499,
+          "peak_mb": 2628,
+          "increase_mb": -19,
+          "increasing": false
+        },
+        "first_caption_s": 5.77,
+        "cpu_percent": {
+          "cores": 16,
+          "median": 129.5,
+          "p95": 527.0,
+          "max": 614.6,
+          "samples": 69
+        },
+        "audio_queue_seconds": {
+          "median": 0.0,
+          "p95": 6.37,
+          "max": 8.1,
+          "samples": 60
+        },
+        "queue_depth": {
+          "median": 0.0,
+          "max": 1
+        },
+        "overloaded_samples": 0,
+        "mt_cache": {
+          "hit_rate": 0.278,
+          "hits": 10,
+          "size": 26
+        },
+        "disconnects": 0,
+        "reconnect_failures": 0,
+        "crashes": 0,
+        "errors": [],
+        "ran_seconds": 140.0,
+        "verdict": {
+          "passed": true,
+          "reasons": []
+        }
+      },
+      "sherpa": {
+        "engine": "hy-mt2",
+        "minutes": 2.0,
+        "students": 10,
+        "captions": 38,
+        "latency": {
+          "count": 38,
+          "median_s": 0.65,
+          "p95_s": 1.75,
+          "max_s": 1.76
+        },
+        "memory": {
+          "samples": 70,
+          "baseline_mb": 2541,
+          "final_mb": 2576,
+          "peak_mb": 2592,
+          "increase_mb": 36,
+          "increasing": false
+        },
+        "first_caption_s": 4.17,
+        "cpu_percent": {
+          "cores": 16,
+          "median": 3.1,
+          "p95": 442.9,
+          "max": 565.8,
+          "samples": 69
+        },
+        "audio_queue_seconds": {
+          "median": 0.0,
+          "p95": 0.0,
+          "max": 5.44,
+          "samples": 60
+        },
+        "queue_depth": {
+          "median": 0.0,
+          "max": 1
+        },
+        "overloaded_samples": 0,
+        "mt_cache": {
+          "hit_rate": 0.333,
+          "hits": 12,
+          "size": 24
+        },
+        "disconnects": 0,
+        "reconnect_failures": 0,
+        "crashes": 0,
+        "errors": [],
+        "ran_seconds": 140.0,
+        "verdict": {
+          "passed": true,
+          "reasons": []
+        }
+      }
+    },
+    "lead_in_sweep": {
+      "note": "greedy_search・拡張コーパス29クリップ",
+      "cer_by_lead_ms": {
+        "0": 0.197,
+        "300": 0.0672,
+        "400": 0.0579,
+        "500": 0.044,
+        "600": 0.0348,
+        "700": 0.0278,
+        "800": 0.0324,
+        "1000": 0.0336,
+        "1500": 0.0267
+      }
+    },
+    "dither_probe": {
+      "note": "dither=1.0 にすると壊れる（pad 有無に関わらず）",
+      "cer": {
+        "0.0": 0.044,
+        "1.0": 0.993
+      }
+    }
+  }
+}
