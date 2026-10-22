@@ -420,6 +420,7 @@ class Pipeline:
         if self._session.state != "live":
             return  # 一時停止・終了中の音声は破棄
         opened_before = self._segmenter.utterances_opened
+        last_speech_before = self._segmenter.last_speech_at
         events = self._segmenter.feed(pcm16_from_bytes(data))
         for i, event in enumerate(events):
             # 同じバッチで後ろに Segment が控えているなら interim は積まない（#29）。
@@ -432,10 +433,10 @@ class Pipeline:
                 self.interims_skipped += 1
                 continue
             await self._enqueue_asr(event)
-        if self._segmenter.utterances_opened != opened_before:
-            # この呼び出しの中で発話が始まった（#29）。**ASR待ち行列を通さない** —
-            # 通すと詰まっているときにインジケーターが遅れるが、詰まっているときこそ
-            # 「話しているのに字幕が出ない」ことが伝わる必要がある
+        if self._segmenter.utterances_opened != opened_before or (
+            self._segmenter.is_open
+            and self._segmenter.last_speech_at != last_speech_before
+        ):
             await self._set_speaking(True)
 
     async def flush_audio(self) -> None:

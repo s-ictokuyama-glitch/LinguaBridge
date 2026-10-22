@@ -3,6 +3,7 @@ body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", s
 
 /* 参加画面 */
 #join-screen { max-width: 420px; margin: 8vh auto 0; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+#join-screen[hidden] { display: none; }
 #join-screen h1 { font-size: 1.6rem; }
 #join-screen .lead { color: #5a6b7c; font-size: 0.95rem; }
 #join-screen label, #join-screen .label { font-weight: 600; margin-top: 8px; }
