@@ -248,6 +248,59 @@ class TestSpeakingIndicator:
 class TestIndicatorDoesNotStickOn:
     """ON は VAD 由来なので、音声が止まったときに畳む契機を必ず持たせる（#29）。"""
 
+    @pytest.mark.parametrize("speaking_indicator", [True, False])
+    @pytest.mark.parametrize("resume_speech", [True, False])
+    def test_indicator_recovers_after_a_capture_gap(self, speaking_indicator, resume_speech):
+        config = make_ws_test_config()
+        config.partial = PartialConfig(speaking_indicator=speaking_indicator)
+        config.monitoring.stats_interval_s = 0.05
+        config.monitoring.silence_warning_s = 0.2
+        app = create_app(
+            config,
+            asr_engine=FakeASREngine(),
+            mt_engine=FakeTranslationEngine(["en"]),
+            join_code=JOIN_CODE,
+        )
+        with TestClient(app) as client:
+            with (
+                client.websocket_connect("/ws") as teacher,
+                client.websocket_connect("/ws") as student,
+            ):
+                join_student(student, "en")
+                join_teacher(teacher)
+                start(teacher)
+                drain_until(student, "session")
+                for chunk in chunks(speech_pcm(2000, 0.8)):
+                    teacher.send_bytes(chunk)
+                warning = drain_until(teacher, "error")[-1]
+                assert warning["code"] == "mic_silent"
+                resumed = speech_pcm(2000, 0.8) if resume_speech else silence_pcm(0.1)
+                for chunk in chunks(resumed):
+                    teacher.send_bytes(chunk)
+                teacher.send_json({"type": "control", "action": "pause"})
+                frames = drain_until(student, "session")
+
+        speaking = [f["on"] for f in frames if f["type"] == "speaking"]
+        expected = [True, False, True, False] if resume_speech else [True, False]
+        assert speaking == (expected if speaking_indicator else [])
+        assert frames[-1] == {"type": "session", "state": "paused"}
+
+    def test_indicator_reports_an_utterance_that_opens_and_closes_in_one_batch(self):
+        app, _, _ = make_app()
+        with TestClient(app) as client:
+            with (
+                client.websocket_connect("/ws") as teacher,
+                client.websocket_connect("/ws") as student,
+            ):
+                join_student(student, "en")
+                join_teacher(teacher)
+                start(teacher)
+                pcm = np.concatenate([speech_pcm(2000, 0.4), silence_pcm(0.6)])
+                teacher.send_bytes(pcm.tobytes())
+                frames = drain_until(student, "caption")
+
+        assert [f["on"] for f in frames if f["type"] == "speaking"] == [True, False]
+
     def test_indicator_clears_when_the_microphone_goes_silent(self):
         """マイク断（フレーム自体が来なくなる）では VAD も ASR ワーカーも動かない。
 
