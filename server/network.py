@@ -92,7 +92,9 @@ class PublishedAddress:
                 raise ValueError(self.error)
             try:
                 current = select_address(list_addresses(), self.requested_ip)
-                if self.selected is not None and current != self.selected:
+                if self.selected is not None and (
+                    current.name, current.ip
+                ) != (self.selected.name, self.selected.ip):
                     raise ValueError("ネットワークが変更されました。")
             except ValueError as exc:
                 self.error = f"{exc} サーバーを再起動し、接続先を再選択してください。"
