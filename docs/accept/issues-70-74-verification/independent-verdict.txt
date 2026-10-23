@@ -1,0 +1,21 @@
+判定: PASS+NOTES
+対象base: f4d664523a9b2ceeceedd327bcc5dfaadc95dd7a
+対象head: c1dd8ce0e5fb2c0668985e10569a66ad09bc42f3
+stable patch-id: 0864473033ae04af4acd49c4f208ad665a406302
+独立review worktree: .worktrees/issues-70-74-review
+
+最終差分を直接確認した。ff32f083cd52cd4e566f09ff2e3db93f1eadab31からのコード差分はコメント1行とmodule docstring5行の削除のみ。追加ファイルは2分smokeのmd/jsonとeffective-config.yamlであり、config.yaml自体にbaseからの差分はない。実行ロジックおよびテストassertionへの変更はないため、既存の636 passed / 1 warningの独立証拠は影響を受けない。
+
+最終headで関連6テストファイルを独立再実行。指定の関連48件に対応する収集結果は50件だったため、同じ関連ファイル全50件を実行した。結果は50 passed, 1 warning in 1.53s、exit 0。対象はtest_asr_backlog.py、test_speaking.py、test_pipeline_lifecycle.py、test_stats_breakdown.py、test_backpressure.py、test_call_counters.py。ASCII basetemp、標準PSModulePath、.venv junctionを使用した。
+
+最終headで保存済み公開APIドライバーを再実行してexit 0 / PASS。ASR transcribeのゲート停止中にdrainを開始し未完了を確認。ASR解放後に新規MT translateが開始して別ゲートで停止、その間もdrain未完了を確認。MT解放後drain完了、実配信captionの英語訳文、ASR/MT calls=1、キューと音声秒数=0、pause後音声無視をassertした。
+
+作業treeはclean。検証者は実装変更を書いていない。Prove It Worksに従い、作者報告ではなく対象headの公開API実出力を観測した。
+
+留保: 本検証は決定的fake ASR/MTによるバックエンド契約検証。実モデル45分試験は親担当が別途実行中であり、本判定はその完了を主張しない。既知warningはStarlette TestClientのhttpx非推奨のみ。
+
+証拠:
+.audit/issues-70-74-independent-tests.txt (636件、ff32f08)
+.audit/issues-70-74-final-tests.txt (50件、c1dd8ce)
+.audit/issues-70-74-independent-driver.py (再実行可能ドライバー)
+.audit/issues-70-74-final-drain-order.txt (c1dd8ce実出力)

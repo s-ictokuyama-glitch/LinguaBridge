@@ -1,0 +1,1239 @@
+{
+  "verdict": "PASS",
+  "range_patch_id": "0864473033ae04af4acd49c4f208ad665a406302",
+  "exclusions": [
+    "asr_ms",
+    "created_at",
+    "delay_ms",
+    "median_asr_ms",
+    "median_delay_ms",
+    "median_mt_ms",
+    "mt_ms"
+  ],
+  "exclusion_reason": "Wall-clock creation timestamp and measured inference/delivery durations vary between subprocesses. Initial, queued and paused stats retain all fields including timings. Task counts are retained and compared throughout.",
+  "captures": {
+    "base": {
+      "head": "f4d664523a9b2ceeceedd327bcc5dfaadc95dd7a",
+      "initial": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "queued": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 4,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 2.0,
+        "asr_wait_seconds": 2.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "speaking_before_workers": true,
+      "completed": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 4,
+        "asr_calls": 2,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "speaking_after_work": false,
+      "repeated": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "captions": [
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[zh] 光合成には日光が必要です。",
+            "lang": "zh",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh",
+            "delay_ms": 0
+          }
+        ]
+      ],
+      "asr_finals": [
+        {
+          "type": "asr_final",
+          "seq": 1,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "turn_id": 1
+        },
+        {
+          "type": "asr_final",
+          "seq": 2,
+          "ja": "光合成には日光が必要です。",
+          "asr_ms": 0,
+          "turn_id": 2
+        },
+        {
+          "type": "asr_final",
+          "seq": 3,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "turn_id": 3
+        }
+      ],
+      "speaking_transitions": [
+        true,
+        false,
+        true,
+        false
+      ],
+      "recording": [
+        {
+          "seq": 1,
+          "created_at": "2026-10-24T01:55:50.803040+09:00",
+          "t_start": 0.0,
+          "t_end": 0.4,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        },
+        {
+          "seq": 2,
+          "created_at": "2026-10-24T01:55:50.804039+09:00",
+          "t_start": 1.4,
+          "t_end": 2.0,
+          "ja": "光合成には日光が必要です。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] 光合成には日光が必要です。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] 光合成には日光が必要です。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        },
+        {
+          "seq": 3,
+          "created_at": "2026-10-24T01:55:50.805039+09:00",
+          "t_start": 3.0,
+          "t_end": 3.6,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        }
+      ],
+      "record_files": [
+        "transcript.en.md",
+        "transcript.ja.md",
+        "transcript.jsonl",
+        "transcript.zh.md"
+      ],
+      "paused": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 1,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      }
+    },
+    "head": {
+      "head": "c1dd8ce0e5fb2c0668985e10569a66ad09bc42f3",
+      "initial": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "queued": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 4,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 2.0,
+        "asr_wait_seconds": 2.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "speaking_before_workers": true,
+      "completed": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 4,
+        "asr_calls": 2,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "speaking_after_work": false,
+      "repeated": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "captions": [
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[zh] 光合成には日光が必要です。",
+            "lang": "zh",
+            "delay_ms": 0
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh",
+            "delay_ms": 0
+          }
+        ]
+      ],
+      "asr_finals": [
+        {
+          "type": "asr_final",
+          "seq": 1,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "turn_id": 1
+        },
+        {
+          "type": "asr_final",
+          "seq": 2,
+          "ja": "光合成には日光が必要です。",
+          "asr_ms": 0,
+          "turn_id": 2
+        },
+        {
+          "type": "asr_final",
+          "seq": 3,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "turn_id": 3
+        }
+      ],
+      "speaking_transitions": [
+        true,
+        false,
+        true,
+        false
+      ],
+      "recording": [
+        {
+          "seq": 1,
+          "created_at": "2026-10-24T01:55:51.505180+09:00",
+          "t_start": 0.0,
+          "t_end": 0.4,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        },
+        {
+          "seq": 2,
+          "created_at": "2026-10-24T01:55:51.506180+09:00",
+          "t_start": 1.4,
+          "t_end": 2.0,
+          "ja": "光合成には日光が必要です。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] 光合成には日光が必要です。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] 光合成には日光が必要です。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        },
+        {
+          "seq": 3,
+          "created_at": "2026-10-24T01:55:51.507599+09:00",
+          "t_start": 3.0,
+          "t_end": 3.6,
+          "ja": "おはようございます。",
+          "asr_ms": 0,
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2",
+              "mt_ms": 0
+            }
+          }
+        }
+      ],
+      "record_files": [
+        "transcript.en.md",
+        "transcript.ja.md",
+        "transcript.jsonl",
+        "transcript.zh.md"
+      ],
+      "paused": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 1,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      }
+    }
+  },
+  "normalized": {
+    "base": {
+      "initial": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "queued": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 4,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 2.0,
+        "asr_wait_seconds": 2.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "speaking_before_workers": true,
+      "completed": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "mt_queue_depth": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 4,
+        "asr_calls": 2,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "speaking_after_work": false,
+      "repeated": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "mt_queue_depth": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "captions": [
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[zh] 光合成には日光が必要です。",
+            "lang": "zh"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh"
+          }
+        ]
+      ],
+      "asr_finals": [
+        {
+          "type": "asr_final",
+          "seq": 1,
+          "ja": "おはようございます。",
+          "turn_id": 1
+        },
+        {
+          "type": "asr_final",
+          "seq": 2,
+          "ja": "光合成には日光が必要です。",
+          "turn_id": 2
+        },
+        {
+          "type": "asr_final",
+          "seq": 3,
+          "ja": "おはようございます。",
+          "turn_id": 3
+        }
+      ],
+      "speaking_transitions": [
+        true,
+        false,
+        true,
+        false
+      ],
+      "recording": [
+        {
+          "seq": 1,
+          "t_start": 0.0,
+          "t_end": 0.4,
+          "ja": "おはようございます。",
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2"
+            }
+          }
+        },
+        {
+          "seq": 2,
+          "t_start": 1.4,
+          "t_end": 2.0,
+          "ja": "光合成には日光が必要です。",
+          "translations": {
+            "en": {
+              "text": "[en] 光合成には日光が必要です。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] 光合成には日光が必要です。",
+              "engine": "hy-mt2"
+            }
+          }
+        },
+        {
+          "seq": 3,
+          "t_start": 3.0,
+          "t_end": 3.6,
+          "ja": "おはようございます。",
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2"
+            }
+          }
+        }
+      ],
+      "record_files": [
+        "transcript.en.md",
+        "transcript.ja.md",
+        "transcript.jsonl",
+        "transcript.zh.md"
+      ],
+      "paused": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 1,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      }
+    },
+    "head": {
+      "initial": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "queued": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 4,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 2.0,
+        "asr_wait_seconds": 2.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 0,
+        "asr_partial_calls": 0,
+        "mt_calls": 0,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 5
+      },
+      "speaking_before_workers": true,
+      "completed": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "mt_queue_depth": 0,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 4,
+        "asr_calls": 2,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "speaking_after_work": false,
+      "repeated": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "mt_queue_depth": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      },
+      "captions": [
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[en] 光合成には日光が必要です。",
+            "lang": "en"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[en] おはようございます。",
+            "lang": "en"
+          }
+        ],
+        [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh"
+          },
+          {
+            "type": "caption",
+            "seq": 2,
+            "ja": "光合成には日光が必要です。",
+            "text": "[zh] 光合成には日光が必要です。",
+            "lang": "zh"
+          },
+          {
+            "type": "caption",
+            "seq": 3,
+            "ja": "おはようございます。",
+            "text": "[zh] おはようございます。",
+            "lang": "zh"
+          }
+        ]
+      ],
+      "asr_finals": [
+        {
+          "type": "asr_final",
+          "seq": 1,
+          "ja": "おはようございます。",
+          "turn_id": 1
+        },
+        {
+          "type": "asr_final",
+          "seq": 2,
+          "ja": "光合成には日光が必要です。",
+          "turn_id": 2
+        },
+        {
+          "type": "asr_final",
+          "seq": 3,
+          "ja": "おはようございます。",
+          "turn_id": 3
+        }
+      ],
+      "speaking_transitions": [
+        true,
+        false,
+        true,
+        false
+      ],
+      "recording": [
+        {
+          "seq": 1,
+          "t_start": 0.0,
+          "t_end": 0.4,
+          "ja": "おはようございます。",
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2"
+            }
+          }
+        },
+        {
+          "seq": 2,
+          "t_start": 1.4,
+          "t_end": 2.0,
+          "ja": "光合成には日光が必要です。",
+          "translations": {
+            "en": {
+              "text": "[en] 光合成には日光が必要です。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] 光合成には日光が必要です。",
+              "engine": "hy-mt2"
+            }
+          }
+        },
+        {
+          "seq": 3,
+          "t_start": 3.0,
+          "t_end": 3.6,
+          "ja": "おはようございます。",
+          "translations": {
+            "en": {
+              "text": "[en] おはようございます。",
+              "engine": "hy-mt2"
+            },
+            "zh": {
+              "text": "[zh] おはようございます。",
+              "engine": "hy-mt2"
+            }
+          }
+        }
+      ],
+      "record_files": [
+        "transcript.en.md",
+        "transcript.ja.md",
+        "transcript.jsonl",
+        "transcript.zh.md"
+      ],
+      "paused": {
+        "type": "stats",
+        "students": 3,
+        "langs": {
+          "en": 2,
+          "zh": 1
+        },
+        "queue_depth": 1,
+        "median_delay_ms": 0,
+        "overloaded": false,
+        "audio_queue_seconds": 0.0,
+        "asr_wait_seconds": 0.0,
+        "asr_active_seconds": 0.0,
+        "median_asr_ms": 0,
+        "mt_queue_depth": 0,
+        "median_mt_ms": 0,
+        "mt_cache_hit_rate": 0.333,
+        "mt_cache_hits": 2,
+        "mt_cache_size": 4,
+        "asr_calls": 3,
+        "asr_partial_calls": 0,
+        "mt_calls": 4,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 8
+      }
+    }
+  },
+  "mismatches": [],
+  "negative_controls": {
+    "initial": true,
+    "queued": true,
+    "speaking_before_workers": true,
+    "completed": true,
+    "speaking_after_work": true,
+    "repeated": true,
+    "captions": true,
+    "asr_finals": true,
+    "speaking_transitions": true,
+    "recording": true,
+    "record_files": true,
+    "paused": true
+  }
+}

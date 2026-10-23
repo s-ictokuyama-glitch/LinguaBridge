@@ -1,0 +1,79 @@
+asr:
+  compute_type: int8
+  cpu_threads: 0
+  engine: sherpa
+  language: ja
+  model: faster-whisper-small
+  sherpa:
+    decoding_method: modified_beam_search
+    hotwords_file: null
+    hotwords_score: 1.5
+    lead_in_ms: 600
+    model: reazonspeech-k2-v2
+history_resend: 50
+languages:
+- code: en
+  label: English
+- code: zh
+  label: 中文（简体）
+limits:
+  allowed_origins: []
+  asr_queue_seconds: 30.0
+  asr_timeout_s: 60.0
+  max_audio_bytes: 32000
+  max_students: 64
+  max_text_bytes: 8192
+  mt_queue_max: 256
+  mt_replay_watermark: 128
+  mt_timeout_s: 60.0
+  send_queue_max: 64
+  send_timeout_s: 5.0
+models:
+  dir: '%LOCALAPPDATA%/LinguaBridge/models'
+monitoring:
+  overload_audio_seconds: 10.0
+  overload_queue_depth: 3
+  silence_warning_s: 30.0
+  stats_interval_s: 2.0
+mt:
+  cache_size: 512
+  engine: hy-mt2
+  hy_mt2:
+    gguf_path: hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf
+    max_tokens_cap: 512
+    temperature: 0.0
+    threads: 4
+  nllb:
+    beam_size: 1
+    model_dir: nllb-200-distilled-600M-ct2
+    tokenizer_dir: nllb-tokenizer
+partial:
+  enabled: false
+  interim_silence_ms: 96
+  min_interim_audio_s: 0.6
+  speaking_indicator: true
+recording:
+  default_on: false
+  out_dir: sessions/
+server:
+  advertise_ip: null
+  cert_dir: certs/
+  cert_file: cert.pem
+  http_port: 18174
+  https_port: 8443
+  key_file: key.pem
+turn:
+  classifier: surface
+  morph:
+    check_silence_ms: 500
+    force_silence_ms: 1000
+    max_segments: 12
+    max_turn_s: 30.0
+    start_speech_ms: 96
+  strategy: morph
+vad:
+  engine: silero
+  max_utterance_s: 30
+  min_silence_ms: 500
+  pre_roll_ms: 240
+  threshold: 0.5
