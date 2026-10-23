@@ -57,9 +57,11 @@ class Roster:
                   initial: dict | None = None) -> Client:
         old = self.teacher() if role == "teacher" else None
         client = Client(uuid.uuid4().hex, role, lang if role == "student" else None, socket)
-        sender = ClientSender(socket, maxsize=self._limits.send_queue_max,
-                              send_timeout_s=self._limits.send_timeout_s,
-                              label=f"{role}:{client.id[:8]}", close_code=_RETRY)
+        sender = self._detach(current) if current is not None and current.ws is socket else None
+        if sender is None:
+            sender = ClientSender(socket, maxsize=self._limits.send_queue_max,
+                                  send_timeout_s=self._limits.send_timeout_s,
+                                  label=f"{role}:{client.id[:8]}", close_code=_RETRY)
         self._clients[client.id] = client
         self._senders[client.id] = sender
         if initial is not None:
