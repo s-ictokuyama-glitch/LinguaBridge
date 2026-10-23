@@ -78,7 +78,7 @@ def test_pages_handshake_join_and_three_captions_are_separately_confirmed(
                     await ws.send(json.dumps({"type": "join", "role": "student",
                                               "code": JOIN_CODE, "lang": lang}))
                     await receive(ws, "joined", session_state="idle")
-                await wait_until(lambda: len(launcher.app.state.session.students()) == 2,
+                await wait_until(lambda: len(launcher.app.state.lesson.roster.students()) == 2,
                                  "two students joined")
                 stages["join"] = "ok"
 
@@ -107,7 +107,7 @@ def test_pages_handshake_join_and_three_captions_are_separately_confirmed(
                     assert message["state"] == "ended"
                 for ws in opened:
                     await ws.close()
-                await wait_until(lambda: not launcher.app.state.session.clients,
+                await wait_until(lambda: not launcher.app.state.lesson.roster.clients,
                                  "all clients released")
         finally:
             for ws in opened:
@@ -155,7 +155,7 @@ def test_origin_rule_allows_and_rejects_on_both_production_listeners(
                                                   "code": JOIN_CODE, "lang": "en"}))
                         await receive(ws, "joined")
                     results.append((uri, origin, "accepted"))
-                    await wait_until(lambda: not launcher.app.state.session.clients,
+                    await wait_until(lambda: not launcher.app.state.lesson.roster.clients,
                                      "allowed client released")
                 for template in REJECTED:
                     origin = template.format(port=port)

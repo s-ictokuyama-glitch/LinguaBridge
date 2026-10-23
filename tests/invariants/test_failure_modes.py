@@ -29,7 +29,7 @@ from server.config import AppConfig, AsrConfig, ModelsConfig, MtConfig
 from server.main import build_mt_engine, create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
-from server.session import Client, Session
+from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.helpers import chunks, speech_pcm, utterance_bytes
 from tests.integration.test_ws_boundary import (
@@ -232,8 +232,8 @@ class TestShutdown:
 # --------------------------------------------------------------------------
 
 
-def _make_pipeline(asr, mt, session: Session) -> Pipeline:
-    return Pipeline(session, make_ws_test_config(), asr, mt)
+def _make_pipeline(asr, mt, roster: Roster) -> Pipeline:
+    return Pipeline(roster, make_ws_test_config(), asr, mt)
 
 
 async def _wait_until(predicate, timeout_s: float) -> None:
@@ -254,12 +254,12 @@ class TestBackpressure:
         async def scenario() -> None:
             gate = threading.Event()
             asr = GatedASREngine(gate)
-            session = Session(join_code=JOIN_CODE)
-            session.state = "live"
+            roster = Roster()
             # 上限を 2秒に絞る。1発話 = 音声1.0s + pre-roll なので数発話で必ず溢れる
             config = make_ws_test_config()
             config.limits.asr_queue_seconds = 2.0
-            pipeline = Pipeline(session, config, asr, FakeTranslationEngine(["en"]))
+            pipeline = Pipeline(roster, config, asr, FakeTranslationEngine(["en"]))
+            await pipeline.on_lesson_state("live")
             await pipeline.start()
             try:
                 for _ in range(8):
@@ -288,13 +288,13 @@ class TestHungInference:
         gate = threading.Event()
 
         async def scenario() -> None:
-            session = Session(join_code=JOIN_CODE)
-            session.state = "live"
+            roster = Roster()
             ws = RecordingSocket()
-            session.add_client(Client(id="t", role="teacher", lang=None, ws=ws))
+            await roster.add(ws, "teacher", None)
             config = make_ws_test_config()
             config.limits.asr_timeout_s = 0.2
-            pipeline = Pipeline(session, config, GatedASREngine(gate), FakeTranslationEngine(["en"]))
+            pipeline = Pipeline(roster, config, GatedASREngine(gate), FakeTranslationEngine(["en"]))
+            await pipeline.on_lesson_state("live")
             await pipeline.start()
             try:
                 for chunk in utterance_bytes(1000):
@@ -332,13 +332,13 @@ class TestSlowStudent:
         """
 
         async def scenario() -> None:
-            session = Session(join_code=JOIN_CODE)
+            roster = Roster()
             slow = RecordingSocket(delay_s=SLOW_STUDENT_S)
             fast = RecordingSocket()
-            session.add_client(Client(id="slow", role="student", lang="en", ws=slow))
-            session.add_client(Client(id="fast", role="student", lang="en", ws=fast))
+            await roster.add(slow, "student", "en")
+            await roster.add(fast, "student", "en")
             pipeline = _make_pipeline(
-                FakeASREngine(), FakeTranslationEngine(["en"]), session
+                FakeASREngine(), FakeTranslationEngine(["en"]), roster
             )
             caption = proto.Caption(seq=1, ja="こんにちは", text="hi", lang="en", delay_ms=0)
             try:

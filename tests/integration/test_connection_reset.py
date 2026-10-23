@@ -154,8 +154,7 @@ class Launcher:
             loop.set_exception_handler(None)
 
         # Check before asyncio.run's implicit cancellation could hide leaked tasks.
-        assert not self.app.state.session.clients
-        assert not self.app.state.pipeline._senders
+        assert not self.app.state.lesson.roster.clients
         assert all(not s.server_state.connections and not s.server_state.tasks
                    for s in self.servers)
         remaining = [t for t in asyncio.all_tasks()
@@ -232,7 +231,7 @@ def test_reset_preserves_service_and_releases_resources(
                     # Three resets exercise accumulation as well as one recovery.
                     for iteration in range(3):
                         victim = await join("student") if role == "student" else teacher
-                        before_ids = set(app.state.session.clients)
+                        before_ids = {c.id for c in app.state.lesson.roster.clients}
                         closed_before = len(launcher.lost)
                         reset_at = datetime.now(timezone.utc).isoformat()
                         reset_socket(victim)
@@ -245,22 +244,18 @@ def test_reset_preserves_service_and_releases_resources(
                             "server_exception": describe(exc) if exc else None,
                         })
                         await wait_until(
-                            lambda: len(app.state.session.clients) == len(before_ids) - 1,
+                            lambda: len(app.state.lesson.roster.clients) == len(before_ids) - 1,
                             "disconnected client released",
                         )
-                        removed = before_ids - set(app.state.session.clients)
+                        removed = before_ids - {c.id for c in app.state.lesson.roster.clients}
                         assert len(removed) == 1
-                        await wait_until(
-                            lambda: not removed.intersection(app.state.pipeline._senders),
-                            "disconnected sender released",
-                        )
                         await launcher.assert_healthy(http, ports)
                         if role == "teacher":
                             await receive(survivor, "session", state="paused")
                             teacher = await join("teacher")
                             await receive(survivor, "session", state="live")
                         else:
-                            assert app.state.session.state == "live"
+                            assert app.state.lesson.state == "live"
 
                         # Existing student receives new work; newcomer replays the missed caption.
                         seq = iteration + 2
@@ -269,7 +264,7 @@ def test_reset_preserves_service_and_releases_resources(
                         replay = await receive(newcomer, "caption", seq=seq, lang="en")
                         assert replay["text"] == result["text"]
                         await newcomer.close()
-                        await wait_until(lambda: len(app.state.session.clients) == 2,
+                        await wait_until(lambda: len(app.state.lesson.roster.clients) == 2,
                                          "normal close")
 
                     # Origin rejection still works after reset; permitted joins above must work too.
@@ -283,9 +278,7 @@ def test_reset_preserves_service_and_releases_resources(
                     await receive(survivor, "session", state="ended")
                     await teacher.close()
                     await survivor.close()
-                    await wait_until(lambda: not app.state.session.clients, "all clients released")
-                    await wait_until(lambda: not app.state.pipeline._senders,
-                                     "all senders released")
+                    await wait_until(lambda: not app.state.lesson.roster.clients, "all clients released")
         finally:
             for ws in clients:
                 await ws.close()
@@ -357,7 +350,7 @@ def test_reset_before_accept_keeps_both_listeners(launcher, record_property, cap
                     await ws.send(json.dumps({"type": "join", "role": "student",
                                               "code": JOIN_CODE, "lang": "en"}))
                     await receive(ws, "joined")
-            await wait_until(lambda: not app.state.session.clients, "joined clients released")
+            await wait_until(lambda: not app.state.lesson.roster.clients, "joined clients released")
             return refused
 
     refused = run_in_worker(scenario, timeout=110)

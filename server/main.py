@@ -11,7 +11,6 @@ import asyncio
 import contextlib
 import logging
 import re
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from html import escape
@@ -38,7 +37,8 @@ from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.rate_limit import JoinRateLimiter
-from server.session import Client, Session, generate_join_code
+from server.lesson import Lesson, generate_join_code
+from server.roster import Client, Roster
 
 logger = logging.getLogger(__name__)
 
@@ -155,17 +155,16 @@ def create_app(
     join_code: str | None = None,
     join_limiter: JoinRateLimiter | None = None,
 ) -> FastAPI:
-    session = Session(
-        join_code=join_code or generate_join_code(), history_len=config.history_resend
-    )
-    session.recording = config.recording.default_on  # 既定OFF（F-10）
-    limiter = join_limiter or JoinRateLimiter()
+    roster = Roster(config.limits)
     pipeline = Pipeline(
-        session,
+        roster,
         config,
         asr_engine or build_asr_engine(config),
         mt_engine or build_mt_engine(config),
     )
+
+    lesson = Lesson(pipeline, config, join_code=join_code or generate_join_code(),
+                    limiter=join_limiter)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -177,7 +176,7 @@ def create_app(
         await pipeline.stop()
 
     app = FastAPI(lifespan=lifespan)
-    app.state.session = session
+    app.state.lesson = lesson
     app.state.pipeline = pipeline
     app.state.config = config
     public_address = PublishedAddress(config.server.advertise_ip)
@@ -243,11 +242,11 @@ def create_app(
             logger.warning("公開接続先を利用できません: %s", exc)
             return JSONResponse({"detail": str(exc)}, status_code=503,
                                 headers={"Cache-Control": "no-store"})
-        join_url = f"http://{ip}:{config.server.http_port}/?code={session.join_code}"
+        join_url = f"http://{ip}:{config.server.http_port}/?code={lesson.join_code}"
         tls = inspect_certificate(config.server, ip)
         return JSONResponse(
             {
-                "code": session.join_code,
+                "code": lesson.join_code,
                 "join_url": join_url,
                 "teacher_url": (f"https://{ip}:{config.server.https_port}/teacher"
                                 if certificate_ready(tls) else
@@ -258,109 +257,6 @@ def create_app(
         )
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
-
-    async def handle_join(
-        ws: WebSocket, current: Client | None, msg: proto.JoinMessage, client_ip: str
-    ) -> Client | None:
-        if limiter.is_blocked(client_ip):
-            # 総当たり対策（E-09）: コードの正誤にかかわらず一定時間拒否
-            await send_now(ws, proto.JoinRejected(reason="rate_limited").model_dump())
-            return current
-        if not session.check_code(msg.code):
-            limiter.record_failure(client_ip)
-            await send_now(ws, proto.JoinRejected(reason="bad_code").model_dump())
-            return current
-        limiter.record_success(client_ip)
-        if msg.role == "student" and msg.lang not in config.language_codes:
-            await send_now(ws, proto.JoinRejected(reason="bad_lang").model_dump())
-            return current
-        if (
-            msg.role == "student"
-            and (current is None or current.role != "student")
-            and len(session.students()) >= config.limits.max_students
-        ):
-            # 生徒数の明示上限（#25 A-4 / whisper-flow W-4）。既に入っている生徒の
-            # 入り直しは席を増やさないので数えない
-            await send_now(ws, proto.JoinRejected(reason="full").model_dump())
-            return current
-        if current is not None:
-            session.remove_client(current.id)
-            await pipeline.drop_client(current.id)
-        if msg.role == "teacher":
-            old = session.teacher()
-            if old is not None:
-                # 後勝ち（E-08）: 旧接続を code 4000 で切断（クライアントは再接続しない）
-                session.remove_client(old.id)
-                await pipeline.drop_client(old.id)
-                if old.ws is not None:
-                    with contextlib.suppress(Exception):
-                        await old.ws.close(code=4000)
-        client = Client(
-            id=uuid.uuid4().hex,
-            role=msg.role,
-            lang=msg.lang if msg.role == "student" else None,
-            ws=ws,
-        )
-        session.add_client(client)
-        await send_now(
-            ws,
-            proto.Joined(
-                seq_head=session.seq_head,
-                history_from=session.history_from,
-                languages=config.languages,
-                session_state=session.state,
-                recording=session.recording,
-                speaking=pipeline.speaking,  # 発話の途中で参加した生徒にも出す（#29）
-            ).model_dump()
-        )
-        if msg.role == "student" and msg.last_seq is not None:
-            await pipeline.replay_history(client, msg.last_seq)
-        if msg.role == "teacher":
-            pipeline.on_teacher_joined()  # 継続中の無音警告を新しい先生にも出せるよう再武装
-            if session.auto_paused:
-                # 先生切断による自動一時停止（E-07）は、先生の再接続で自動再開する
-                session.auto_paused = False
-                session.state = "live"
-                await pipeline.broadcast_session_state()
-        return client
-
-    async def handle_control(action: str) -> None:
-        session.auto_paused = False  # 明示操作は自動再開の対象にしない
-        if action == "start":
-            session.state = "live"
-        elif action == "pause":
-            session.state = "paused"
-            await pipeline.flush_audio()  # 停止直前の発話を確定して処理
-        elif action == "end":
-            session.state = "ended"
-            await pipeline.flush_audio()
-        await pipeline.broadcast_session_state()
-        if action == "end":
-            # 記録ON中なら排出完了を待って書き出す（F-10。既定OFFなら no-op）
-            saved = await pipeline.finalize_recording()
-            if saved is not None:
-                logger.info("授業記録を保存しました: %s", saved)
-
-    async def handle_teacher_disconnect() -> None:
-        """先生切断（E-07）: 配信中なら自動一時停止し、生徒にバナーを出す。
-        後勝ち切断（新しい先生が既に接続済み）の場合は何もしない。"""
-        if session.teacher() is None and session.state == "live":
-            session.state = "paused"
-            session.auto_paused = True
-            await pipeline.flush_audio()
-            await pipeline.broadcast_session_state()
-
-    async def send_now(ws: WebSocket, payload: dict) -> None:
-        """join 前後の直接送信（拒否・エラー通知）。送信タイムアウト付き（#25 A-4）。
-
-        字幕の配信は pipeline のクライアント別送信キューを通るが、ここは
-        まだクライアントが登録されていない・登録できない経路なので直接送る。
-        タイムアウトが無いと、応答しない接続がこの受信ループを永久に止める。
-        """
-        with contextlib.suppress(Exception):  # TimeoutError もここに含まれる
-            await asyncio.wait_for(
-                ws.send_json(payload), timeout=config.limits.send_timeout_s
-            )
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
@@ -388,7 +284,7 @@ def create_app(
                         logger.warning("上限超過の音声フレームを破棄: %d bytes", len(data))
                         pipeline.audio_frames_rejected += 1  # 長時間試験の破棄内訳（#32）
                         continue
-                    if client is not None and client.role == "teacher":
+                    if client is not None and roster.contains(client) and client.role == "teacher":
                         await pipeline.feed_audio(data)
                     continue
                 text = message.get("text")
@@ -396,7 +292,7 @@ def create_app(
                     continue
                 # 文字数ではなくバイト数で測る（日本語は1文字3バイト）
                 if len(text.encode("utf-8", "ignore")) > config.limits.max_text_bytes:
-                    await send_now(
+                    await lesson.send_now(
                         ws,
                         proto.ErrorMsg(
                             code="too_large", message="メッセージが大きすぎます"
@@ -406,45 +302,32 @@ def create_app(
                 try:
                     msg = proto.parse_client_message(text)
                 except proto.ProtocolError as exc:
-                    await send_now(
+                    await lesson.send_now(
                         ws, proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
                     )
                     continue
                 if isinstance(msg, proto.JoinMessage):
-                    client = await handle_join(ws, client, msg, client_ip)
-                elif client is None:
-                    await send_now(
+                    client = await lesson.join(ws, client, msg, client_ip)
+                elif client is None or not roster.contains(client):
+                    await lesson.send_now(
                         ws,
                         proto.ErrorMsg(
                             code="not_joined", message="先に join してください"
                         ).model_dump(),
                     )
                 elif isinstance(msg, proto.SetLangMessage):
-                    if client.role == "student":
-                        if msg.lang in config.language_codes:
-                            client.lang = msg.lang
-                        else:
-                            await send_now(
-                                ws,
-                                proto.ErrorMsg(
-                                    code="bad_lang", message=f"未対応の言語: {msg.lang}"
-                                ).model_dump(),
-                            )
+                    await lesson.set_lang(client, msg.lang)
                 elif isinstance(msg, proto.ControlMessage):
                     if client.role == "teacher":
-                        await handle_control(msg.action)
+                        await lesson.control(msg.action)
                 elif isinstance(msg, proto.RecordingMessage):
                     if client.role == "teacher":
-                        session.recording = msg.on
-                        await pipeline.broadcast_recording()  # 双方の記録中インジケーター（F-10）
+                        lesson.set_recording(msg.on)
         except WebSocketDisconnect:
             pass
         finally:
             if client is not None:
-                session.remove_client(client.id)
-                await pipeline.drop_client(client.id)  # 送信キューを畳む（#25 A-3）
-                if client.role == "teacher":
-                    await handle_teacher_disconnect()
+                await lesson.leave(client)
 
     return app
 
@@ -562,7 +445,7 @@ def main() -> None:
     except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
-    session: Session = app.state.session
+    lesson: Lesson = app.state.lesson
     tls = inspect_certificate(config.server, ip)
     https = certificate_ready(tls)
     teacher_line = (
@@ -574,8 +457,8 @@ def main() -> None:
     print("LinguaBridge サーバー起動")
     print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
     print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
-    print(f"  参加コード : {session.join_code}")
-    print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={session.join_code}")
+    print(f"  参加コード : {lesson.join_code}")
+    print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={lesson.join_code}")
     print(f"  先生ページ : {teacher_line}")
     print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")
     print_certificate_report(tls)

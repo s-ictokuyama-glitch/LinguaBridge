@@ -50,7 +50,7 @@ async def _wait_until(predicate, timeout_s: float = 1.0) -> bool:
 
 
 def _make(ws, *, maxsize: int = 4, send_timeout_s: float = TIMEOUT_S) -> ClientSender:
-    return ClientSender(ws, maxsize=maxsize, send_timeout_s=send_timeout_s, label="t")
+    return ClientSender(ws, close_code=1013, maxsize=maxsize, send_timeout_s=send_timeout_s, label="t")
 
 
 class TestNonBlocking:
@@ -135,17 +135,6 @@ class TestLifecycle:
                 sender.send({"seq": i})
             await sender.aclose()
             assert len(ws.sent) == 5
-
-        asyncio.run(scenario())
-
-    def test_no_socket_means_no_task_and_no_send(self):
-        """ユニットテストのダミークライアント（ws=None）では何も起こらない。"""
-
-        async def scenario() -> None:
-            sender = _make(None)
-            assert sender.alive is False
-            assert sender.send({"seq": 1}) is False
-            await sender.aclose()
 
         asyncio.run(scenario())
 

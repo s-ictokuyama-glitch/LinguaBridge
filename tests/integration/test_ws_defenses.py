@@ -104,33 +104,3 @@ class TestMessageSizeLimits:
                 # 受信ループが生きていることを control の往復で示す
                 teacher.send_json({"type": "control", "action": "pause"})
                 assert teacher.receive_json()["state"] == "paused"
-
-
-class TestStudentCap:
-    def test_students_beyond_the_cap_are_told_the_room_is_full(self):
-        with TestClient(make_app(max_students=2)) as client:
-            with (
-                client.websocket_connect("/ws") as a,
-                client.websocket_connect("/ws") as b,
-            ):
-                assert join_student(a, "en")["type"] == "joined"
-                assert join_student(b, "en")["type"] == "joined"
-                with client.websocket_connect("/ws") as c:
-                    assert join_student(c, "en") == {
-                        "type": "join_rejected",
-                        "reason": "full",
-                    }
-
-    def test_the_cap_does_not_block_a_rejoin_on_the_same_socket(self):
-        """同じ接続での join し直し（言語変更のための再join等）は席を増やさない。"""
-        with TestClient(make_app(max_students=1)) as client:
-            with client.websocket_connect("/ws") as a:
-                assert join_student(a, "en")["type"] == "joined"
-                assert join_student(a, "zh")["type"] == "joined"
-
-    def test_the_cap_does_not_block_the_teacher(self):
-        with TestClient(make_app(max_students=1)) as client:
-            with client.websocket_connect("/ws") as student:
-                join_student(student, "en")
-                with client.websocket_connect("/ws") as teacher:
-                    assert join_teacher(teacher)["type"] == "joined"

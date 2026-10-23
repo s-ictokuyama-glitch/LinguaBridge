@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from server.pipeline import Utterance
+    from server.caption_history import Utterance
 
 
 class SessionRecorder:

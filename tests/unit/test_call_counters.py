@@ -26,27 +26,29 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, LimitsConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
-from server.session import Client, Session
+from server.roster import Roster
+from tests.helpers import RecordingSocket
 from tests.helpers import silence_pcm, speech_pcm
 
 SPEECH_S = 1.0
 SILENCE_S = 1.2  # 既定 morph の force_silence_ms(1000ms) を超える長さ
 
 
-def make_pipeline(
+async def make_pipeline(
     *, students: int = 1, langs: list[str] | None = None, limits: LimitsConfig | None = None
 ) -> tuple[Pipeline, FakeASREngine, FakeTranslationEngine]:
     config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
     if limits is not None:
         config = config.model_copy(update={"limits": limits})
     codes = langs or [lang.code for lang in config.languages]
-    session = Session("0000")
-    session.state = "live"
+    roster = Roster()
     for i in range(students):
-        session.add_client(Client(id=f"s{i}", role="student", lang=codes[i % len(codes)], ws=None))
+        await roster.add(RecordingSocket(), "student", codes[i % len(codes)])
     asr = FakeASREngine()
     mt = FakeTranslationEngine(codes)
-    return Pipeline(session, config, asr, mt), asr, mt
+    pipeline = Pipeline(roster, config, asr, mt)
+    await pipeline.on_lesson_state("live")
+    return pipeline, asr, mt
 
 
 def utterance_bytes(key: int = 2000) -> bytes:
@@ -67,7 +69,7 @@ async def run_utterances(pipeline: Pipeline, *keys: int) -> None:
 
 def test_asr_calls_count_utterances_not_students() -> None:
     async def scenario(students: int) -> int:
-        pipeline, asr, _ = make_pipeline(students=students)
+        pipeline, asr, _ = await make_pipeline(students=students)
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000, 4000)
@@ -90,7 +92,7 @@ def test_partial_calls_are_counted_separately() -> None:
     """
 
     async def scenario() -> None:
-        pipeline, asr, _ = make_pipeline()
+        pipeline, asr, _ = await make_pipeline()
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000)
@@ -110,7 +112,7 @@ def test_partial_calls_are_counted_separately() -> None:
 
 def test_mt_calls_track_languages_not_students() -> None:
     async def scenario(students: int) -> int:
-        pipeline, _, mt = make_pipeline(students=students, langs=["en"])
+        pipeline, _, mt = await make_pipeline(students=students, langs=["en"])
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000)
@@ -128,7 +130,7 @@ def test_mt_calls_scale_with_active_languages() -> None:
     """言語を増やせば回数は増える（増えないことの主張は生徒軸に限られる）。"""
 
     async def scenario(langs: list[str]) -> int:
-        pipeline, _, _ = make_pipeline(students=len(langs), langs=langs)
+        pipeline, _, _ = await make_pipeline(students=len(langs), langs=langs)
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000)
@@ -145,7 +147,7 @@ def test_cache_hits_are_not_counted_as_calls() -> None:
     """同じ原文の2回目は推論していないので `mt_calls` は増えない。"""
 
     async def scenario() -> None:
-        pipeline, _, mt = make_pipeline(students=1, langs=["en"])
+        pipeline, _, mt = await make_pipeline(students=1, langs=["en"])
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000)
@@ -172,7 +174,7 @@ def test_dropped_audio_is_counted_in_segments_and_seconds() -> None:
 
     async def scenario() -> None:
         limits = LimitsConfig(asr_queue_seconds=2)
-        pipeline, _, _ = make_pipeline(limits=limits)
+        pipeline, _, _ = await make_pipeline(limits=limits)
         for key in range(2000, 2000 + 6 * 1000, 1000):
             await pipeline.feed_audio(utterance_bytes(key))
         stats = pipeline.stats_snapshot()
@@ -186,7 +188,7 @@ def test_dropped_audio_is_counted_in_segments_and_seconds() -> None:
 
 def test_no_drops_in_a_healthy_run() -> None:
     async def scenario() -> None:
-        pipeline, _, _ = make_pipeline()
+        pipeline, _, _ = await make_pipeline()
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000)
@@ -206,7 +208,7 @@ def test_tasks_reflects_running_workers() -> None:
     """ワーカーを起動すればタスクは増え、止めれば戻る（タスクリークの検出面）。"""
 
     async def scenario() -> None:
-        pipeline, _, _ = make_pipeline()
+        pipeline, _, _ = await make_pipeline()
         idle = pipeline.stats_snapshot().tasks
         await pipeline.start()
         try:
@@ -236,7 +238,7 @@ def test_queued_audio_returns_to_exactly_zero() -> None:
     """
 
     async def scenario() -> None:
-        pipeline, _, _ = make_pipeline()
+        pipeline, _, _ = await make_pipeline()
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000, 4000)
@@ -264,7 +266,7 @@ def test_interim_gate_reopens_after_the_queue_drains() -> None:
     """
 
     async def scenario() -> None:
-        pipeline, _, _ = make_pipeline()
+        pipeline, _, _ = await make_pipeline()
         await pipeline.start()
         try:
             await run_utterances(pipeline, 2000, 3000, 4000)

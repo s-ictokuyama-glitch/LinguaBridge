@@ -17,14 +17,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from typing import TYPE_CHECKING
 
-from server.session import ClientSocket
+if TYPE_CHECKING:
+    from server.roster import ClientSocket
 
 logger = logging.getLogger(__name__)
-
-# 溢れ・タイムアウトで切るときのWSクローズコード。1013 = Try Again Later。
-# 生徒クライアントはこのコードでも通常の切断として再接続する
-_OVERFLOW_CLOSE_CODE = 1013
 
 
 class ClientSender:
@@ -36,19 +34,21 @@ class ClientSender:
 
     def __init__(
         self,
-        ws: ClientSocket | None,
+        ws: ClientSocket,
         *,
         maxsize: int,
         send_timeout_s: float,
         label: str = "",
+        close_code: int,
     ) -> None:
         self._ws = ws
+        self._close_code = close_code
         self._send_timeout_s = send_timeout_s
         self._label = label
         self._queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=maxsize)
-        self._alive = ws is not None  # ws=None（ユニットテスト）は最初から送らない
-        self._task: asyncio.Task[None] | None = (
-            asyncio.create_task(self._run(), name=f"sender-{label}") if ws is not None else None
+        self._alive = True
+        self._task: asyncio.Task[None] | None = asyncio.create_task(
+            self._run(), name=f"sender-{label}"
         )
         self._close_task: asyncio.Task[None] | None = None
 
@@ -85,7 +85,6 @@ class ClientSender:
                 return
 
     async def _send_one(self, payload: dict) -> None:
-        assert self._ws is not None
         try:
             await asyncio.wait_for(self._ws.send_json(payload), timeout=self._send_timeout_s)
         except asyncio.TimeoutError:
@@ -97,7 +96,7 @@ class ClientSender:
             self._kill()
         except Exception:
             # 切断済み。クライアント除去はWSハンドラの finally が行う
-            self._alive = False
+            self._kill()
 
     def _kill(self) -> None:
         """以後の送信を止め、WSを閉じる。close 自体も待たない（背後で走らせる）。"""
@@ -105,12 +104,10 @@ class ClientSender:
             return
         self._alive = False
         ws = self._ws
-        if ws is None:
-            return
 
         async def _close() -> None:
             with contextlib.suppress(Exception):
-                await ws.close(code=_OVERFLOW_CLOSE_CODE)
+                await ws.close(code=self._close_code)
 
         # 呼び出し元（送信側・ワーカー）を待たせないため、切断は独立タスクにする。
         # 参照を持たないタスクはGCで消えうるので、aclose まで保持する

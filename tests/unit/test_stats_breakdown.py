@@ -30,7 +30,8 @@ from server.asr.base import ASRResult
 from server.config import AppConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
-from server.session import Client, Session
+from server.roster import Roster
+from tests.helpers import RecordingSocket
 from tests.helpers import SAMPLE_RATE, silence_pcm, speech_pcm
 
 SPEECH_S = 1.0
@@ -63,21 +64,20 @@ class SlowMT(FakeTranslationEngine):
         return super().translate(text_ja, target_lang)
 
 
-def make_pipeline(
+async def make_pipeline(
     asr: FakeASREngine | None = None,
     mt: FakeTranslationEngine | None = None,
     *,
     students: int = 0,
 ) -> Pipeline:
     config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
-    session = Session("0000")
-    session.state = "live"
+    roster = Roster()
     langs = [lang.code for lang in config.languages]
     for i in range(students):
-        # ws=None のダミー。翻訳ジョブは「選択者がいる言語」にしか発生しないので、
-        # 内訳に翻訳の数字を出すには生徒が要る
-        session.add_client(Client(id=f"s{i}", role="student", lang=langs[0], ws=None))
-    return Pipeline(session, config, asr or FakeASREngine(), mt or FakeTranslationEngine(langs))
+        await roster.add(RecordingSocket(), "student", langs[0])
+    pipeline = Pipeline(roster, config, asr or FakeASREngine(), mt or FakeTranslationEngine(langs))
+    await pipeline.on_lesson_state("live")
+    return pipeline
 
 
 def utterance_bytes(key: int = 2000) -> bytes:
@@ -91,7 +91,7 @@ def test_breakdown_sums_to_audio_queue_seconds() -> None:
     """内訳は合計を割ったもの。`audio_queue_seconds` の意味は変わっていない。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         assert pipeline.asr_wait_seconds == 0.0
         assert pipeline.asr_active_seconds == 0.0
 
@@ -115,7 +115,7 @@ def test_in_flight_segment_is_not_counted_as_waiting() -> None:
     asr = GatedASR()
 
     async def scenario() -> None:
-        pipeline = make_pipeline(asr)
+        pipeline = await make_pipeline(asr)
         await pipeline.feed_audio(utterance_bytes())
         await pipeline.start()
         try:
@@ -140,7 +140,7 @@ def test_waiting_and_active_are_reported_separately() -> None:
     asr = GatedASR()
 
     async def scenario() -> None:
-        pipeline = make_pipeline(asr)
+        pipeline = await make_pipeline(asr)
         await pipeline.feed_audio(utterance_bytes(2000))
         await pipeline.feed_audio(utterance_bytes(1000))
         await pipeline.start()
@@ -165,7 +165,7 @@ def test_active_returns_to_zero_after_drain() -> None:
     """処理を終えれば「処理中」も 0 に戻る（失敗しても積み上がらない）。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         await pipeline.feed_audio(utterance_bytes())
         await pipeline.start()
         try:
@@ -194,7 +194,7 @@ async def _run_utterances(pipeline: Pipeline, *keys: int) -> None:
 
 def test_medians_are_populated_after_processing() -> None:
     async def scenario() -> None:
-        pipeline = make_pipeline(mt=SlowMT(["en", "zh"]), students=1)
+        pipeline = await make_pipeline(mt=SlowMT(["en", "zh"]), students=1)
         assert pipeline.stats_snapshot().median_asr_ms == 0  # 材料が無ければ 0
         assert pipeline.stats_snapshot().median_mt_ms == 0
         await pipeline.start()
@@ -219,7 +219,7 @@ def test_cache_hits_do_not_dilute_median_mt_ms() -> None:
 
     async def scenario() -> None:
         mt = SlowMT(["en", "zh"])
-        pipeline = make_pipeline(mt=mt, students=1)
+        pipeline = await make_pipeline(mt=mt, students=1)
         await pipeline.start()
         try:
             # 同じ発話を2回。2回目は必ずキャッシュで返る
@@ -243,7 +243,7 @@ def test_mt_queue_depth_is_a_part_of_queue_depth() -> None:
     """翻訳待ちの件数は合算値の一部。合算値の意味は変えていない。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         stats = pipeline.stats_snapshot()
         assert stats.mt_queue_depth == 0
         await pipeline.feed_audio(utterance_bytes())
@@ -260,14 +260,13 @@ def test_breakdown_medians_reset_when_not_live() -> None:
     """一時停止・終了で内訳も消す。総遅延だけ 0 で内訳が残ると読めない表示になる。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline(mt=SlowMT(["en", "zh"]), students=1)
+        pipeline = await make_pipeline(mt=SlowMT(["en", "zh"]), students=1)
         await pipeline.start()
         try:
             await _run_utterances(pipeline, 2000)
             assert pipeline.stats_snapshot().median_mt_ms > 0
 
-            pipeline._session.state = "paused"
-            await pipeline.broadcast_session_state()
+            await pipeline.on_lesson_state("paused")
             stats = pipeline.stats_snapshot()
             assert stats.median_delay_ms == 0
             assert stats.median_asr_ms == 0
@@ -282,7 +281,7 @@ def test_seconds_are_seconds_not_samples() -> None:
     """内訳も秒（サンプル数ではない）。合計と同じ単位であること。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         await pipeline.feed_audio(utterance_bytes())
         assert pipeline.asr_wait_seconds < (SPEECH_S + SILENCE_S) * SAMPLE_RATE / 100
 
