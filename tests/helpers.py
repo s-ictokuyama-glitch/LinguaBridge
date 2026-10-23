@@ -37,3 +37,30 @@ def utterance_bytes(key: int, speech_s: float = 1.0, silence_s: float = 1.2) -> 
     """
     pcm = np.concatenate([speech_pcm(key, speech_s), silence_pcm(silence_s)])
     return chunks(pcm)
+
+
+class RecordingSocket:
+    def __init__(self) -> None:
+        import asyncio
+        self.sent: list[dict] = []
+        self.closed_with: int | None = None
+        self._frames: asyncio.Queue[dict] = asyncio.Queue()
+
+    async def send_json(self, data: dict) -> None:
+        self.sent.append(data)
+        self._frames.put_nowait(data)
+
+    async def close(self, code: int = 1000) -> None:
+        self.closed_with = code
+
+    async def receive_json(self) -> dict:
+        return await self._frames.get()
+
+
+async def wait_for(socket: RecordingSocket, kind: str, **fields: object) -> dict:
+    import asyncio
+    async with asyncio.timeout(5):
+        while True:
+            frame = await socket.receive_json()
+            if frame.get("type") == kind and all(frame.get(k) == v for k, v in fields.items()):
+                return frame

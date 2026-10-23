@@ -19,8 +19,10 @@ import pytest
 from server.asr.fake_engine import FakeASREngine
 from server.audio.vad import Segment
 from server.mt.fake_engine import FakeTranslationEngine
-from server.pipeline import _LIVE_PRIORITY, _REPLAY_PRIORITY, MTJob, Pipeline, Utterance
-from server.session import Client, Session
+from server.pipeline import _LIVE_PRIORITY, _REPLAY_PRIORITY, MTJob, Pipeline
+from server.caption_history import Utterance
+from server.roster import Roster
+from tests.helpers import RecordingSocket
 from tests.conftest import JOIN_CODE, make_ws_test_config
 
 SAMPLE_RATE = 16000
@@ -38,14 +40,14 @@ class CollectingSocket:
         self.closed_with = code
 
 
-def make_pipeline(**limit_overrides) -> tuple[Pipeline, Session]:
+async def make_pipeline(**limit_overrides) -> tuple[Pipeline, Roster]:
     config = make_ws_test_config()
     for key, value in limit_overrides.items():
         setattr(config.limits, key, value)
-    session = Session(join_code=JOIN_CODE)
-    session.state = "live"
-    pipeline = Pipeline(session, config, FakeASREngine(), FakeTranslationEngine(["en"]))
-    return pipeline, session
+    roster = Roster(config.limits)
+    pipeline = Pipeline(roster, config, FakeASREngine(), FakeTranslationEngine(["en"]))
+    await pipeline.on_lesson_state("live")
+    return pipeline, roster
 
 
 def segment_of(seconds: float) -> Segment:
@@ -53,9 +55,9 @@ def segment_of(seconds: float) -> Segment:
     return Segment(pcm=samples, t_start=0.0, t_end=seconds, closed_at=time.monotonic())
 
 
-def attach_teacher(session: Session) -> CollectingSocket:
+async def attach_teacher(roster: Roster) -> CollectingSocket:
     ws = CollectingSocket()
-    session.add_client(Client(id="teacher", role="teacher", lang=None, ws=ws))
+    await roster.add(ws, "teacher")
     return ws
 
 
@@ -71,7 +73,7 @@ class TestAudioIngestBound:
         件数では「実時間でどれだけ遅れているか」を表現できない。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(asr_queue_seconds=5.0)
+            pipeline, _ = await make_pipeline(asr_queue_seconds=5.0)
             for _ in range(20):
                 await pipeline._enqueue_asr(segment_of(0.5))
             assert pipeline.audio_queue_seconds <= 5.0
@@ -85,7 +87,7 @@ class TestAudioIngestBound:
         でないと max_utterance_s による強制分割が丸ごと消える。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(asr_queue_seconds=5.0)
+            pipeline, _ = await make_pipeline(asr_queue_seconds=5.0)
             await pipeline._enqueue_asr(segment_of(30.0))
             assert pipeline.audio_queue_seconds == pytest.approx(30.0, abs=0.1)
 
@@ -95,8 +97,8 @@ class TestAudioIngestBound:
         """黙って捨てない（Parapper R-6）。先生の画面に理由が出る。"""
 
         async def scenario() -> None:
-            pipeline, session = make_pipeline(asr_queue_seconds=2.0)
-            ws = attach_teacher(session)
+            pipeline, roster = await make_pipeline(asr_queue_seconds=2.0)
+            ws = await attach_teacher(roster)
             for _ in range(10):
                 await pipeline._enqueue_asr(segment_of(1.0))
             await settle()
@@ -112,7 +114,7 @@ class TestAudioIngestBound:
         control(pause/end) まで読めなくなる。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(asr_queue_seconds=1.0)
+            pipeline, _ = await make_pipeline(asr_queue_seconds=1.0)
             for _ in range(50):
                 await asyncio.wait_for(pipeline._enqueue_asr(segment_of(1.0)), timeout=0.5)
 
@@ -125,7 +127,7 @@ class TestMtQueueBound:
         復元は再接続でやり直せるが、ライブ字幕は失われたら戻らない。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
+            pipeline, _ = await make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
             utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
             for _ in range(20):
                 await pipeline._enqueue_mt(
@@ -140,7 +142,7 @@ class TestMtQueueBound:
         """ライブジョブは水位に縛られず、キュー上限まで積める。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
+            pipeline, _ = await make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
             utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
             for _ in range(10):
                 await pipeline._enqueue_mt(
@@ -158,8 +160,8 @@ class TestMtQueueBound:
         """
 
         async def scenario() -> None:
-            pipeline, session = make_pipeline(mt_queue_max=2, mt_replay_watermark=1)
-            ws = attach_teacher(session)
+            pipeline, roster = await make_pipeline(mt_queue_max=2, mt_replay_watermark=1)
+            ws = await attach_teacher(roster)
             utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
             job = MTJob(utterance, "en", time.monotonic())
             for _ in range(2):
@@ -188,32 +190,26 @@ class TestReplaySuppressionIsRecoverable:
         """
 
         async def scenario() -> None:
-            pipeline, session = make_pipeline(mt_queue_max=4, mt_replay_watermark=1)
+            pipeline, roster = await make_pipeline(mt_queue_max=4, mt_replay_watermark=1)
             ws = CollectingSocket()
-            student = Client(id="s1", role="student", lang="en", ws=ws)
-            session.add_client(student)
+            student = await roster.add(ws, "student", "en")
             for seq in (1, 2, 3):
-                session.add_history(
-                    Utterance(seq=seq, t_start=0, t_end=1, text_ja="あ", asr_ms=1)
-                )
+                pipeline.history.append(t_start=0, t_end=1, text_ja="あ", asr_ms=1)
             # 水位はすぐ埋まる（1件積んだ時点で以後は積めない）
             await pipeline.replay_history(student, last_seq=0)
             assert ws.closed_with == 1013, "復元を諦めたのに接続を維持している"
-            assert session.clients.get("s1") is None
+            assert roster.get(student.id) is None
             await pipeline.stop()
 
         asyncio.run(scenario())
 
     def test_replay_that_fits_leaves_the_student_connected(self):
         async def scenario() -> None:
-            pipeline, session = make_pipeline(mt_queue_max=64, mt_replay_watermark=32)
+            pipeline, roster = await make_pipeline(mt_queue_max=64, mt_replay_watermark=32)
             ws = CollectingSocket()
-            student = Client(id="s1", role="student", lang="en", ws=ws)
-            session.add_client(student)
+            student = await roster.add(ws, "student", "en")
             for seq in (1, 2, 3):
-                session.add_history(
-                    Utterance(seq=seq, t_start=0, t_end=1, text_ja="あ", asr_ms=1)
-                )
+                pipeline.history.append(t_start=0, t_end=1, text_ja="あ", asr_ms=1)
             await pipeline.replay_history(student, last_seq=0)
             assert ws.closed_with is None
             assert pipeline._mt_queue.qsize() == 3
@@ -227,7 +223,7 @@ class TestOverloadSignal:
         """ASR側の過負荷は件数でなく秒数で判定する（#25 A-5）。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(asr_queue_seconds=60.0)
+            pipeline, _ = await make_pipeline(asr_queue_seconds=60.0)
             assert pipeline.stats_snapshot().overloaded is False
             # 1件しか積んでいなくても、長さが閾値を超えていれば過負荷
             await pipeline._enqueue_asr(segment_of(10.0))
@@ -242,7 +238,7 @@ class TestOverloadSignal:
         """逆に、細切れが数件並んでいるだけなら過負荷ではない。"""
 
         async def scenario() -> None:
-            pipeline, _ = make_pipeline(asr_queue_seconds=60.0)
+            pipeline, _ = await make_pipeline(asr_queue_seconds=60.0)
             for _ in range(4):
                 await pipeline._enqueue_asr(segment_of(0.3))
             stats = pipeline.stats_snapshot()

@@ -20,23 +20,23 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
-from server.session import Session
+from server.roster import Roster
 from tests.helpers import SAMPLE_RATE, silence_pcm, speech_pcm
 
 SPEECH_S = 1.0
 SILENCE_S = 0.8
 
 
-def make_pipeline() -> Pipeline:
+async def make_pipeline() -> Pipeline:
     config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
-    session = Session("0000")
-    session.state = "live"
+    roster = Roster()
     pipeline = Pipeline(
-        session,
+        roster,
         config,
         FakeASREngine(),
         FakeTranslationEngine([lang.code for lang in config.languages]),
     )
+    await pipeline.on_lesson_state("live")
     return pipeline
 
 
@@ -48,7 +48,7 @@ def utterance_bytes() -> bytes:
 
 def test_queued_audio_grows_then_drains() -> None:
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         assert pipeline.audio_queue_seconds == 0.0
 
         # ワーカー未起動なので、積んだぶんがそのまま滞留として見える
@@ -71,7 +71,7 @@ def test_queued_audio_grows_then_drains() -> None:
 
 def test_stats_report_queued_audio_in_seconds() -> None:
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         assert pipeline.stats_snapshot().audio_queue_seconds == 0.0
         await pipeline.feed_audio(utterance_bytes())
         stats = pipeline.stats_snapshot()
@@ -92,14 +92,14 @@ def test_dropped_utterance_does_not_leak_queued_audio() -> None:
 
     async def scenario() -> None:
         config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
-        session = Session("0000")
-        session.state = "live"
+        roster = Roster()
         pipeline = Pipeline(
-            session,
+            roster,
             config,
             BrokenASR(),
             FakeTranslationEngine([lang.code for lang in config.languages]),
         )
+        await pipeline.on_lesson_state("live")
         await pipeline.feed_audio(utterance_bytes())
         assert pipeline.audio_queue_seconds > 0
         await pipeline.start()
@@ -117,7 +117,7 @@ def test_flush_counts_partial_utterance() -> None:
     """一時停止・終了時の flush で確定した発話も滞留に数える。"""
 
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         await pipeline.feed_audio(speech_pcm(2000, SPEECH_S).tobytes())  # 無音が来ず未確定
         assert pipeline.audio_queue_seconds == 0.0
         await pipeline.flush_audio()
@@ -128,7 +128,7 @@ def test_flush_counts_partial_utterance() -> None:
 
 def test_sample_rate_conversion_is_seconds_not_samples() -> None:
     async def scenario() -> None:
-        pipeline = make_pipeline()
+        pipeline = await make_pipeline()
         await pipeline.feed_audio(utterance_bytes())
         # サンプル数（約29,000）ではなく秒（約1.8）であること
         assert pipeline.audio_queue_seconds < (SPEECH_S + SILENCE_S) * SAMPLE_RATE / 100

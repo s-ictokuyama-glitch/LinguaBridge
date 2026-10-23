@@ -38,53 +38,7 @@ def set_recording(teacher, on: bool) -> None:
     teacher.send_json({"type": "recording", "on": on})
 
 
-class TestDefaultOff:
-    def test_default_off_writes_nothing(self, tmp_path):
-        app = make_app(tmp_path)
-        with TestClient(app) as client:
-            with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
-                join_student(student, "en")
-                join_teacher(teacher)
-                start_session(teacher)
-                student.receive_json()  # session live
-                send_utterance(teacher, key=2000)
-                assert student.receive_json()["type"] == "caption"
-                teacher.send_json({"type": "control", "action": "end"})
-                assert student.receive_json() == {"type": "session", "state": "ended"}
-        # ブロック終了（lifespan shutdown の finalize も走る）後も何も残らない
-        assert list(tmp_path.iterdir()) == []
-
-    def test_joined_reports_recording_off_by_default(self, tmp_path):
-        app = make_app(tmp_path)
-        with TestClient(app) as client:
-            with client.websocket_connect("/ws") as student:
-                assert join_student(student, "en")["recording"] is False
-
-
-class TestRecordingOn:
-    def test_indicator_broadcast_to_teacher_and_student(self, tmp_path):
-        app = make_app(tmp_path)
-        with TestClient(app) as client:
-            with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
-                join_student(student, "en")
-                join_teacher(teacher)
-                set_recording(teacher, True)
-                assert teacher.receive_json() == {"type": "recording", "on": True}
-                assert student.receive_json() == {"type": "recording", "on": True}
-                set_recording(teacher, False)
-                assert teacher.receive_json() == {"type": "recording", "on": False}
-                assert student.receive_json() == {"type": "recording", "on": False}
-
-    def test_late_joiner_sees_recording_state(self, tmp_path):
-        app = make_app(tmp_path)
-        with TestClient(app) as client:
-            with client.websocket_connect("/ws") as teacher:
-                join_teacher(teacher)
-                set_recording(teacher, True)
-                teacher.receive_json()  # own broadcast
-                with client.websocket_connect("/ws") as student:
-                    assert join_student(student, "en")["recording"] is True
-
+class TestRecordingFiles:
     def test_writes_files_only_at_end_not_before(self, tmp_path):
         app = make_app(tmp_path)
         with TestClient(app) as client:

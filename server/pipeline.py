@@ -24,8 +24,7 @@ import statistics
 import time
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 
 from server import ws_protocol as proto
@@ -40,37 +39,15 @@ from server.audio.vad import (
     build_frame_vad,
 )
 from server.config import AppConfig
-from server.delivery import ClientSender
+from server.caption_history import CaptionHistory, Translation, Utterance
 from server.mt.base import TranslationEngine
 from server.mt.cache import CacheKey, TranslationCache
 from server.recorder import SessionRecorder
-from server.session import Client, Session
+from server.roster import Client, Roster
 from server.turn import TurnAssembler, build_boundary_classifier
 from server.turn.assembler import Turn, TurnPart
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Translation:
-    lang: str
-    text: str
-    engine: str
-    mt_ms: int
-
-
-@dataclass
-class Utterance:
-    """確定した Turn（字幕カード1枚）。履歴・記録・翻訳ジョブの単位。"""
-
-    seq: int
-    t_start: float
-    t_end: float
-    text_ja: str
-    asr_ms: int  # 構成 Segment の合計（morph では複数回ぶん）
-    created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
-    translations: dict[str, Translation] = field(default_factory=dict)
-    segments: int = 1  # 連結した Segment 数（1 なら連結なし）
 
 
 @dataclass
@@ -116,9 +93,6 @@ _AsrQueueItem = Segment | TurnBoundary | InterimSegment | _FlushTurn
 # 通知そのものが新しい過負荷にならないようにする
 _NOTICE_COOLDOWN_S = 10.0
 
-# 混雑で差分復元を積めなかったときのWSクローズコード。1013 = Try Again Later
-_RETRY_CLOSE_CODE = 1013
-
 # ASR滞留の秒数を 0 とみなす下限（#32）。16kHz の1サンプルは 62.5µs なので、
 # これより短い「音声」は存在しない＝浮動小数の端数でしかない
 _AUDIO_EPSILON_S = 1e-6
@@ -143,12 +117,15 @@ def _live_task_count() -> int:
 class Pipeline:
     def __init__(
         self,
-        session: Session,
+        roster: Roster,
         config: AppConfig,
         asr_engine: ASREngine,
         mt_engine: TranslationEngine,
     ) -> None:
-        self._session = session
+        self.roster = roster
+        self.history = CaptionHistory(config.history_resend)
+        self._state: proto.SessionState = "idle"
+        self._recording = config.recording.default_on
         self._asr = asr_engine
         self._mt = mt_engine
         self._mt_engine_name = config.mt.engine
@@ -225,9 +202,6 @@ class Pipeline:
             maxsize=config.limits.mt_queue_max
         )
         self._mt_counter = itertools.count()
-        # クライアントごとの有界送信キュー（#25 A-3）。遅い1接続が他を止めないよう、
-        # 送信は必ずここを経由し、直列 await をしない
-        self._senders: dict[str, ClientSender] = {}
         self._notice_at: dict[str, float] = {}  # 過負荷通知のクールダウン（code -> 最終送信時刻）
         self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
         self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
@@ -294,9 +268,7 @@ class Pipeline:
         await asyncio.gather(*pending, return_exceptions=True)
         self._tasks = []
         self._warmup_task = None
-        senders = list(self._senders.values())
-        self._senders.clear()
-        await asyncio.gather(*(s.aclose() for s in senders), return_exceptions=True)
+        await self.roster.aclose()
         # cancel_futures: 未着手の推論は捨てる（whisper-flow W-3 の見直し）。
         # 実行中のスレッドは止められないので wait=False のままにする。待つと
         # 病的入力で固まった推論に終了が引きずられる
@@ -412,12 +384,14 @@ class Pipeline:
         幻覚フィルタで Segment が捨てられても、Turn が確定しなくても、
         インジケーターが ON のまま張り付かない。
         """
-        await self._set_speaking(self._segmenter.is_open or self._assembler.has_pending)
+        await self._set_speaking(
+            self._state == "live" and (self._segmenter.is_open or self._assembler.has_pending)
+        )
 
     # ---- 音声入力（先生WSハンドラから呼ばれる） ----
 
     async def feed_audio(self, data: bytes) -> None:
-        if self._session.state != "live":
+        if self._state != "live":
             return  # 一時停止・終了中の音声は破棄
         opened_before = self._segmenter.utterances_opened
         last_speech_before = self._segmenter.last_speech_at
@@ -611,16 +585,14 @@ class Pipeline:
         """
         if not turn.text.strip():
             return  # 空文字だけの Turn は字幕にしない
-        utterance = Utterance(
-            seq=self._session.next_seq(),
+        utterance = self.history.append(
             t_start=turn.t_start,
             t_end=turn.t_end,
             text_ja=turn.text,
             asr_ms=turn.asr_ms,
             segments=turn.parts,
         )
-        self._session.add_history(utterance)
-        if self._session.recording:  # 記録ON中の発話のみ蓄積（F-10）
+        if self._recording:  # 記録ON中の発話のみ蓄積（F-10）
             self._recorder.add(utterance)
         await self.send_to_teacher(
             proto.AsrFinal(
@@ -631,7 +603,7 @@ class Pipeline:
                 turn_id=turn.turn_id,
             )
         )
-        for lang in sorted(self._session.active_langs()):
+        for lang in sorted(self.roster.active_langs()):
             await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, closed_at))
 
     async def _enqueue_mt(self, priority: int, job: MTJob) -> bool:
@@ -767,11 +739,11 @@ class Pipeline:
     async def _deliver_replay(self, job: MTJob, caption: proto.Caption) -> None:
         """再接続復元ジョブの成果を対象クライアントにのみ届ける。"""
         assert job.target_client_id is not None
-        client = self._session.clients.get(job.target_client_id)
+        client = self.roster.get(job.target_client_id)
         if client is None:
             return  # 復元待ちの間に再切断。次回rejoinのlast_seqで再復元される
         if client.lang == job.lang:
-            self._send(client, caption.model_dump())
+            self.roster.send(client, caption.model_dump())
         elif client.lang is not None:
             # 復元待ちの間に言語変更: 新しい言語で翻訳し直して届ける
             await self._enqueue_mt(
@@ -789,7 +761,7 @@ class Pipeline:
         """
         if client.lang is None:
             return
-        for utterance in self._session.history_entries_since(last_seq):
+        for utterance in self.history.since(last_seq):
             queued = await self._enqueue_mt(
                 _REPLAY_PRIORITY,
                 MTJob(utterance, client.lang, time.monotonic(), target_client_id=client.id),
@@ -800,43 +772,34 @@ class Pipeline:
                 # last_seq は進まないが、再接続の契機が無い）。接続を切って
                 # 自動再接続に載せ、空いてから同じ last_seq でやり直させる
                 logger.info("復元を積めなかったため生徒を切断し、再接続でのやり直しに委ねます")
-                await self._disconnect_for_retry(client)
+                await self.roster.retry(client)
                 return
 
     # ---- 配信 ----
 
     async def broadcast_caption(self, caption: proto.Caption) -> None:
-        payload = caption.model_dump()
-        for client in self._session.students():
-            if client.lang == caption.lang:
-                self._send(client, payload)
+        self.roster.send_language(caption.lang, caption.model_dump())
 
     async def send_to_teacher(
         self, message: proto.AsrFinal | proto.ErrorMsg | proto.Stats | proto.TurnPartial
     ) -> None:
-        teacher = self._session.teacher()
-        if teacher is not None:
-            self._send(teacher, message.model_dump())
+        self.roster.send_teacher(message.model_dump())
 
-    async def broadcast_session_state(self) -> None:
-        if self._session.state == "live":
-            # 無音警告（E-01）の基準を配信開始/再開時点にリセット
-            self._live_since = time.monotonic()
-            self._mic_silent_warned = False
-        else:
-            # 非live中はライブ遅延の指標を持ち越さない（一時停止・終了で古い値を出さない）。
-            # 内訳（#30）も同じ扱いにする — 総遅延だけ消えて内訳が残ると、
-            # 「合計0msなのに翻訳850ms」という読めない表示になる
+    async def on_lesson_state(self, state: proto.SessionState) -> None:
+        previous = self._state
+        self._state = state
+        if previous == "live" and state != "live":
+            await self.flush_audio()
+        self._mic_silent_warned = False
+        self._live_since = time.monotonic() if state == "live" else None
+        if state != "live":
             self._delay_samples.clear()
             self._asr_ms_samples.clear()
             self._mt_ms_samples.clear()
-            await self._set_speaking(False)  # 非live で「発話中」を残さない（#29）
-        await self._broadcast_all(proto.SessionStateMsg(state=self._session.state).model_dump())
+            await self._set_speaking(False)
 
     async def _broadcast_all(self, payload: dict) -> None:
-        """接続中の全クライアント（先生・生徒）へ同一メッセージを送る。"""
-        for client in list(self._session.clients.values()):
-            self._send(client, payload)
+        self.roster.broadcast(payload)
 
     def on_teacher_joined(self) -> None:
         """新しい先生が接続したとき、進行中の無音警告を再武装する。
@@ -845,16 +808,15 @@ class Pipeline:
 
     # ---- 記録（#18） ----
 
-    async def broadcast_recording(self) -> None:
-        """記録ON/OFFを全クライアントへ通知（先生・生徒双方のインジケーター F-10）。"""
-        await self._broadcast_all(proto.RecordingState(on=self._session.recording).model_dump())
+    def set_recording(self, on: bool) -> None:
+        self._recording = on
 
     async def finalize_recording(self) -> Path | None:
         """記録があれば全キューを排出して訳文を確定させ、ファイルへ書き出す。
 
         セッション終了時に呼ぶ。書き出したフォルダ、記録なしなら None を返す。
         """
-        if not self._recorder.has_entries:
+        if not self._recording and not self._recorder.has_entries:
             return None
         try:
             await asyncio.wait_for(self._asr_queue.join(), timeout=30)
@@ -868,13 +830,13 @@ class Pipeline:
     async def _stats_worker(self) -> None:
         while True:
             await asyncio.sleep(self._stats_interval_s)
-            if self._session.teacher() is None:
+            if self.roster.teacher() is None:
                 continue
             await self.send_to_teacher(self.stats_snapshot())
             await self._check_mic_silence()
 
     def stats_snapshot(self) -> proto.Stats:
-        students = self._session.students()
+        students = self.roster.students()
         cache = self._mt_cache.stats()
         return proto.Stats(
             students=len(students),
@@ -913,7 +875,7 @@ class Pipeline:
     async def _check_mic_silence(self) -> None:
         """配信中に一定時間音声が検出されないとき、先生へ一度だけ警告する（E-01）。
         音声が再開したら再武装する。マイク断（フレーム自体が来ない）も検出できる。"""
-        if self._session.state != "live" or self._live_since is None:
+        if self._state != "live" or self._live_since is None:
             return
         last_activity = max(self._live_since, self._segmenter.last_speech_at or 0.0)
         silent_for = time.monotonic() - last_activity
@@ -932,40 +894,6 @@ class Pipeline:
                     "マイクのミュートや接続を確認してください",
                 )
             )
-
-    def _send(self, client: Client, payload: dict) -> None:
-        """クライアントの送信キューへ積む。**ブロックしない**（#25 A-3）。
-
-        遅い端末の遅れはその端末のキューに閉じ込められる。溢れたら
-        ClientSender がその接続だけを切り、クライアントは再接続して差分復元する。
-        """
-        if client.ws is None:
-            return  # ユニットテストのダミークライアント
-        sender = self._senders.get(client.id)
-        if sender is None:
-            sender = ClientSender(
-                client.ws,
-                maxsize=self._limits.send_queue_max,
-                send_timeout_s=self._limits.send_timeout_s,
-                label=f"{client.role}:{client.id[:8]}",
-            )
-            self._senders[client.id] = sender
-        sender.send(payload)
-
-    async def _disconnect_for_retry(self, client: Client) -> None:
-        """このクライアントの接続を切り、自動再接続でのやり直しに委ねる。
-        生徒クライアントは指数バックオフで再接続し、`last_seq` から復元し直す。"""
-        await self.drop_client(client.id)
-        self._session.remove_client(client.id)
-        if client.ws is not None:
-            with contextlib.suppress(Exception):
-                await client.ws.close(code=_RETRY_CLOSE_CODE)
-
-    async def drop_client(self, client_id: str) -> None:
-        """クライアント除去時に送信キューを畳む（WSハンドラ側から呼ぶ）。"""
-        sender = self._senders.pop(client_id, None)
-        if sender is not None:
-            await sender.aclose()
 
     async def _notify_overload(self, code: str, message: str) -> None:
         """先生へ過負荷を知らせる。同じ code はクールダウン中は送らない

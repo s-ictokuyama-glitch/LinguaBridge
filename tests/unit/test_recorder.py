@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from server.pipeline import Translation, Utterance
+from server.caption_history import Translation, Utterance
 from server.recorder import SessionRecorder
 
 STARTED = datetime(2026, 9, 1, 10, 30, tzinfo=timezone.utc)
