@@ -1,0 +1,8 @@
+PASS
+base=f4d664523a9b2ceeceedd327bcc5dfaadc95dd7a
+head=c1dd8ce0e5fb2c0668985e10569a66ad09bc42f3
+range_patch_id=0864473033ae04af4acd49c4f208ad665a406302
+compared=['initial', 'queued', 'speaking_before_workers', 'completed', 'speaking_after_work', 'repeated', 'captions', 'asr_finals', 'speaking_transitions', 'recording', 'record_files', 'paused']
+mismatches=[]
+exclusions=['asr_ms', 'created_at', 'delay_ms', 'median_asr_ms', 'median_delay_ms', 'median_mt_ms', 'mt_ms']
+negative_controls=12 passed

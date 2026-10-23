@@ -15,7 +15,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from server.asr.hallucination import hallucination_reason
-from server.audio.vad import SileroVAD, VoiceSegmenter
+from server.audio.vad import Segment, SileroVAD, VoiceSegmenter
 from server.config import AppConfig, VadConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
@@ -78,7 +78,11 @@ class TestSileroSegmentation:
         pcm = np.concatenate([load_fixture_pcm(), silence_pcm(0.8)])
         segments = []
         for chunk in chunks(pcm):
-            segments.extend(seg.feed(np.frombuffer(chunk, dtype=np.int16)))
+            segments.extend(
+                event
+                for event in seg.feed(np.frombuffer(chunk, dtype=np.int16))
+                if isinstance(event, Segment)
+            )
         flushed = seg.flush()
         total = segments + ([flushed] if flushed else [])
         assert len(total) >= 1
@@ -89,7 +93,11 @@ class TestSileroSegmentation:
         pcm = np.concatenate([noise_pcm(2.0), silence_pcm(2.0)])
         segments = []
         for chunk in chunks(pcm):
-            segments.extend(seg.feed(np.frombuffer(chunk, dtype=np.int16)))
+            segments.extend(
+                event
+                for event in seg.feed(np.frombuffer(chunk, dtype=np.int16))
+                if isinstance(event, Segment)
+            )
         assert segments == []
         assert seg.flush() is None
 

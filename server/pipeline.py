@@ -34,16 +34,19 @@ from server.audio.ingest import pcm16_from_bytes
 from server.audio.vad import (
     InterimSegment,
     Segment,
+    SpeechActivity,
     TurnBoundary,
     VoiceSegmenter,
     build_frame_vad,
 )
+from server.asr_backlog import AsrBacklog, AsrEvent, Dropped, FlushTurn
 from server.config import AppConfig
 from server.caption_history import CaptionHistory, Translation, Utterance
 from server.mt.base import TranslationEngine
 from server.mt.cache import CacheKey, TranslationCache
 from server.recorder import SessionRecorder
 from server.roster import Client, Roster
+from server.speaking import SpeakingSignal
 from server.turn import TurnAssembler, build_boundary_classifier
 from server.turn.assembler import Turn, TurnPart
 
@@ -73,29 +76,9 @@ def _median_ms(samples: deque[int]) -> int:
     return int(statistics.median(samples)) if samples else 0
 
 
-@dataclass
-class _FlushTurn:
-    """一時停止・終了で保留中の Turn を打ち切る番兵（#27）。
-
-    asr_queue に流して ASR待ちの後ろに並べる。直接 assembler を叩くと、
-    まだ ASR 待ちの Segment を追い越して Turn を閉じてしまう。
-    """
-
-    closed_at: float
-
-
-# ASR待ち行列を流れるもの。`SpeechStart` は**含まない**（#29）。
-# インジケーターを ASR の後ろに並べると、詰まっているときに遅れる。
-# 詰まっているときこそ「話しているのに字幕が出ない」ことを示す必要がある
-_AsrQueueItem = Segment | TurnBoundary | InterimSegment | _FlushTurn
-
 # 同じ過負荷通知を先生へ送る最短間隔（秒）。溢れている間は毎件発生しうるので、
 # 通知そのものが新しい過負荷にならないようにする
 _NOTICE_COOLDOWN_S = 10.0
-
-# ASR滞留の秒数を 0 とみなす下限（#32）。16kHz の1サンプルは 62.5µs なので、
-# これより短い「音声」は存在しない＝浮動小数の端数でしかない
-_AUDIO_EPSILON_S = 1e-6
 
 # 先生の話す言語。現状は日本語固定だが、キャッシュキーには明示的に含める（#26 B-4）
 _SOURCE_LANG = "ja"
@@ -149,14 +132,11 @@ class Pipeline:
             ),
             **config.turn.segmenter_kwargs(config.vad),
         )
-        # interim ASR は**同時に1本だけ**（Parapper R-7）。走っている間に来た interim は
-        # 捨てる。並べると partial が確定字幕の前に割り込み、遅延を悪化させる
-        self._interim_in_flight = False
-        self._speaking = False  # 生徒へ通知済みの「発話中」状態。変化時だけ送る
+        self._speaking_signal = SpeakingSignal(config.partial.speaking_indicator)
         # 計測用（#29 の判定材料）。partial の実効回数と stale で捨てた回数
         self.partials_sent = 0
         self.partials_stale = 0
-        self.interims_skipped = 0
+        self._batch_interims_skipped = 0
         # 通算の推論回数（#32）。「生徒が増えても ASR は増えない」「同一言語の人数で
         # Hy-MT2 は増えない」を実エンジンの実負荷で数値にするための計数器。
         # `_asr_ms_samples` / `_mt_ms_samples` は deque(maxlen=) の**標本**なので
@@ -164,10 +144,6 @@ class Pipeline:
         self.asr_calls = 0  # 確定 Segment の ASR 推論回数（partial は含めない）
         self.asr_partial_calls = 0  # interim（partial）の ASR 推論回数
         self.mt_calls = 0  # **実際に推論した**翻訳の回数（キャッシュヒットは含めない）
-        # ASR待ち秒数の上限で捨てたぶん（#25 A-2 の破棄地点）。通知を数えるだけでは
-        # クールダウン（10秒）に丸められて実数が分からない
-        self.asr_dropped_segments = 0
-        self.asr_dropped_seconds = 0.0
         # 上限超過で受け取らなかった音声フレーム数（`limits.max_audio_bytes`）。
         # 破棄地点はここと `_enqueue_asr` の2つで、意味が違う:
         # ここは**不正な入力**（100msフレームのはずが巨大）、あちらは**容量**。
@@ -183,20 +159,10 @@ class Pipeline:
             max_segments=config.turn.morph.max_segments,
         )
         self._limits = config.limits
-        # 件数ではなく秒数で有界化する（#25 A-2 / Parapper R-6）。maxsize を持たせて
-        # put() で待つと、この put は先生WSの受信ループの中にあるため、音声だけでなく
-        # control(pause/end) まで読めなくなる＝授業中に操作不能になる
-        # Segment と TurnBoundary が同じキューを順序どおり流れる。順序が本質で、
-        # 別経路にすると「この Segment の後に無音が続いたか」が入れ替わりうる
-        self._asr_queue: asyncio.Queue[_AsrQueueItem] = asyncio.Queue()
-        # ASR待ち＋処理中の音声の合計秒数（#24 の計装）。件数のキュー深度と違い、
-        # 「実時間でどれだけ遅れているか」を表す。処理中のセグメントも含める
-        # （取り出した瞬間に 0 になると、詰まっている最中だけ指標が消えてしまう）
-        self._queued_audio_s = 0.0
-        # そのうち「いま ASR が処理中」のぶん（#30）。`_queued_audio_s` から引けば
-        # 純粋な待ち時間になる。分けないと、1発話が長いだけの状態を先生が
-        # 「詰まっている」と読んでしまう（#25・#29 で二度確認された誤読）
-        self._active_audio_s = 0.0
+        self._asr_backlog = AsrBacklog(
+            config.limits.asr_queue_seconds, self._segmenter.sample_rate,
+            config.partial.min_interim_audio_s,
+        )
         # (優先度, 連番, ジョブ)。連番は同一優先度内のFIFOを保証する
         self._mt_queue: asyncio.PriorityQueue[tuple[int, int, MTJob]] = asyncio.PriorityQueue(
             maxsize=config.limits.mt_queue_max
@@ -277,16 +243,16 @@ class Pipeline:
 
     @property
     def queue_depth(self) -> int:
-        return self._asr_queue.qsize() + self._mt_queue.qsize()
+        return self.asr_queue_depth + self.mt_queue_depth
 
     @property
     def audio_queue_seconds(self) -> float:
-        return self._queued_audio_s
+        return self._asr_backlog.total_seconds
 
     @property
     def asr_active_seconds(self) -> float:
         """いま ASR が処理しているセグメントの長さ（#30）。処理中でなければ 0。"""
-        return self._active_audio_s
+        return self._asr_backlog.active_seconds
 
     @property
     def asr_wait_seconds(self) -> float:
@@ -295,108 +261,67 @@ class Pipeline:
         `audio_queue_seconds` から処理中のぶんを引いたもの。**先生が見るべきはこちら**で、
         こちらが 0 なら遅れているのは「1発話が長いから」であって滞留ではない。
         """
-        return max(0.0, self._queued_audio_s - self._active_audio_s)
+        return self._asr_backlog.waiting_seconds
 
     @property
     def speaking(self) -> bool:
         """先生が発話中か（#29）。参加時のスナップショットに使う。"""
-        return self._speaking
+        return self._speaking_signal.current
 
-    async def _enqueue_asr(self, segment: _AsrQueueItem) -> None:
-        """ASR待ち行列へ積む。**決してブロックしない**（#25 A-2）。
+    @property
+    def asr_dropped_segments(self) -> int:
+        return self._asr_backlog.dropped_segments
 
-        この呼び出しは先生WSの受信ループの中にある。ここで待つと音声だけでなく
-        control(pause/end) や recording トグルまで読めなくなるため、上限に達したら
-        待たずに捨てる。ただし黙っては捨てず、警告ログと先生への通知を出す。
+    @property
+    def asr_dropped_seconds(self) -> float:
+        return self._asr_backlog.dropped_seconds
 
-        キューが空のときは長さに関わらず必ず受ける（1発話が上限より長いだけの理由で
-        捨てると、max_utterance_s の強制分割が丸ごと消えてしまう）。
+    @property
+    def interims_skipped(self) -> int:
+        return self._asr_backlog.interims_skipped + self._batch_interims_skipped
 
-        `TurnBoundary` / `_FlushTurn` は音声を持たないので秒数会計に載せず、
-        **決して捨てない**。
-        捨てると保留中の Turn を確定させる契機が消え、字幕が出なくなる。
+    @property
+    def asr_queue_depth(self) -> int:
+        return self._asr_backlog.depth
 
-        `InterimSegment`（#29）は逆に**真っ先に捨てる**。partial は best-effort で、
-        捨てても失われるのは「確定の少し前に見えたはずの文」だけ。
-        `_enqueue_interim` が積む条件を判断する。
-        """
-        if isinstance(segment, InterimSegment):
-            self._enqueue_interim(segment)
-            return
-        if not isinstance(segment, Segment):
-            self._asr_queue.put_nowait(segment)
-            return
-        seconds = segment.pcm.size / self._segmenter.sample_rate
-        if self._queued_audio_s > 0 and (
-            self._queued_audio_s + seconds > self._limits.asr_queue_seconds
-        ):
-            self.asr_dropped_segments += 1
-            self.asr_dropped_seconds += seconds
-            logger.warning(
-                "ASR待ちが上限 %.1f 秒に達したため %.2f 秒の音声を破棄しました",
-                self._limits.asr_queue_seconds,
-                seconds,
-            )
+    @property
+    def mt_queue_depth(self) -> int:
+        return self._mt_queue.qsize()
+
+    async def drain(self, timeout: float = 30) -> None:
+        """ASR、MT の順に排出する。timeout は各段の待機秒数。"""
+        await asyncio.wait_for(self._asr_backlog.join(), timeout=timeout)
+        await asyncio.wait_for(self._mt_queue.join(), timeout=timeout)
+
+    async def _enqueue_asr(self, event: AsrEvent) -> None:
+        outcome = self._asr_backlog.offer(event)
+        if outcome is Dropped and isinstance(event, Segment):
+            seconds = event.pcm.size / self._segmenter.sample_rate
+            logger.warning("ASR待ちが上限に達したため %.2f 秒の音声を破棄しました", seconds)
             await self._notify_overload(
                 "audio_dropped",
                 "処理が追いつかず音声を一部破棄しました。ゆっくり話すか一度一時停止してください",
             )
-            return
-        self._queued_audio_s += seconds
-        self._asr_queue.put_nowait(segment)
 
-    def _enqueue_interim(self, interim: InterimSegment) -> None:
-        """partial 用の interim ASR を積む（#29）。積めないなら黙って捨てる。
-
-        **不変条件: partial は final の後ろに並ばない。** ASR は単一スレッドなので、
-        interim が確定 Segment の前に入ると確定字幕がそのぶん遅れる。partial は
-        「速く見せる」ための機能なので、確定を遅らせたら本末転倒になる。
-        そこで **ASR待ちが完全に空のときだけ**積む。混んでいる＝ partial を出す
-        余裕が無い、という判断がそのまま背圧になる。
-
-        `_queued_audio_s` の会計には載せない。滞留ではなく捨ててよい仕事なので、
-        過負荷判定（`overload_audio_seconds`）と `asr_queue_seconds` の予算を汚さない。
-        """
-        if self._interim_in_flight or not self._asr_queue.empty() or self._queued_audio_s > 0:
-            self.interims_skipped += 1
-            return
-        audio_s = interim.pcm.size / self._segmenter.sample_rate
-        if audio_s < self._partial.min_interim_audio_s:
-            # 短すぎる音声はリードイン不足で誤認識しやすい（#28: 0ms で CER 19.70%）。
-            # 先生に誤った日本語を見せるくらいなら何も出さない
-            self.interims_skipped += 1
-            return
-        self._interim_in_flight = True
-        self._asr_queue.put_nowait(interim)
-
-    async def _set_speaking(self, on: bool) -> None:
-        """「先生が発話中」を全クライアントへ通知する（#29）。**変化時だけ**送る。"""
-        if not self._partial.speaking_indicator or self._speaking == on:
-            return
-        self._speaking = on
-        await self._broadcast_all(proto.Speaking(on=on).model_dump())
+    async def _broadcast_speaking(self, changed: bool | None) -> None:
+        if changed is not None:
+            await self._broadcast_all(proto.Speaking(on=changed).model_dump())
 
     async def _refresh_speaking(self) -> None:
-        """ASR を1件処理し終えるたびに「発話中」を再評価する（#29）。
-
-        ON は VAD の `SpeechStart` から即座に立てるが、OFF はここで決める。
-        「マイクが無音 かつ 保留中の Turn が無い」を条件にしておくと、
-        幻覚フィルタで Segment が捨てられても、Turn が確定しなくても、
-        インジケーターが ON のまま張り付かない。
-        """
-        await self._set_speaking(
-            self._state == "live" and (self._segmenter.is_open or self._assembler.has_pending)
-        )
+        await self._broadcast_speaking(self._speaking_signal.on_asr_settled(
+            self._segmenter.is_open, self._assembler.has_pending,
+        ))
 
     # ---- 音声入力（先生WSハンドラから呼ばれる） ----
 
     async def feed_audio(self, data: bytes) -> None:
         if self._state != "live":
             return  # 一時停止・終了中の音声は破棄
-        opened_before = self._segmenter.utterances_opened
-        last_speech_before = self._segmenter.last_speech_at
         events = self._segmenter.feed(pcm16_from_bytes(data))
         for i, event in enumerate(events):
+            if isinstance(event, SpeechActivity):
+                await self._broadcast_speaking(self._speaking_signal.on_vad_activity())
+                continue
             # 同じバッチで後ろに Segment が控えているなら interim は積まない（#29）。
             # max_utterance_s の強制分割と息継ぎが同じフレームに重なるとこうなるが、
             # その interim は確定 Segment と同じ音声を先に ASR へ通すだけで、
@@ -404,14 +329,9 @@ class Pipeline:
             if isinstance(event, InterimSegment) and any(
                 isinstance(later, Segment) for later in events[i + 1 :]
             ):
-                self.interims_skipped += 1
+                self._batch_interims_skipped += 1
                 continue
             await self._enqueue_asr(event)
-        if self._segmenter.utterances_opened != opened_before or (
-            self._segmenter.is_open
-            and self._segmenter.last_speech_at != last_speech_before
-        ):
-            await self._set_speaking(True)
 
     async def flush_audio(self) -> None:
         """進行中の発話を確定して処理に回す（一時停止・終了時）。
@@ -423,57 +343,31 @@ class Pipeline:
         if segment is not None:
             await self._enqueue_asr(segment)
         # ASR待ちの後ろに並べる（順序を保つため、直接 assembler を叩かない）
-        await self._enqueue_asr(_FlushTurn(closed_at=time.monotonic()))
+        await self._enqueue_asr(FlushTurn(closed_at=time.monotonic()))
         # 一時停止・終了で発話は必ず途切れる。ASR待ちの排出を待たずに畳む（#29）
-        await self._set_speaking(False)
+        await self._broadcast_speaking(self._speaking_signal.on_mic_silent())
 
     # ---- ワーカー ----
 
     async def _asr_worker(self) -> None:
         loop = asyncio.get_running_loop()
         while True:
-            event = await self._asr_queue.get()
-            if isinstance(event, Segment):
-                # 取り出した瞬間に「待ち」から「処理中」へ移す（#30）。滞留の合計
-                # （`_queued_audio_s`）は変えない — 減らすのは処理を終えてからのまま
-                self._active_audio_s = event.pcm.size / self._segmenter.sample_rate
             try:
-                if isinstance(event, Segment):
-                    await self._process_segment(loop, event)
-                elif isinstance(event, InterimSegment):
-                    await self._process_interim(loop, event)
-                else:
-                    await self._close_pending_turn(event)
+                async with self._asr_backlog.next() as event:
+                    if isinstance(event, Segment):
+                        await self._process_segment(loop, event)
+                    elif isinstance(event, InterimSegment):
+                        await self._process_interim(loop, event)
+                    else:
+                        await self._close_pending_turn(event)
             finally:
-                # 処理を終えて初めて滞留から外す（ASR失敗・幻覚破棄でも必ず減らす）。
-                # 引く値は取り出し時に求めたものを使い回す（2箇所で計算し直すと
-                # `wait + active == audio_queue_seconds` が静かにずれる）
-                if isinstance(event, Segment):
-                    self._queued_audio_s = max(
-                        0.0, self._queued_audio_s - self._active_audio_s
-                    )
-                    # 浮動小数の端数を掃き出す（#32）。積むのは到着順・引くのは
-                    # 処理順なので足し引きの順序が違い、全部さばいても 0 に戻らず
-                    # 2.2e-16 のような値が残る。残ると「滞留は空か」を `> 0` で
-                    # 見ている2か所が**恒久的に「空でない」**と読む:
-                    #   - `_enqueue_interim`: partial が二度と出なくなる（#29 が死ぬ）
-                    #   - `_enqueue_asr`: 「キューが空なら長さによらず必ず受ける」
-                    #     という carve-out が消え、長い1発話が捨てられうる
-                    if self._queued_audio_s < _AUDIO_EPSILON_S:
-                        self._queued_audio_s = 0.0
-                    self._active_audio_s = 0.0
-                if isinstance(event, InterimSegment):
-                    self._interim_in_flight = False  # 失敗・stale でも必ず解放する
-                # 「発話中」インジケーターの OFF はここで決める（#29）
                 await self._refresh_speaking()
-                # finalize_recording の join() が排出完了を検知できるよう必ず1回呼ぶ
-                self._asr_queue.task_done()
 
-    async def _close_pending_turn(self, event: TurnBoundary | _FlushTurn) -> None:
+    async def _close_pending_turn(self, event: TurnBoundary | FlushTurn) -> None:
         """無音が force_silence_ms に達した / flush された。保留中の Turn を確定する。"""
         turn = (
             self._assembler.flush()
-            if isinstance(event, _FlushTurn)
+            if isinstance(event, FlushTurn)
             else self._assembler.on_boundary()
         )
         if turn is not None:
@@ -788,6 +682,7 @@ class Pipeline:
     async def on_lesson_state(self, state: proto.SessionState) -> None:
         previous = self._state
         self._state = state
+        await self._broadcast_speaking(self._speaking_signal.on_lesson_state(state))
         if previous == "live" and state != "live":
             await self.flush_audio()
         self._mic_silent_warned = False
@@ -796,7 +691,6 @@ class Pipeline:
             self._delay_samples.clear()
             self._asr_ms_samples.clear()
             self._mt_ms_samples.clear()
-            await self._set_speaking(False)
 
     async def _broadcast_all(self, payload: dict) -> None:
         self.roster.broadcast(payload)
@@ -819,8 +713,7 @@ class Pipeline:
         if not self._recording and not self._recorder.has_entries:
             return None
         try:
-            await asyncio.wait_for(self._asr_queue.join(), timeout=30)
-            await asyncio.wait_for(self._mt_queue.join(), timeout=30)
+            await self.drain(timeout=30)
         except asyncio.TimeoutError:
             logger.warning("記録の書き出し前のキュー排出がタイムアウト。現時点の内容で書き出します")
         return self._recorder.write()
@@ -847,13 +740,13 @@ class Pipeline:
             # 件数では「どれだけ遅れているか」を表現できない。翻訳側は1件あたりの
             # 処理時間が揃っているので件数のままでよい
             overloaded=(
-                self._queued_audio_s >= self._overload_audio_s
+                self.audio_queue_seconds >= self._overload_audio_s
                 or self._mt_queue.qsize() >= self._overload_queue_depth
             ),
-            audio_queue_seconds=round(self._queued_audio_s, 2),
+            audio_queue_seconds=round(self.audio_queue_seconds, 2),
             # 内訳（#30）。合計は上の audio_queue_seconds のまま変えていない
             asr_wait_seconds=round(self.asr_wait_seconds, 2),
-            asr_active_seconds=round(self._active_audio_s, 2),
+            asr_active_seconds=round(self.asr_active_seconds, 2),
             median_asr_ms=_median_ms(self._asr_ms_samples),
             mt_queue_depth=self._mt_queue.qsize(),
             median_mt_ms=_median_ms(self._mt_ms_samples),
@@ -886,7 +779,7 @@ class Pipeline:
             self._mic_silent_warned = True
             # マイクが死ぬとフレーム自体が来なくなり、VAD も ASR ワーカーも動かないので
             # 「発話中」を畳む契機が無い（#29）。ここが唯一の受け皿になる
-            await self._set_speaking(False)
+            await self._broadcast_speaking(self._speaking_signal.on_mic_silent())
             await self.send_to_teacher(
                 proto.ErrorMsg(
                     code="mic_silent",

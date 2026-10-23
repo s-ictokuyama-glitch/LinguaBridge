@@ -61,7 +61,7 @@ async def run_utterances(pipeline: Pipeline, *keys: int) -> None:
     async with asyncio.timeout(10):
         while pipeline.audio_queue_seconds > 0 or pipeline.stats_snapshot().mt_queue_depth:
             await asyncio.sleep(0.01)
-        await pipeline._mt_queue.join()
+        await pipeline.drain()
 
 
 # ---- 1: ASR回数は発話の数であって生徒の数ではない ----
@@ -246,39 +246,6 @@ def test_queued_audio_returns_to_exactly_zero() -> None:
                 f"滞留に端数が残った: {pipeline.audio_queue_seconds!r}"
             )
             assert not pipeline.audio_queue_seconds > 0  # 2か所の述語が見るのはこれ
-        finally:
-            await pipeline.stop()
-
-    asyncio.run(scenario())
-
-
-def test_interim_gate_reopens_after_the_queue_drains() -> None:
-    """滞留が空に戻れば interim の門は再び開く（#32 で見つけた回帰の実害）。
-
-    `_enqueue_interim` は次の述語で partial を抑制する:
-
-        self._interim_in_flight or not self._asr_queue.empty() or self._queued_audio_s > 0
-
-    端数 2.2e-16 が残ると第3項が**恒久的に真**になり、以後 interim は
-    1件も積まれない ＝ partial 字幕（#29）が例外もログも出さずに死ぬ。
-    ここで見るのは述語そのもので、partial の発火タイミング（ASR の速さに依存）
-    ではない。発火の有無で書くと、フェイクASRが速すぎる日に緑のまま通ってしまう。
-    """
-
-    async def scenario() -> None:
-        pipeline, _, _ = await make_pipeline()
-        await pipeline.start()
-        try:
-            await run_utterances(pipeline, 2000, 3000, 4000)
-            suppressed = (
-                pipeline._interim_in_flight
-                or not pipeline._asr_queue.empty()
-                or pipeline.audio_queue_seconds > 0
-            )
-            assert not suppressed, (
-                "滞留が空なのに interim が抑制されている: "
-                f"queued={pipeline.audio_queue_seconds!r}"
-            )
         finally:
             await pipeline.stop()
 

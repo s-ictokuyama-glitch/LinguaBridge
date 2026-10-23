@@ -17,12 +17,13 @@ import numpy as np
 import pytest
 
 from server.asr.fake_engine import FakeASREngine
+from server.asr_backlog import AsrBacklog
 from server.audio.vad import Segment
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import _LIVE_PRIORITY, _REPLAY_PRIORITY, MTJob, Pipeline
 from server.caption_history import Utterance
 from server.roster import Roster
-from tests.helpers import RecordingSocket
+from tests.helpers import RecordingSocket, silence_pcm, speech_pcm
 from tests.conftest import JOIN_CODE, make_ws_test_config
 
 SAMPLE_RATE = 16000
@@ -73,12 +74,12 @@ class TestAudioIngestBound:
         件数では「実時間でどれだけ遅れているか」を表現できない。"""
 
         async def scenario() -> None:
-            pipeline, _ = await make_pipeline(asr_queue_seconds=5.0)
+            backlog = AsrBacklog(5.0)
             for _ in range(20):
-                await pipeline._enqueue_asr(segment_of(0.5))
-            assert pipeline.audio_queue_seconds <= 5.0
+                backlog.offer(segment_of(0.5))
+            assert backlog.total_seconds <= 5.0
             # 秒数で切っているなら 0.5秒×10件 は入る。件数の上限ではない
-            assert pipeline.audio_queue_seconds == pytest.approx(5.0, abs=0.5)
+            assert backlog.total_seconds == pytest.approx(5.0, abs=0.5)
 
         asyncio.run(scenario())
 
@@ -87,9 +88,9 @@ class TestAudioIngestBound:
         でないと max_utterance_s による強制分割が丸ごと消える。"""
 
         async def scenario() -> None:
-            pipeline, _ = await make_pipeline(asr_queue_seconds=5.0)
-            await pipeline._enqueue_asr(segment_of(30.0))
-            assert pipeline.audio_queue_seconds == pytest.approx(30.0, abs=0.1)
+            backlog = AsrBacklog(5.0)
+            backlog.offer(segment_of(30.0))
+            assert backlog.total_seconds == pytest.approx(30.0, abs=0.1)
 
         asyncio.run(scenario())
 
@@ -100,7 +101,9 @@ class TestAudioIngestBound:
             pipeline, roster = await make_pipeline(asr_queue_seconds=2.0)
             ws = await attach_teacher(roster)
             for _ in range(10):
-                await pipeline._enqueue_asr(segment_of(1.0))
+                await pipeline.feed_audio(
+                    np.concatenate([speech_pcm(2000, 1.0), silence_pcm(1.2)]).tobytes()
+                )
             await settle()
             codes = [m.get("code") for m in ws.sent]
             assert "audio_dropped" in codes, "音声を捨てたのに先生へ通知していない"
@@ -116,7 +119,12 @@ class TestAudioIngestBound:
         async def scenario() -> None:
             pipeline, _ = await make_pipeline(asr_queue_seconds=1.0)
             for _ in range(50):
-                await asyncio.wait_for(pipeline._enqueue_asr(segment_of(1.0)), timeout=0.5)
+                await asyncio.wait_for(
+                    pipeline.feed_audio(
+                        np.concatenate([speech_pcm(2000, 1.0), silence_pcm(1.2)]).tobytes()
+                    ),
+                    timeout=0.5,
+                )
 
         asyncio.run(scenario())
 
@@ -134,7 +142,7 @@ class TestMtQueueBound:
                     _REPLAY_PRIORITY,
                     MTJob(utterance, "en", time.monotonic(), target_client_id="s1"),
                 )
-            assert pipeline._mt_queue.qsize() == 4, "復元ジョブが水位で止まっていない"
+            assert pipeline.mt_queue_depth == 4, "復元ジョブが水位で止まっていない"
 
         asyncio.run(scenario())
 
@@ -148,7 +156,7 @@ class TestMtQueueBound:
                 await pipeline._enqueue_mt(
                     _LIVE_PRIORITY, MTJob(utterance, "en", time.monotonic())
                 )
-            assert pipeline._mt_queue.qsize() == 10
+            assert pipeline.mt_queue_depth == 10
 
         asyncio.run(scenario())
 
@@ -175,7 +183,7 @@ class TestMtQueueBound:
 
             pipeline._mt_queue.get_nowait()  # 1件はけたら待っていたジョブが入る
             await asyncio.wait_for(blocked, timeout=1.0)
-            assert pipeline._mt_queue.qsize() == 2
+            assert pipeline.mt_queue_depth == 2
             await pipeline.stop()
 
         asyncio.run(scenario())
@@ -212,7 +220,7 @@ class TestReplaySuppressionIsRecoverable:
                 pipeline.history.append(t_start=0, t_end=1, text_ja="あ", asr_ms=1)
             await pipeline.replay_history(student, last_seq=0)
             assert ws.closed_with is None
-            assert pipeline._mt_queue.qsize() == 3
+            assert pipeline.mt_queue_depth == 3
             await pipeline.stop()
 
         asyncio.run(scenario())
@@ -226,10 +234,12 @@ class TestOverloadSignal:
             pipeline, _ = await make_pipeline(asr_queue_seconds=60.0)
             assert pipeline.stats_snapshot().overloaded is False
             # 1件しか積んでいなくても、長さが閾値を超えていれば過負荷
-            await pipeline._enqueue_asr(segment_of(10.0))
+            await pipeline.feed_audio(
+                np.concatenate([speech_pcm(2000, 10.0), silence_pcm(0.5)]).tobytes()
+            )
             stats = pipeline.stats_snapshot()
             assert stats.queue_depth == 1
-            assert stats.audio_queue_seconds == pytest.approx(10.0, abs=0.1)
+            assert 10.0 <= stats.audio_queue_seconds <= 10.5
             assert stats.overloaded is True, "件数が少ないだけで過負荷を見逃している"
 
         asyncio.run(scenario())
@@ -240,7 +250,9 @@ class TestOverloadSignal:
         async def scenario() -> None:
             pipeline, _ = await make_pipeline(asr_queue_seconds=60.0)
             for _ in range(4):
-                await pipeline._enqueue_asr(segment_of(0.3))
+                await pipeline.feed_audio(
+                    np.concatenate([speech_pcm(2000, 0.3), silence_pcm(0.5)]).tobytes()
+                )
             stats = pipeline.stats_snapshot()
             assert stats.queue_depth == 4
             assert stats.overloaded is False
