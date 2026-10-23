@@ -1,4 +1,3 @@
-"""発話インジケーターの純粋な状態遷移。"""
 
 
 class SpeakingSignal:

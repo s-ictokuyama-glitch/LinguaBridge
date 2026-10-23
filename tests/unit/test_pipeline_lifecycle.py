@@ -1,4 +1,3 @@
-"""公開入力から発話状態と排出・記録の契約を確かめる。"""
 import asyncio
 import json
 from unittest.mock import AsyncMock

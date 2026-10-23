@@ -1,4 +1,3 @@
-"""発話状態は VAD だけで ON になり、変化だけを返す。"""
 import pytest
 
 from server.speaking import SpeakingSignal

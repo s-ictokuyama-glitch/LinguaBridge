@@ -1,4 +1,3 @@
-"""ASR FIFO の容量、順序、処理終了の公開契約。"""
 import asyncio
 
 import numpy as np

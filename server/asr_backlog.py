@@ -1,4 +1,3 @@
-"""ASR の FIFO と音声容量を管理する。"""
 from __future__ import annotations
 
 import asyncio

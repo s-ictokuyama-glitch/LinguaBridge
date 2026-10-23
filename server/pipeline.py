@@ -278,7 +278,6 @@ class Pipeline:
 
     @property
     def interims_skipped(self) -> int:
-        # 同じ feed バッチの確定音声を優先した見送りは Pipeline で数える。
         return self._asr_backlog.interims_skipped + self._batch_interims_skipped
 
     @property
