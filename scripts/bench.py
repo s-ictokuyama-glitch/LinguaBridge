@@ -532,7 +532,7 @@ def segment_clip(segmenter, pcm: np.ndarray, frame_len: int) -> list[dict]:
     `closed_at_s` は音声先頭からの秒。**実時間ではない**ので、ASR の計算時間は
     含まない（A/B とも同じ条件なので比較には使える）。
     """
-    from server.audio.vad import Segment
+    from server.audio.vad import Segment, TurnBoundary
 
     segmenter.reset()
     out: list[dict] = []
@@ -541,6 +541,8 @@ def segment_clip(segmenter, pcm: np.ndarray, frame_len: int) -> list[dict]:
         frame = pcm[i * frame_len : (i + 1) * frame_len]
         fed += frame.size
         for event in segmenter.feed(frame):
+            if not isinstance(event, (Segment, TurnBoundary)):
+                continue
             out.append(
                 {
                     "seg": event if isinstance(event, Segment) else None,

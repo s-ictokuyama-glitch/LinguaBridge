@@ -14,10 +14,8 @@ VoiceSegmenter はフレーム単位のVAD判定から発話セグメントを�
   - interim_silence_ms: 発話の**途中**でこの長さの無音に達したら InterimSegment を発行する。
     発話は閉じない。partial 字幕のための「息継ぎ駆動」の引き金（Parapper）。
     None なら1つも発行しない
-  - utterances_opened: 発話が開いた回数のカウンタ。生徒の「発話中」インジケーターを
-    ASR より先に立ち上げるために、呼び出し側が feed() の前後で差を見る。
-    **イベント列には足していない** — 足すと既存の呼び出し側（テスト・ベンチ）が
-    すべて新しいイベントを跨いで読む必要が出るため
+  - SpeechActivity: 発話開始または進行中の有声音を feed() ごとに最大1件返す。
+    ASR キューへ入れず、発話インジケーターを即座に更新する。
 
 フレーム判定器は差し替え可能: 本番は SileroVAD（ONNX, 32msフレーム）、
 テスト・フォールバック用に EnergyVAD（RMS閾値, 100msフレーム）。
@@ -164,7 +162,12 @@ class TurnBoundary:
     closed_at: float  # time.monotonic()
 
 
-SegmenterEvent = Segment | TurnBoundary | InterimSegment
+@dataclass(frozen=True)
+class SpeechActivity:
+    """この feed バッチで発話開始または継続音声を検出した。"""
+
+
+SegmenterEvent = Segment | TurnBoundary | InterimSegment | SpeechActivity
 
 
 class VoiceSegmenter:
@@ -218,7 +221,6 @@ class VoiceSegmenter:
         self._pending = np.zeros(0, dtype=np.int16)  # フレーム長未満の端数
         self._offset = 0  # 音声先頭からの処理済みサンプル数
         self.last_speech_at: float | None = None  # 最後に音声を検出した時刻（無音警告 E-01 用）
-        self.utterances_opened = 0  # 発話が開いた回数（#29 の「発話中」インジケーター用）
         self._frames: list[np.ndarray] = []
         self._utt_start_sample = 0
         self._last_speech_end_sample = 0
@@ -244,17 +246,23 @@ class VoiceSegmenter:
         return bool(self._frames)
 
     def feed(self, pcm: np.ndarray) -> list[SegmenterEvent]:
-        """音声を食わせ、確定した Segment と TurnBoundary を発生順に返す。
+        """音声を処理し、SegmenterEvent を発生順に返す。
 
-        force_silence_ms が None のときは TurnBoundary を1つも返さない
-        （= #27 以前と同じく Segment だけが流れる）。
+        force_silence_ms が None のときは TurnBoundary を1つも返さない。
+        SpeechActivity は1バッチにつき最大1件返す。
         """
         events: list[SegmenterEvent] = []
+        activity_emitted = False
         buf = np.concatenate([self._pending, pcm]) if self._pending.size else pcm
         n_frames = buf.size // self._frame_len
         for i in range(n_frames):
             frame = buf[i * self._frame_len : (i + 1) * self._frame_len]
-            events.extend(self._process_frame(frame))
+            for event in self._process_frame(frame):
+                if isinstance(event, SpeechActivity):
+                    if activity_emitted:
+                        continue
+                    activity_emitted = True
+                events.append(event)
         self._pending = np.array(buf[n_frames * self._frame_len :], dtype=np.int16)
         return events
 
@@ -297,7 +305,7 @@ class VoiceSegmenter:
         if not self._frames:
             return self._process_idle_frame(frame, speech)
 
-        events: list[SegmenterEvent] = []
+        events: list[SegmenterEvent] = [SpeechActivity()] if speech else []
         self._frames.append(frame)
         if speech:
             self._silence_run = 0
@@ -334,12 +342,8 @@ class VoiceSegmenter:
         self._last_speech_end_sample = self._offset
         self._silence_run = 0
         self._speech_run = 0
-        # 発話が開いた回数（#29）。呼び出し側は feed() の前後の差で
-        # 「この呼び出しの中で発話が始まったか」を判定する。開いてすぐ閉じた場合も
-        # 数えられる（is_open の前後比較では取りこぼす）
-        self.utterances_opened += 1
         segment = self._maybe_force_close()
-        return [] if segment is None else [segment]
+        return [SpeechActivity()] if segment is None else [SpeechActivity(), segment]
 
     def _tick_post_silence(self) -> list[SegmenterEvent]:
         """発話終了後に続く無音を数え、force_silence_ms に達したら1回だけ印を出す。"""

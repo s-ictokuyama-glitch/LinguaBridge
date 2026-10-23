@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from server.audio.vad import EnergyVAD, Segment, VoiceSegmenter
+from server.audio.vad import EnergyVAD, Segment, SpeechActivity, VoiceSegmenter
 from tests.helpers import SAMPLE_RATE, chunks, silence_pcm, speech_pcm
 
 
@@ -21,7 +21,11 @@ def make_segmenter(min_silence_ms: int = 500, max_utterance_s: int = 30) -> Voic
 def feed_all(seg: VoiceSegmenter, pcm: np.ndarray) -> list:
     out = []
     for chunk in chunks(pcm):
-        out.extend(seg.feed(np.frombuffer(chunk, dtype=np.int16)))
+        out.extend(
+            event
+            for event in seg.feed(np.frombuffer(chunk, dtype=np.int16))
+            if not isinstance(event, SpeechActivity)
+        )
     return out
 
 
@@ -112,8 +116,14 @@ def test_arbitrary_chunk_sizes_equivalent():
     data = pcm.tobytes()
     # 100msの倍数でない不揃いなチャンクで送る
     for i in range(0, len(data), 1234 * 2):
-        segments.extend(seg.feed(np.frombuffer(data[i : i + 1234 * 2], dtype=np.int16)))
-    segments.extend(seg.feed(np.zeros(0, dtype=np.int16)))
+        segments.extend(
+            event
+            for event in seg.feed(np.frombuffer(data[i : i + 1234 * 2], dtype=np.int16))
+            if isinstance(event, Segment)
+        )
+    segments.extend(
+        event for event in seg.feed(np.zeros(0, dtype=np.int16)) if isinstance(event, Segment)
+    )
     flushed = seg.flush()
     total = segments + ([flushed] if flushed else [])
     assert len(total) == 1
@@ -301,15 +311,6 @@ def test_interim_not_shorter_than_check_silence_in_frames_is_rejected():
         )
 
 
-def test_utterances_opened_counts_each_utterance_once():
-    """「発話中」インジケーターの引き金。イベント列は増やさずカウンタで伝える。"""
-    seg = make_morph_segmenter()
-    assert seg.utterances_opened == 0
-    feed_all(seg, np.concatenate([speech_pcm(2000, 0.6), silence_pcm(1.5)]))
-    assert seg.utterances_opened == 1
-    feed_all(seg, np.concatenate([speech_pcm(1000, 0.6), silence_pcm(1.5)]))
-    assert seg.utterances_opened == 2
-
 
 def test_interim_and_forced_close_can_land_on_the_same_frame():
     """max_utterance_s の強制分割と息継ぎが重なると1バッチに2つ出る。
@@ -326,3 +327,31 @@ def test_interim_and_forced_close_can_land_on_the_same_frame():
     )
     events = feed_all(seg, np.concatenate([speech_pcm(2000, 0.9), silence_pcm(0.2)]))
     assert [type(e).__name__ for e in events][:2] == ["InterimSegment", "Segment"]
+
+
+def test_speech_activity_reports_open_and_continuation_once_per_batch():
+    seg = make_segmenter()
+    assert seg.feed(silence_pcm(0.2)) == []
+    first = seg.feed(speech_pcm(2000, 0.3))
+    assert sum(isinstance(e, SpeechActivity) for e in first) == 1
+    continued = seg.feed(speech_pcm(2000, 0.5))
+    assert sum(isinstance(e, SpeechActivity) for e in continued) == 1
+    assert not any(isinstance(e, SpeechActivity) for e in seg.feed(silence_pcm(0.8)))
+    assert not any(isinstance(e, SpeechActivity) for e in seg.feed(silence_pcm(0.8)))
+
+
+def test_speech_activity_waits_for_open_and_survives_open_close_in_one_batch():
+    seg = VoiceSegmenter(EnergyVAD(300), start_speech_ms=200, min_silence_ms=500)
+    assert seg.feed(speech_pcm(2000, 0.1)) == []
+    events = seg.feed(np.concatenate([speech_pcm(2000, 0.2), silence_pcm(0.8)]))
+    assert [type(e).__name__ for e in events] == ["SpeechActivity", "Segment"]
+    assert seg.is_open is False
+
+
+def test_speech_activity_resumes_same_open_utterance_after_capture_gap():
+    seg = make_segmenter()
+    assert isinstance(seg.feed(speech_pcm(2000, 0.3))[0], SpeechActivity)
+    assert seg.is_open
+    assert seg.feed(np.zeros(0, dtype=np.int16)) == []
+    assert seg.is_open
+    assert isinstance(seg.feed(speech_pcm(2000, 0.3))[0], SpeechActivity)

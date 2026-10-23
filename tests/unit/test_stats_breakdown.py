@@ -189,7 +189,7 @@ async def _run_utterances(pipeline: Pipeline, *keys: int) -> None:
     async with asyncio.timeout(10):
         while pipeline.audio_queue_seconds > 0 or pipeline.stats_snapshot().mt_queue_depth:
             await asyncio.sleep(0.01)
-        await pipeline._mt_queue.join()
+        await pipeline.drain()
 
 
 def test_medians_are_populated_after_processing() -> None:
