@@ -75,3 +75,50 @@ def test_overflow_closes_only_slow_connection():
         release.set()
         await roster.aclose()
     asyncio.run(scenario())
+
+
+def test_same_socket_language_rejoin_delivers_old_captions_before_joined():
+    async def scenario():
+        entered, release, rejoining = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+        class GatedSocket(RecordingSocket):
+            async def send_json(self, data):
+                if data.get("lang") == "en":
+                    entered.set()
+                    await release.wait()
+                await super().send_json(data)
+
+        roster = Roster()
+        socket, observer = GatedSocket(), RecordingSocket()
+        old = await roster.add(socket, "student", "en")
+        await roster.add(observer, "teacher")
+        roster.send_language("en", {"type": "caption", "lang": "en", "seq": 1})
+        await asyncio.wait_for(entered.wait(), 5)
+        roster.send_language("en", {"type": "caption", "lang": "en", "seq": 2})
+
+        async def rejoin():
+            rejoining.set()
+            return await roster.add(socket, "student", "zh", current=old,
+                                    initial={"type": "joined"})
+
+        task = asyncio.create_task(rejoin())
+        try:
+            await rejoining.wait()
+            roster.send_language("zh", {"type": "caption", "lang": "zh", "seq": 3})
+            roster.send_teacher({"type": "barrier"})
+            await wait_for(observer, "barrier")
+        finally:
+            release.set()
+        current = await task
+        assert not roster.contains(old)
+        assert roster.contains(current)
+        assert roster.active_langs() == {"zh"}
+        await roster.aclose()
+        assert socket.sent == [
+            {"type": "caption", "lang": "en", "seq": 1},
+            {"type": "caption", "lang": "en", "seq": 2},
+            {"type": "joined"},
+            {"type": "caption", "lang": "zh", "seq": 3},
+        ]
+        assert socket.closed_with is None
+    asyncio.run(scenario())

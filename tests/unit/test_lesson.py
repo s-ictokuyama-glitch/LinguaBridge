@@ -86,6 +86,43 @@ async def test_capacity_rejoin_and_teacher_do_not_consume_seats():
 
 
 @run_async
+async def test_same_socket_rejoin_keeps_session_updates_in_order():
+    entered, release, rejoining = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    class GatedSocket(RecordingSocket):
+        async def send_json(self, data):
+            if data.get("type") == "session" and data.get("state") == "live":
+                entered.set()
+                await release.wait()
+            await super().send_json(data)
+
+    async with classroom() as lesson:
+        _, teacher = await join(lesson, role="teacher")
+        socket = GatedSocket()
+        old, _ = await join(lesson, socket=socket)
+        await wait_for(socket, "joined")
+        await lesson.control("start")
+        await asyncio.wait_for(entered.wait(), 5)
+
+        async def rejoin():
+            rejoining.set()
+            return await join(lesson, socket=socket, current=old)
+
+        task = asyncio.create_task(rejoin())
+        try:
+            await rejoining.wait()
+            await lesson.control("pause")
+            await wait_for(teacher, "session", state="paused")
+        finally:
+            release.set()
+        await task
+        await lesson.roster.aclose()
+        assert lesson.state == "paused"
+        assert [m["state"] for m in socket.sent if m["type"] == "session"] == ["live", "paused"]
+        assert [m["type"] for m in socket.sent] == ["joined", "session", "joined", "session"]
+
+
+@run_async
 async def test_rate_limit_clock_and_validation_order():
     clock = FakeClock()
     async with classroom(clock=clock) as lesson:
