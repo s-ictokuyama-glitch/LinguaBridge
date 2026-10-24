@@ -343,3 +343,78 @@ async def test_pause_notification_precedes_pending_asr_completion():
     finally:
         release.set()
         await pipeline.stop()
+
+
+def recording_config(tmp_path):
+    config = make_ws_test_config()
+    config.recording.default_on = True
+    config.recording.out_dir = str(tmp_path)
+    return config
+
+
+def saved_entries(tmp_path):
+    import json
+    return sorted(
+        [[json.loads(line)["seq"] for line in path.read_text(encoding="utf-8").splitlines()]
+         for path in tmp_path.rglob("transcript.jsonl")]
+    )
+
+
+@pytest.mark.parametrize("between_lessons", [(), ("pause",), ("pause", "end", "pause")])
+@run_async
+async def test_three_lessons_keep_separate_recordings(tmp_path, between_lessons):
+    async with classroom(recording_config(tmp_path)) as lesson:
+        for key in [1000, 2000, 3000]:
+            if key != 1000:
+                for action in between_lessons:
+                    await lesson.control(action)
+            await lesson.control("start")
+            await speak(lesson, key)
+            saved = await lesson.control("end")
+            assert saved is not None
+            before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+            assert await lesson.control("end") is None
+            assert before == {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert saved_entries(tmp_path) == [[1], [2], [3]]
+
+
+@run_async
+async def test_pause_resume_keeps_one_recording(tmp_path):
+    async with classroom(recording_config(tmp_path)) as lesson:
+        await lesson.control("start")
+        await speak(lesson, 1000)
+        await lesson.control("pause")
+        await lesson.control("start")
+        await speak(lesson, 2000)
+        await lesson.control("end")
+    assert saved_entries(tmp_path) == [[1, 2]]
+
+
+@pytest.mark.parametrize("restart_action", ["start", "pause"])
+@run_async
+async def test_restart_retries_failed_save_before_accepting_audio(
+    tmp_path, monkeypatch, restart_action
+):
+    from server.recorder import SessionRecorder
+
+    async with classroom(recording_config(tmp_path)) as lesson:
+        await lesson.control("start")
+        await speak(lesson, 1000)
+        with monkeypatch.context() as patch:
+            def fail_write(self):
+                raise OSError("disk unavailable")
+            patch.setattr(SessionRecorder, "write", fail_write)
+            with pytest.raises(OSError, match="disk unavailable"):
+                await lesson.control("end")
+            for action in [restart_action, "pause", "start"]:
+                with pytest.raises(OSError, match="disk unavailable"):
+                    await lesson.control(action)
+                assert lesson.state == "ended"
+                await speak(lesson, 2000)
+        await lesson.control(restart_action)
+        assert saved_entries(tmp_path) == [[1]]
+        if restart_action == "pause":
+            await lesson.control("start")
+        await speak(lesson, 3000)
+        await lesson.control("end")
+    assert saved_entries(tmp_path) == [[1], [2]]

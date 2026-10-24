@@ -186,8 +186,10 @@ class Pipeline:
         self._asr_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         self._mt_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         # 記録（#18）: 記録ON中に確定した発話を蓄積し、終了時に書き出す
+        self._recording_out_dir = config.recording.resolved_out_dir
+        self._recording_languages = config.language_codes
         self._recorder = SessionRecorder(
-            config.recording.resolved_out_dir, config.language_codes
+            self._recording_out_dir, self._recording_languages
         )
         self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
         self._mic_silent_warned = False
@@ -681,6 +683,11 @@ class Pipeline:
 
     async def on_lesson_state(self, state: proto.SessionState) -> None:
         previous = self._state
+        if previous == "ended" and state != "ended":
+            await self.finalize_recording()
+            self._recorder = SessionRecorder(
+                self._recording_out_dir, self._recording_languages
+            )
         self._state = state
         await self._broadcast_speaking(self._speaking_signal.on_lesson_state(state))
         if previous == "live" and state != "live":
