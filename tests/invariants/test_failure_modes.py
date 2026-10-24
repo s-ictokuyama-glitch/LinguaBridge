@@ -177,7 +177,7 @@ class TestDisconnect:
 class TestInvalidJoinCode:
     def test_rejection_does_not_leak_the_join_code(self, client):
         with client.websocket_connect("/ws") as intruder:
-            msg = join_student(intruder, "en", code="0000")
+            msg = join_student(intruder, "en", code="0000", expected=proto.JoinRejected)
             assert msg == {"type": "join_rejected", "reason": "bad_code"}
             assert JOIN_CODE not in str(msg)
 
@@ -190,7 +190,7 @@ class TestInvalidJoinCode:
         with client.websocket_connect("/ws") as teacher:
             join_teacher(teacher)
             with client.websocket_connect("/ws") as intruder:
-                assert join_student(intruder, "en", code="0000")["type"] == "join_rejected"
+                assert join_student(intruder, "en", code="0000", expected=proto.JoinRejected)["type"] == "join_rejected"
                 start_session(teacher)
                 send_utterance(teacher, key=1000)
                 while teacher.receive_json()["type"] != "asr_final":

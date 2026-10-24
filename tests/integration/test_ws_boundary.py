@@ -9,31 +9,34 @@ from __future__ import annotations
 
 import time
 
+from server.ws_protocol import AsrFinal, Caption, Joined, JoinRejected, SessionStateMsg
 from tests.conftest import JOIN_CODE
-from tests.helpers import utterance_bytes
+from tests.helpers import utterance_bytes, wait_for
 
 PHRASE_1000 = "おはようございます。"
 PHRASE_2000 = "光合成には日光が必要です。"
 PHRASE_3000 = "今日は天気がいいですね。"
 
 
-def join_student(ws, lang: str, code: str = JOIN_CODE, last_seq: int | None = None) -> dict:
+def join_student(
+    ws, lang: str, code: str = JOIN_CODE, last_seq: int | None = None,
+    *, expected: type[Joined] | type[JoinRejected] = Joined,
+) -> dict:
     payload: dict = {"type": "join", "role": "student", "code": code, "lang": lang}
     if last_seq is not None:
         payload["last_seq"] = last_seq
     ws.send_json(payload)
-    return ws.receive_json()
+    return wait_for(ws, expected).model_dump()
 
 
 def join_teacher(ws, code: str = JOIN_CODE) -> dict:
     ws.send_json({"type": "join", "role": "teacher", "code": code})
-    return ws.receive_json()
+    return wait_for(ws, Joined).model_dump()
 
 
 def start_session(teacher) -> None:
     teacher.send_json({"type": "control", "action": "start"})
-    msg = teacher.receive_json()
-    assert msg == {"type": "session", "state": "live"}
+    wait_for(teacher, SessionStateMsg, state="live")
 
 
 def send_utterance(teacher, key: int) -> None:
@@ -59,23 +62,21 @@ class TestCaptionFlow:
             assert join_student(student, "en")["type"] == "joined"
             assert join_teacher(teacher)["type"] == "joined"
             start_session(teacher)
-            assert student.receive_json() == {"type": "session", "state": "live"}
+            wait_for(student, SessionStateMsg, state="live")
 
             send_utterance(teacher, key=2000)
 
-            cap = student.receive_json()
-            assert cap["type"] == "caption"
-            assert cap["seq"] == 1
-            assert cap["lang"] == "en"
-            assert cap["ja"] == PHRASE_2000
-            assert cap["text"] == f"[en] {PHRASE_2000}"
-            assert cap["delay_ms"] >= 0
+            cap = wait_for(student, Caption)
+            assert cap.seq == 1
+            assert cap.lang == "en"
+            assert cap.ja == PHRASE_2000
+            assert cap.text == f"[en] {PHRASE_2000}"
+            assert cap.delay_ms >= 0
 
             # 先生には日本語の確定結果が届く（ライブ文字起こし用）
-            final = teacher.receive_json()
-            assert final["type"] == "asr_final"
-            assert final["seq"] == 1
-            assert final["ja"] == PHRASE_2000
+            final = wait_for(teacher, AsrFinal)
+            assert final.seq == 1
+            assert final.ja == PHRASE_2000
 
 
 
