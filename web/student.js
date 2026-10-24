@@ -51,7 +51,15 @@ const el = {
   jaToggle: document.getElementById("ja-toggle"),
   sizeButtons: document.getElementById("size-buttons"),
   latestBtn: document.getElementById("latest-btn"),
+  settingsBtn: document.getElementById("settings-btn"),
+  settingsSheet: document.getElementById("settings-sheet"),
+  settingsBackdrop: document.getElementById("settings-backdrop"),
+  settingsClose: document.getElementById("settings-close"),
+  codeCells: document.querySelectorAll(".code-cells span"),
 };
+
+// 言語札の大きな記号。無ければコードの大文字にする
+const LANG_MARKS = { en: "EN", zh: "中文", ja: "日本語" };
 
 // ---- i18n ----
 
@@ -74,7 +82,7 @@ const BANNER_KEYS = new Set(["idle", "live", "paused", "ended", "disconnected"])
 
 function setBanner(key) {
   state.bannerKey = key;
-  el.banner.className = `banner ${BANNER_KEYS.has(key) ? key : "idle"}`;
+  el.banner.className = `band banner ${BANNER_KEYS.has(key) ? key : "idle"}`;
   el.banner.textContent = t(`banner_${key}`);
 }
 
@@ -113,6 +121,14 @@ function applyShowJa(on) {
   storageSet(STORAGE_SHOW_JA, on ? "1" : "0");
 }
 
+// ---- 表示設定シート ----
+
+function setSettingsOpen(open) {
+  el.settingsSheet.hidden = !open;
+  el.settingsBackdrop.hidden = !open;
+  (open ? el.settingsSheet : el.settingsBtn).focus();
+}
+
 // ---- 自動スクロール追従 ----
 
 function setFollowing(on) {
@@ -124,6 +140,15 @@ function scrollToLatest() {
   el.cards.scrollTop = el.cards.scrollHeight;
 }
 
+// 透明な入力欄の値を升目へ描き直す。次に入る升目には下線が出る
+function drawCodeCells() {
+  const value = el.codeInput.value.trim();
+  el.codeCells.forEach((cell, i) => {
+    cell.textContent = value[i] || "";
+    cell.classList.toggle("next", i === value.length);
+  });
+}
+
 function updateJoinButton() {
   el.joinBtn.disabled = !(el.codeInput.value.trim().length === 4 && state.lang);
 }
@@ -131,13 +156,18 @@ function updateJoinButton() {
 async function init() {
   const params = new URLSearchParams(location.search);
   if (params.get("code")) el.codeInput.value = params.get("code");
+  drawCodeCells();
 
   const res = await fetch("/api/config");
   const cfg = await res.json();
   state.languages = cfg.languages;
   for (const lang of cfg.languages) {
     const btn = document.createElement("button");
-    btn.textContent = lang.label;
+    const mark = document.createElement("b");
+    mark.textContent = LANG_MARKS[lang.code] || lang.code.toUpperCase();
+    const name = document.createElement("span");
+    name.textContent = lang.label;
+    btn.append(mark, name);
     btn.dataset.code = lang.code;
     btn.addEventListener("click", () => {
       state.lang = lang.code;
@@ -153,7 +183,10 @@ async function init() {
     el.langSelect.appendChild(opt);
   }
 
-  el.codeInput.addEventListener("input", updateJoinButton);
+  el.codeInput.addEventListener("input", () => {
+    drawCodeCells();
+    updateJoinButton();
+  });
   el.joinBtn.addEventListener("click", () => {
     state.code = el.codeInput.value.trim();
     el.joinError.hidden = true;
@@ -174,6 +207,13 @@ async function init() {
   for (const btn of el.sizeButtons.children) {
     btn.addEventListener("click", () => applyFontSize(btn.dataset.size));
   }
+
+  el.settingsBtn.addEventListener("click", () => setSettingsOpen(true));
+  el.settingsClose.addEventListener("click", () => setSettingsOpen(false));
+  el.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !el.settingsSheet.hidden) setSettingsOpen(false);
+  });
 
   el.cards.addEventListener("scroll", () => {
     const atBottom =
@@ -248,6 +288,8 @@ function handleMessage(msg) {
       if (state.joined) {
         // 再接続中にコードが無効化された（サーバー再起動等）: 参加画面へ戻す
         state.joined = false;
+        el.settingsSheet.hidden = true;
+        el.settingsBackdrop.hidden = true;
         el.captionScreen.hidden = true;
         el.joinScreen.hidden = false;
       }
