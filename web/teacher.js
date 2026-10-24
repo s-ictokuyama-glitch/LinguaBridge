@@ -4,6 +4,7 @@
 "use strict";
 
 const MIC_LEVEL_FULL_SCALE = 3000; // このRMS(int16)でメーター満杯とみなす
+const DELAY_NOTICE_MS = 5000; // 生徒側 student.js の DELAY_NOTICE_MS と揃える。これ以上で遅延欄を黄にする
 const STORAGE_MIC_DEVICE = "lb_mic_device_id"; // 選んだマイク（#30）。生徒側の作法に揃える
 
 const state = {
@@ -23,6 +24,7 @@ const el = {
   networkError: document.getElementById("network-error"),
   qr: document.getElementById("qr"),
   joinCode: document.getElementById("join-code"),
+  joinCodeLive: document.getElementById("join-code-live"),
   joinUrl: document.getElementById("join-url"),
   sessionState: document.getElementById("session-state"),
   startBtn: document.getElementById("start-btn"),
@@ -39,6 +41,7 @@ const el = {
   statStudents: document.getElementById("stat-students"),
   statLangs: document.getElementById("stat-langs"),
   statDelay: document.getElementById("stat-delay"),
+  delayCell: document.getElementById("delay-cell"),
   statAsrWait: document.getElementById("stat-asr-wait"),
   statAsrActive: document.getElementById("stat-asr-active"),
   statAsrMs: document.getElementById("stat-asr-ms"),
@@ -67,7 +70,19 @@ function clearPartial(turnId) {
   el.partial.hidden = true;
 }
 
-const STATE_LABELS = { idle: "未開始", live: "配信中", paused: "一時停止中", ended: "終了" };
+const STATE_LABELS = {
+  idle: "未開始",
+  live: "配信中",
+  paused: "一時停止中",
+  ended: "終了",
+  disconnected: "サーバーとの接続が切れました",
+};
+
+// ページの状態は body[data-state] の1属性だけで持つ。帯の色・記号・区画の表示は CSS が決める
+function setPageState(key) {
+  document.body.dataset.state = key;
+  el.sessionState.textContent = STATE_LABELS[key] || key;
+}
 
 // ---- マイク選択（#30。再読み込み後も保持する: 生徒側 F-06 と同じ作法） ----
 // localStorage はプライベートブラウズ等で例外を投げるため保護する
@@ -90,7 +105,7 @@ function storageSet(key, value) {
 }
 
 function showMicNotice(text) {
-  el.micNotice.textContent = text ? `⚠ ${text}` : "";
+  el.micNotice.textContent = text;
   el.micNotice.hidden = !text;
 }
 
@@ -195,6 +210,7 @@ async function refreshJoinInfo() {
       new QRCode(el.qr, { text: info.join_url, width: 200, height: 200 });
     }
     el.joinCode.textContent = info.code;
+    el.joinCodeLive.textContent = info.code; // 開始後に遅れて来る生徒のため
     el.joinUrl.textContent = info.join_url;
     el.networkError.hidden = true;
     return info;
@@ -202,6 +218,7 @@ async function refreshJoinInfo() {
     el.qr.textContent = "";
     el.joinUrl.textContent = "";
     el.joinCode.textContent = "";
+    el.joinCodeLive.textContent = "----";
     el.networkError.textContent = err.message || "接続先を確認できません。サーバーを確認してください。";
     el.networkError.hidden = false;
     return null;
@@ -269,6 +286,7 @@ function connect(code) {
       el.pageError.hidden = false;
       return;
     }
+    setPageState("disconnected");
     el.micStatus.textContent = "サーバーとの接続が切れました。再接続中…";
     setTimeout(() => connect(code), 2000);
   });
@@ -314,7 +332,7 @@ function handleMessage(msg) {
       break;
     case "error":
       if (msg.code === "mic_silent") {
-        el.silenceWarning.textContent = `⚠ ${msg.message}`;
+        el.silenceWarning.textContent = msg.message;
         el.silenceWarning.hidden = false;
       } else {
         el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
@@ -330,6 +348,7 @@ function applyStats(msg) {
     ? langs.map(([code, n]) => `${code}: ${n}`).join(" / ")
     : "—";
   el.statDelay.textContent = String(msg.median_delay_ms);
+  el.delayCell.classList.toggle("slow", Boolean(msg.overloaded) || msg.median_delay_ms >= DELAY_NOTICE_MS);
   // 遅延の内訳（#30）。「音声待ち」と「処理中」は必ず分けて出す:
   // 合算（audio_queue_seconds）だけを見せると、1発話が長いだけの状態を
   // 滞留と誤読させる（#25・#29 で二度確認された読み間違い）
@@ -347,10 +366,11 @@ function applyStats(msg) {
 
 function applySessionState(s) {
   state.sessionState = s;
-  el.sessionState.textContent = STATE_LABELS[s] || s;
+  setPageState(s);
   if (s !== "live") {
     el.silenceWarning.hidden = true;
     el.overloadWarning.hidden = true;
+    el.delayCell.classList.remove("slow");
     clearPartial(); // 一時停止・終了で暫定行を残さない（#29）
   }
   setButtons(state.joined);
