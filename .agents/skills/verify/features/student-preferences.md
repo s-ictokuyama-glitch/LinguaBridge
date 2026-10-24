@@ -11,7 +11,7 @@
 
 ## How to get to it (user POV)
 
-生徒として参加し、字幕画面上部の原文チェックボックス、文字サイズボタン、言語selectを操作する。
+生徒として参加し、字幕画面の補助行にある「表示設定」(`#settings-btn`)で下からのシート(`#settings-sheet`)を開き、原文チェックボックス、文字サイズボタン、言語selectを操作する。操作後は `#settings-close` で閉じる。
 
 ## Driving it with Playwright
 
@@ -20,8 +20,8 @@ Preconditions:
 - 未開始の専用runがready。先生・生徒contextに既存のlocalStorageがない。
 
 - **大・原文非表示・保持・言語。** `.venv/Scripts/python.exe .agents/skills/verify/scripts/student_preferences.py --run-dir "$verifyRun"` を実行する。L選択と原文OFF、reloadと再参加、zh変更をtraceと結果で確認する。
-- **全サイズ。** 同じ実サーバーの別セッションで `student.locator('#size-buttons button[data-size="s"]').click()` を実行し、`#caption-screen` の `size-s` を確認する。`m`、`l` にも同じ操作を行う。原文ONは `student.locator('#ja-toggle').check()`。`hide-ja` の解除を確認する。
-- **字幕本文。** 字幕配信後に原文ON/OFFを切り替え、`.card .ja` の実際の可視性を確認する。言語selectを `zh` にし、次の字幕が中国語へ切り替わることも確認する。
+- **全サイズ。** 同じ実サーバーの別セッションで `student.locator('#settings-btn').click()` でシートを開いてから `student.locator('#size-buttons button[data-size="s"]').click()` を実行し、`#caption-screen` の `size-s` を確認する。`m`、`l` にも同じ操作を行う。原文ONは `student.locator('#ja-toggle').check()`。`hide-ja` の解除を確認し、`#settings-close` でシートを閉じる。
+- **字幕本文。** 字幕配信後に原文ON/OFFを切り替え、`.card .ja` の実際の可視性を確認する。`#settings-btn` でシートを開いて言語selectを `zh` にし、閉じてから次の字幕が中国語へ切り替わることも確認する。
 
 ## Gotchas
 
