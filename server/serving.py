@@ -10,10 +10,11 @@ from pathlib import Path
 import signal
 import socket
 import threading
-from typing import Any
+from typing import Any, Protocol, cast
 
 import uvicorn
 from uvicorn.lifespan.on import LifespanOn
+from uvicorn.server import ServerState
 
 GRACEFUL_SHUTDOWN_S = 10
 
@@ -32,9 +33,40 @@ class ListenerSpec:
     lifespan: bool = False
 
 
+class _HTTPProtocolFactory(Protocol):
+    def __call__(
+        self, *, config: uvicorn.Config, server_state: ServerState,
+        app_state: dict[str, Any],
+    ) -> asyncio.Protocol: ...
+
+
 class _Server(uvicorn.Server):
     def capture_signals(self):
         return nullcontext()
+
+    async def startup(self, sockets: list[socket.socket] | None = None) -> None:
+        assert sockets is not None
+        await self.lifespan.startup()
+        config = self.config
+        protocol_factory = cast(_HTTPProtocolFactory, config.http_protocol_class)
+
+        def create_protocol() -> asyncio.Protocol:
+            return protocol_factory(
+                config=config,
+                server_state=self.server_state,
+                app_state=self.lifespan.state,
+            )
+
+        loop = asyncio.get_running_loop()
+        self.servers = []
+        for sock in sockets:
+            server = await loop.create_server(
+                create_protocol, sock=sock, ssl=config.ssl, backlog=config.backlog,
+                # TLS handshakes are not yet in Uvicorn's connection registry.
+                ssl_handshake_timeout=GRACEFUL_SHUTDOWN_S if config.ssl else None,
+            )
+            self.servers.append(server)
+        self.started = True
 
     async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
         for server in self.servers:

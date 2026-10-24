@@ -159,3 +159,53 @@ def test_two_sigints_stop_both_listeners_without_skipping_finalization():
     event_loop.run(scenario())
     assert events == ["start", "stop"]
     assert {sig: signal.getsignal(sig) for sig in before} == before
+
+
+@pytest.mark.parametrize("stop_mode", ["stop", "context", "cancel", "signal"])
+def test_shutdown_closes_connection_before_tls_handshake(tmp_path, monkeypatch, stop_mode):
+    monkeypatch.setattr(serving, "GRACEFUL_SHUTDOWN_S", 0.2)
+    write_pair(tmp_path)
+    events = []
+    before = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+
+    async def scenario():
+        reader = writer = None
+
+        async def owner():
+            nonlocal reader, writer
+            async with start_listeners(application(events), [
+                ListenerSpec("127.0.0.1", 0, lifespan=True,
+                             tls=TLSFiles(tmp_path / "cert.pem", tmp_path / "key.pem"))
+            ]) as running:
+                reader, writer = await asyncio.open_connection("127.0.0.1", running.ports[0])
+                await asyncio.sleep(0.05)
+                if stop_mode == "cancel":
+                    asyncio.current_task().cancel()
+                    await running.wait()
+                elif stop_mode == "signal":
+                    signal.raise_signal(signal.SIGINT)
+                    await running.wait()
+                elif stop_mode == "stop":
+                    running.stop()
+                    await running.wait()
+            assert_closed(running.ports)
+
+        try:
+            task = asyncio.create_task(owner())
+            if stop_mode == "cancel":
+                with pytest.raises(asyncio.CancelledError):
+                    await asyncio.wait_for(task, 2)
+            else:
+                await asyncio.wait_for(task, 2)
+            try:
+                assert await asyncio.wait_for(reader.read(1), 0.4) == b""
+            except ConnectionResetError:
+                pass
+            assert events == ["start", "stop"]
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+
+    event_loop.run(scenario())
+    assert {sig: signal.getsignal(sig) for sig in before} == before
