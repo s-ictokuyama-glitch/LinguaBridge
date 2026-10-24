@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import PartialConfig
 from server.main import create_app
@@ -43,7 +44,7 @@ def make_app(*, enabled: bool = True, speaking_indicator: bool = True):
     )
     asr = FakeASREngine()
     mt = FakeTranslationEngine(["en"])
-    app = create_app(config, asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
+    app = create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
     return app, asr, mt
 
 

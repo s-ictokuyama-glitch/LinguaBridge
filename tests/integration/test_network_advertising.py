@@ -7,6 +7,7 @@ import shutil
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.main import create_app
 from server.network import InterfaceAddress, list_addresses
 from tests.conftest import JOIN_CODE, make_ws_test_config
@@ -16,7 +17,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 
 
 def make_app(config):
-    return create_app(config, asr_engine=FakeASREngine(),
+    return create_app(config, Publication(config.server), asr_engine=FakeASREngine(),
                       mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
 
 
@@ -135,7 +136,7 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
     monkeypatch.setattr("sys.argv", ["server"])
     urls = {}
 
-    async def serve(app, config, *, open_browser):
+    async def serve(app, *, open_browser):
         with TestClient(app) as client:
             urls.update(client.get("/api/teacher-info").json())
 
@@ -146,7 +147,7 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
     assert urls["teacher_url"] == "https://10.53.64.130:8443/teacher"
     assert urls["teacher_url"] in startup
     monkeypatch.setattr(diagnostics, "inspect_windows", lambda _: {})
-    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {
+    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip, **kwargs: {
         "selected": ip, "certificate": {"status": "unknown"}, "key_pair": {"status": "unknown"},
     })
     monkeypatch.setattr(diagnostics, "probe_http", lambda host, port, path: {"status": "ok", "host": host})
@@ -163,7 +164,7 @@ def test_invalid_selection_is_not_probed_or_advertised(monkeypatch):
     config.server.advertise_ip = "10.53.64.130"
     hosts = []
     monkeypatch.setattr(diagnostics, "inspect_windows", lambda _: {})
-    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {
+    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip, **kwargs: {
         "selected": ip, "certificate": {"status": "unknown"}, "key_pair": {"status": "unknown"},
     })
 
@@ -177,8 +178,8 @@ def test_invalid_selection_is_not_probed_or_advertised(monkeypatch):
     assert report["probes"]["selected_ip_http"]["status"] == "unknown"
     assert report["tls"]["selected"] is None
     assert hosts == ["127.0.0.1", "127.0.0.1"]
-    with TestClient(make_app(config)) as client:
-        assert client.get("/api/teacher-info").status_code == 503
+    with pytest.raises(ValueError, match="指定IP"):
+        make_app(config)
 
 
 # ---- 担当者の選択から全案内・証明書までの一貫性と、選択設定の復元（#38 残作業） ----
@@ -211,7 +212,7 @@ def run_startup(monkeypatch, capsys, config_path, *flags):
 
     served: dict[str, object] = {}
 
-    async def serve(app, config, *, open_browser):
+    async def serve(app, *, open_browser):
         with TestClient(app) as client:
             response = client.get("/api/teacher-info")
             served.update(status=response.status_code, body=response.json())
@@ -330,3 +331,40 @@ def test_restored_ip_no_longer_present_is_not_used(tmp_path, monkeypatch, capsys
     assert "中止" in startup
     assert "生徒用URL" not in startup
     guard.assert_no_external_traffic()
+
+
+def test_temporary_override_matches_startup_diagnostics_and_certificate(tmp_path, monkeypatch, capsys):
+    from cryptography import x509
+    from scripts import make_cert
+    from server import diagnostics
+
+    monkeypatch.setattr("server.network.list_addresses", lambda: SIMULATED_SCHOOL_PC)
+    path = write_config(tmp_path, "192.168.1.42")
+    original = path.read_bytes()
+    wifi = "10.53.64.130"
+    output, served = run_startup(monkeypatch, capsys, path, "--advertise-ip", wifi)
+    assert served["body"]["join_url"].startswith(f"http://{wifi}:8000/")
+    monkeypatch.setattr(diagnostics, "inspect_windows", lambda _: {})
+    monkeypatch.setattr(diagnostics, "probe_http", lambda *args: {"status": "unknown"})
+    from server.config import load_config
+    config = load_config(path)
+    report = diagnostics.diagnose(config, requested_ip=wifi)
+    assert report["network"]["selected_ip"] == wifi
+    assert config.server.advertise_ip == "192.168.1.42"
+    monkeypatch.setattr("sys.argv", ["make_cert", "--config", str(path), "--advertise-ip", wifi])
+    assert make_cert.main() == 0
+    cert = x509.load_pem_x509_certificate((tmp_path / "certs/cert.pem").read_bytes())
+    addresses = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    assert wifi in {str(ip) for ip in addresses.get_values_for_type(x509.IPAddress)}
+    assert path.read_bytes() == original
+
+
+def test_certificate_cli_imports_without_server_or_model_runtime():
+    import subprocess
+    import sys
+    code = (
+        "import scripts.make_cert, sys; "
+        "assert not {'server.main', 'server.pipeline', 'fastapi', 'torch', 'numpy'} & sys.modules.keys()"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr

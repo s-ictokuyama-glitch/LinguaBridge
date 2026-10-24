@@ -12,7 +12,6 @@ import contextlib
 import logging
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 from typing import AsyncIterator
@@ -30,9 +29,9 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, add_layer_arguments, config_cli_args, load_config
 from server.launch_commands import launch_commands
 from server.diagnostics import record_template
-from server.certificates import certificate_ready, inspect_certificate, print_certificate_report
+from server.certificates import print_certificate_report
 from server.model_files import require_model_files
-from server.network import PublishedAddress, choose_ip, resolve_ip
+from server.publication import Publication
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -120,11 +119,6 @@ def build_mt_engine(config: AppConfig) -> TranslationEngine:
     raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
 
 
-def get_lan_ip() -> str:
-    """ローカルNICの状態・役割から公開IPを選ぶ。曖昧なら明示選択を要求する。"""
-    return resolve_ip()
-
-
 def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
     """WSの Origin を検証する（#25 A-4）。
 
@@ -149,6 +143,7 @@ def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> 
 
 def create_app(
     config: AppConfig,
+    publication: Publication,
     *,
     asr_engine: ASREngine | None = None,
     mt_engine: TranslationEngine | None = None,
@@ -179,8 +174,7 @@ def create_app(
     app.state.lesson = lesson
     app.state.pipeline = pipeline
     app.state.config = config
-    public_address = PublishedAddress(config.server.advertise_ip)
-    app.state.public_address = public_address
+    app.state.publication = publication
 
     @app.get("/")
     async def student_page() -> FileResponse:
@@ -194,12 +188,12 @@ def create_app(
     def connection_help() -> HTMLResponse:
         page = (WEB_DIR / "connection-help.html").read_text(encoding="utf-8")
         values: dict[str, object] = {
-            "http_port": config.server.http_port, "https_port": config.server.https_port,
+            "http_port": publication.http_port, "https_port": publication.https_port,
             "record_template": record_template(),
         }
         # テンプレートは <!-- remote-steps --> と <!-- unavailable-steps --> の2区間を持ち、片方だけ残す。
         try:
-            values["ip"] = public_address.current_ip()
+            values["ip"] = publication.current().ip
             hidden, status_code = "unavailable-steps", 200
         except ValueError as exc:
             # 別端末用URLは出さず、利用者向け説明とサーバーPC内の確認だけを残す。
@@ -237,21 +231,17 @@ def create_app(
         if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
             return JSONResponse({"detail": "forbidden"}, status_code=403)
         try:
-            ip = public_address.current_ip()
+            publication.current()
         except ValueError as exc:
             logger.warning("公開接続先を利用できません: %s", exc)
             return JSONResponse({"detail": str(exc)}, status_code=503,
                                 headers={"Cache-Control": "no-store"})
-        join_url = f"http://{ip}:{config.server.http_port}/?code={lesson.join_code}"
-        tls = inspect_certificate(config.server, ip)
         return JSONResponse(
             {
                 "code": lesson.join_code,
-                "join_url": join_url,
-                "teacher_url": (f"https://{ip}:{config.server.https_port}/teacher"
-                                if certificate_ready(tls) else
-                                f"http://127.0.0.1:{config.server.http_port}/teacher"),
-                "tls": tls,
+                "join_url": publication.join_url(lesson.join_code),
+                "teacher_url": publication.teacher_url,
+                "tls": publication.tls,
                 "languages": [lang.model_dump() for lang in config.languages],
             }, headers={"Cache-Control": "no-store"}
         )
@@ -343,78 +333,20 @@ async def _open_teacher_page_when_ready(pipeline: Pipeline, url: str) -> None:
     webbrowser.open(url)
 
 
-def cert_days_remaining(cert_path: Path) -> int | None:
-    """証明書の残存有効日数（E-15）。読めなければ None。"""
-    try:
-        from cryptography import x509
+async def _serve(app: FastAPI, *, open_browser: bool) -> None:
+    from server.serving import ListenerSpec, TLSFiles, start_listeners
 
-        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
-        return (cert.not_valid_after_utc - datetime.now(timezone.utc)).days
-    except Exception:
-        return None
-
-
-# 終了要求から、接続の後始末を待つ上限（秒）。超えたら残りを打ち切って lifespan の終了
-# （pipeline.stop・授業記録の確定）へ進む。後始末が戻らない接続があっても終了できるように
-# する保険（#50。戻しスイッチ LINGUABRIDGE_STOCK_EVENT_LOOP=1 の既定ループでも効く）。
-GRACEFUL_SHUTDOWN_S = 10
-
-
-async def _serve(app: FastAPI, config: AppConfig, *, open_browser: bool) -> None:
-    import signal
-
-    import uvicorn
-
-    server_configs = [
-        uvicorn.Config(app, host="0.0.0.0", port=config.server.http_port, log_level="info",
-                       timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S)
-    ]
-    teacher_url = f"http://127.0.0.1:{config.server.http_port}/teacher"
-    if config.server.tls_ready():
-        server_configs.append(
-            uvicorn.Config(
-                app,
-                host="0.0.0.0",
-                port=config.server.https_port,
-                log_level="warning",
-                lifespan="off",  # lifespan(モデル起動)はHTTP側で1度だけ走らせる
-                timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
-                ssl_certfile=str(config.server.cert_path()),
-                ssl_keyfile=str(config.server.key_path()),
-            )
-        )
-        teacher_url = f"https://127.0.0.1:{config.server.https_port}/teacher"
-
-    servers = [uvicorn.Server(c) for c in server_configs]
-    # Uvicorn は serve() の間だけ自前の SIGINT/SIGTERM ハンドラを入れる（capture_signals）。
-    # 2サーバーでは後から入れた HTTPS 側だけが Ctrl+C を受け、lifespan を持つ HTTP 側へは
-    # HTTPS 側の終了後に再送されるだけなので、HTTPS 側が終わらないと HTTP 側も終わらない
-    # （#50）。各サーバーの捕捉を止め、共有ハンドラで全サーバーに同時に終了を伝える
-    # （Windowsは Ctrl+C=SIGINT）
-    for server in servers:
-        server.capture_signals = contextlib.nullcontext  # type: ignore[method-assign, assignment]
-
-    # 2回目の Ctrl+C でも force_exit にはしない。Uvicorn は force_exit だと lifespan の終了
-    # （pipeline.stop・授業記録の確定）を飛ばすため。終了待ちは GRACEFUL_SHUTDOWN_S で打ち切る
-    def _request_shutdown(*_: object) -> None:
-        for server in servers:
-            server.should_exit = True
-
-    with contextlib.suppress(ValueError):  # signal はメインスレッドでのみ設定可
-        signal.signal(signal.SIGINT, _request_shutdown)
-        signal.signal(signal.SIGTERM, _request_shutdown)
-
-    browser_task = (
-        asyncio.create_task(_open_teacher_page_when_ready(app.state.pipeline, teacher_url))
-        if open_browser
-        else None
-    )
-    try:
-        await asyncio.gather(*(server.serve() for server in servers))
-    finally:
-        if browser_task is not None:
-            browser_task.cancel()
-            await asyncio.gather(browser_task, return_exceptions=True)
+    publication: Publication = app.state.publication
+    specs = [ListenerSpec("0.0.0.0", publication.http_port, lifespan=True)]
+    if publication.https_available:
+        specs.append(ListenerSpec("0.0.0.0", publication.https_port,
+                                  tls=TLSFiles(publication.cert_path, publication.key_path)))
+    async with start_listeners(
+        app, specs,
+        on_ready=(lambda: _open_teacher_page_when_ready(app.state.pipeline, publication.teacher_url))
+        if open_browser else None,
+    ) as running:
+        await running.wait()
 
 
 def main() -> None:
@@ -435,30 +367,27 @@ def main() -> None:
     config_args = config_cli_args(args)
     commands = launch_commands()  # 配布モードでは同梱の python.exe を案内する（#51）
     try:
-        requested_ip = args.advertise_ip or config.server.advertise_ip
-        if args.select_network:
-            ip = choose_ip(requested_ip, interactive=True)
-        else:
-            ip = resolve_ip(requested_ip) if requested_ip else get_lan_ip()
-        config.server.advertise_ip = ip
-        app = create_app(config)
+        publication = Publication(config.server, requested_ip=args.advertise_ip,
+                                  interactive=args.select_network)
+        ip = publication.ip
+        app = create_app(config, publication)
     except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
     lesson: Lesson = app.state.lesson
-    tls = inspect_certificate(config.server, ip)
-    https = certificate_ready(tls)
+    tls = publication.tls
+    https = publication.https_available
     teacher_line = (
-        f"https://{ip}:{config.server.https_port}/teacher（証明書整合性確認済み・別端末での利用は未確認）"
+        f"{publication.teacher_url}（証明書整合性確認済み・別端末での利用は未確認）"
         if https
-        else f"http://127.0.0.1:{config.server.http_port}/teacher（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
+        else f"{publication.teacher_url}（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
     )
     print("=" * 66)
     print("LinguaBridge サーバー起動")
     print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
     print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
     print(f"  参加コード : {lesson.join_code}")
-    print(f"  生徒用URL  : http://{ip}:{config.server.http_port}/?code={lesson.join_code}")
+    print(f"  生徒用URL  : {publication.join_url(lesson.join_code)}")
     print(f"  先生ページ : {teacher_line}")
     print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")
     print_certificate_report(tls)
@@ -473,7 +402,7 @@ def main() -> None:
     print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:
-        event_loop.run(_serve(app, config, open_browser=args.open_browser))
+        event_loop.run(_serve(app, open_browser=args.open_browser))
     except KeyboardInterrupt:
         pass
 

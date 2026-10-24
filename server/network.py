@@ -9,7 +9,6 @@ from pathlib import Path
 import platform
 import socket
 import subprocess
-import threading
 
 import psutil  # type: ignore[import-untyped]
 
@@ -77,43 +76,19 @@ def resolve_ip(requested_ip: str | None = None) -> str:
     return select_address(list_addresses(), requested_ip).ip
 
 
-class PublishedAddress:
-    """一度案内したNIC/IPを固定し、変化後は再起動まで古い案内を再公開しない。"""
-
-    def __init__(self, requested_ip: str | None = None):
-        self.requested_ip = requested_ip
-        self.selected: InterfaceAddress | None = None
-        self.error: str | None = None
-        self._lock = threading.Lock()
-
-    def current_ip(self) -> str:
-        with self._lock:
-            if self.error:
-                raise ValueError(self.error)
-            try:
-                current = select_address(list_addresses(), self.requested_ip)
-                if self.selected is not None and (
-                    current.name, current.ip
-                ) != (self.selected.name, self.selected.ip):
-                    raise ValueError("ネットワークが変更されました。")
-            except ValueError as exc:
-                self.error = f"{exc} サーバーを再起動し、接続先を再選択してください。"
-                raise ValueError(self.error) from exc
-            self.selected = current
-            return current.ip
-
-
-def choose_ip(requested_ip: str | None, *, interactive: bool) -> str:
+def choose_address(requested_ip: str | None, *, interactive: bool) -> InterfaceAddress:
     """起動と証明書CLIで共有する選択。入力値は候補番号のみ、設定は書き換えない。"""
     addresses = list_addresses()
     try:
-        return select_address(addresses, requested_ip).ip
+        return select_address(addresses, requested_ip)
     except ValueError as exc:
-        print(str(exc))
         candidates = [item for item in addresses if item.usable]
+        if not interactive:
+            raise
+        print(str(exc))
         for number, item in enumerate(candidates, 1):
             print(f"  {number}: {item.name} / {item.ip} / {item.role}")
-        if not interactive or not candidates:
+        if not candidates:
             raise
         try:
             number = int(input("利用中の社内Wi-Fiの番号（中止はEnter）: "))
@@ -122,4 +97,8 @@ def choose_ip(requested_ip: str | None, *, interactive: bool) -> str:
         except (ValueError, EOFError) as error:
             raise ValueError("接続先を選択せずに中止しました。") from error
         # 入力を待つ間に切断された場合も、古いスナップショットで決定しない。
-        return resolve_ip(candidates[number - 1].ip)
+        return select_address(list_addresses(), candidates[number - 1].ip)
+
+
+def choose_ip(requested_ip: str | None, *, interactive: bool) -> str:
+    return choose_address(requested_ip, interactive=interactive).ip

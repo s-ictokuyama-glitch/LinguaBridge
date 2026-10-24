@@ -10,6 +10,10 @@ from collections.abc import Iterator
 
 import numpy as np
 
+from server.config import AppConfig, VadConfig
+
+JOIN_CODE = "4831"
+
 SAMPLE_RATE = 16000
 CHUNK_BYTES = 3200  # ブラウザが送る100msフレーム相当
 
@@ -64,3 +68,9 @@ async def wait_for(socket: RecordingSocket, kind: str, **fields: object) -> dict
             frame = await socket.receive_json()
             if frame.get("type") == kind and all(frame.get(k) == v for k, v in fields.items()):
                 return frame
+
+
+def make_ws_test_config() -> AppConfig:
+    """WS境界テスト用の設定。VADは決定的な energy
+    （テストが送る定数振幅PCMを Silero は音声と判定しないため）。"""
+    return AppConfig(vad=VadConfig(engine="energy", threshold=300))

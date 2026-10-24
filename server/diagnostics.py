@@ -20,6 +20,7 @@ import yaml
 
 from server.config import AppConfig, ServerConfig, add_layer_arguments, layer_cli_args, load_config
 from server.certificates import inspect_certificate
+from server.publication import Publication
 from server.launch_commands import launch_commands
 from dataclasses import asdict
 
@@ -123,8 +124,8 @@ def inspect_windows(config: ServerConfig) -> dict:
     return unavailable
 
 
-def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
-    result = inspect_certificate(config, ip)
+def inspect_tls(config: ServerConfig, ip: str | None, *, snapshot: dict | None = None) -> dict:
+    result = snapshot if snapshot is not None else inspect_certificate(config, ip)
     result["served_certificate"] = check("unknown", "待受TLS未確認")
     result["https_health"] = check("unknown", "HTTPS応答未確認")
     fingerprint = result["certificate"].get("sha256")
@@ -168,19 +169,23 @@ def inspect_tls(config: ServerConfig, ip: str | None) -> dict:
     return result
 
 
-def diagnose(config: AppConfig, config_file: str = "", config_layer_args: str = "") -> dict:
+def diagnose(config: AppConfig, config_file: str = "", config_layer_args: str = "",
+             *, requested_ip: str | None = None) -> dict:
     """JSON化できる観測結果のみを返す。レスポンス本文や秘密情報は収集しない。"""
     addresses = network_addresses.list_addresses()
     ip = None
+    publication = None
     try:
-        ip = network_addresses.select_address(addresses, config.server.advertise_ip).ip
+        publication = Publication(config.server, requested_ip=requested_ip)
+        ip = publication.ip
         network = check("observed", "起動時と同じNIC状態・役割・明示指定による選択")
     except ValueError as exc:
         network = check("unknown", str(exc))
     network.update(
         candidates=[item.ip for item in addresses], selected_ip=ip,
         interfaces=[asdict(item) for item in addresses],
-        requested_ip=config.server.advertise_ip, usable_for_remote=ip is not None,
+        requested_ip=requested_ip if requested_ip is not None else config.server.advertise_ip,
+        usable_for_remote=ip is not None,
     )
     os_version = sys.platform
     if sys.platform == "win32":
@@ -200,7 +205,7 @@ def diagnose(config: AppConfig, config_file: str = "", config_layer_args: str = 
         "network": network,
         "runtime": runtime,
         **windows,
-        "tls": inspect_tls(config.server, ip),
+        "tls": inspect_tls(config.server, ip, snapshot=publication.tls if publication else None),
         "probes": {
             "loopback_http": probe_http("127.0.0.1", port, "/healthz"),
             "selected_ip_http": (probe_http(ip, port, "/healthz") if ip else
@@ -217,20 +222,21 @@ def diagnose(config: AppConfig, config_file: str = "", config_layer_args: str = 
     }
     if config_layer_args:  # 上書き設定・データルートを指定したときだけ。案内するコマンドへ引き継ぐ
         report["config_layer_args"] = config_layer_args
-    report["next_steps"] = next_steps(report)
+    report["next_steps"] = next_steps(report, publication)
     return report
 
 
-def next_steps(report: dict) -> list[str]:
+def next_steps(report: dict, publication: Publication | None) -> list[str]:
     ip = report["network"]["selected_ip"]
-    http, https = report["ports"]["http"], report["ports"]["https"]
+    local_health = Publication.loopback_url(report["ports"]["http"], "/healthz")
     if not report["network"]["usable_for_remote"]:
         return [
             f"採用IP（{ip or '未確認'}）は別端末用の接続先として案内できません。候補の取得状況と実Wi-FiのIPv4を担当者が確認してください。",
-            f"サーバーPC内の死活確認は http://127.0.0.1:{http}/healthz、モデル準備は /ready で比較してください。",
+            f"サーバーPC内の死活確認は {local_health}、モデル準備は /ready で比較してください。",
             "別端末のHTTP・TLS・ページ取得・WS参加は未確認です。ping失敗やログ不在だけでAP分離と断定しません。",
             "時刻・端末/ブラウザの版・最終URL・実際のエラー・対応ログ・次の段階を docs/connection-diagnostics.md の記録欄へ記入し、参加コードを伏せてください。秘密鍵は収集しません。",
         ]
+    assert publication is not None
     steps = []
     if report["probes"]["loopback_http"]["status"] != "ok":
         steps.append("最初にサーバーの起動ログと設定ポート・待受PIDを確認してください。取得不能は未確認です。")
@@ -250,10 +256,10 @@ def next_steps(report: dict) -> list[str]:
             "再起動後に同じ診断で再確認してください。手順と復元: docs/certificate-recovery.md"
         )
     steps.extend([
-        f"サーバーPCで http://127.0.0.1:{http}/healthz を開き、同PCと別端末で http://{ip}:{http}/healthz を比較してください。",
-        f"http://{ip}:{http}/ready の503はモデル未準備です。/healthzの死活確認と分けて起動ログを確認してください。",
-        f"HTTPSを使う別端末では https://{ip}:{https}/healthz を確認してください。証明書の整合性と別端末の信頼は別判定です。",
-        f"http://{ip}:{http}/ または https://{ip}:{https}/teacher を開き、ブラウザの最終URL（スキーム・IP・ポート・パス）を記録してください。",
+        f"サーバーPCで {local_health} を開き、同PCと別端末で {publication.http_url("/healthz")} を比較してください。",
+        f"{publication.http_url("/ready")} の503はモデル未準備です。/healthzの死活確認と分けて起動ログを確認してください。",
+        f"HTTPSを使う別端末では {publication.https_url("/healthz")} を確認してください。証明書の整合性と別端末の信頼は別判定です。",
+        f"{publication.http_url()} または {publication.https_url("/teacher")} を開き、ブラウザの最終URL（スキーム・IP・ポート・パス）を記録してください。",
         "ページ取得後、参加操作と先生ページの接続人数でWS参加を確認してください。時刻を対応ログと照合します。",
         "ping失敗やログ不在だけでAP分離と断定しません。HTTP・TLS・ページ取得・WS参加の未確認を区別してください。",
         "時刻・端末/OSの版・ブラウザの版・入力URL/最終URL・実際のエラー・対応ログ・次の段階を端末ごとに記録してください。",
@@ -308,13 +314,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config, override=args.config_override, data_root=args.data_root)
-        if args.advertise_ip is not None:
-            config.server.advertise_ip = str(IPv4Address(args.advertise_ip))
+        requested_ip = str(IPv4Address(args.advertise_ip)) if args.advertise_ip else None
     except (OSError, ValueError, yaml.YAMLError) as exc:
         files = "--config / --config-override" if args.config_override else "--config"
         print(f"設定: 未確認（{type(exc).__name__}）。{files} のファイルを確認してください。")
         return 2
-    report = diagnose(config, config_file=args.config, config_layer_args=layer_cli_args(args))
+    report = diagnose(config, config_file=args.config, config_layer_args=layer_cli_args(args),
+                      requested_ip=requested_ip)
     if args.json:
         print(json.dumps(report, ensure_ascii=True, indent=2))
     else:

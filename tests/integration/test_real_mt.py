@@ -11,6 +11,7 @@ import re
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.config import AppConfig, MtConfig, VadConfig
 from server.main import create_app
 from server.asr.fake_engine import FakeASREngine
@@ -107,7 +108,7 @@ class TestRealMtOverWebSocket:
             vad=VadConfig(engine="energy", threshold=300),
             mt=MtConfig(engine="nllb"),
         )
-        app = create_app(config, asr_engine=FakeASREngine(), join_code=JOIN_CODE)
+        app = create_app(config, Publication(config.server), asr_engine=FakeASREngine(), join_code=JOIN_CODE)
         with TestClient(app) as client:
             with (
                 client.websocket_connect("/ws") as teacher,

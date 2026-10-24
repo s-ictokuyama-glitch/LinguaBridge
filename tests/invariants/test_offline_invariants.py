@@ -13,8 +13,9 @@ import socket
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
-from server.main import create_app, get_lan_ip
+from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.integration.test_ws_boundary import (
@@ -27,8 +28,9 @@ from tests.net_guard import guard_network
 
 
 def make_app():
+    config = make_ws_test_config()
     return create_app(
-        make_ws_test_config(),
+        config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
         join_code=JOIN_CODE,
@@ -89,19 +91,18 @@ class TestNoExternalTraffic:
                     teacher.send_json({"type": "control", "action": "end"})
                 client.get("/api/config")
                 client.get("/healthz")
-                client.get("/api/teacher-info")  # get_lan_ip() を通る経路
+                client.get("/api/teacher-info")
         guard.assert_no_external_traffic()
 
     def test_teacher_info_does_not_resolve_public_hostnames(self):
-        """参加コードの表示（get_lan_ip 経由）が FQDN を引かないこと。"""
         with guard_network() as guard:
             app = make_app()
             with TestClient(app) as client:
                 assert client.get("/api/teacher-info").status_code == 200
         assert guard.external_lookups == []
 
-    def test_get_lan_ip_makes_no_external_connection(self):
+    def test_publication_makes_no_external_connection(self):
         """#23 以前の実装は 8.8.8.8 へ UDP connect していた。ここが回帰の本丸。"""
         with guard_network() as guard:
-            get_lan_ip()
+            Publication(make_ws_test_config().server)
         guard.assert_no_external_traffic()

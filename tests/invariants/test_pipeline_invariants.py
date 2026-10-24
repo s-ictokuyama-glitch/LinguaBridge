@@ -19,6 +19,7 @@ import contextlib
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, Language, MtConfig, PartialConfig, VadConfig
 from server.main import create_app
@@ -44,7 +45,7 @@ def make_app(langs: list[str]):
     )
     asr = FakeASREngine()
     mt = FakeTranslationEngine(langs)
-    app = create_app(config, asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
+    app = create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
     return app, asr, mt
 
 
@@ -299,7 +300,7 @@ class TestCacheCanBeDisabled:
         )
         asr = FakeASREngine()
         mt = FakeTranslationEngine(["en"])
-        app = create_app(config, asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
+        app = create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
         with TestClient(app) as client:
             with client.websocket_connect("/ws") as teacher:
                 join_teacher(teacher)
@@ -336,7 +337,7 @@ class TestPartialDoesNotAddInference:
         )
         asr = FakeASREngine()
         mt = FakeTranslationEngine(["en", "zh"])
-        return create_app(config, asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE), asr, mt
+        return create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE), asr, mt
 
     @pytest.mark.parametrize("enabled", [False, True])
     def test_translation_count_is_unchanged_by_partial(self, enabled: bool):

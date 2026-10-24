@@ -10,6 +10,7 @@ import threading
 
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import MonitoringConfig
 from server.main import create_app
@@ -32,7 +33,7 @@ def make_app(*, mt_engine=None, monitoring=FAST_MONITORING, join_code=JOIN_CODE)
     config = make_ws_test_config()
     config.monitoring = monitoring
     return create_app(
-        config,
+        config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=mt_engine or FakeTranslationEngine(["en", "zh"]),
         join_code=join_code,

@@ -16,6 +16,7 @@ from __future__ import annotations
 import numpy as np
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import TurnConfig
 from server.main import create_app
@@ -32,7 +33,7 @@ def make_app(strategy: str):
     config = make_ws_test_config()
     config.turn = TurnConfig(strategy=strategy)
     return create_app(
-        config,
+        config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en"]),
         join_code=JOIN_CODE,
