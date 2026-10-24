@@ -36,7 +36,7 @@ class PCM16Downsampler extends AudioWorkletProcessor {
       }
       pos += this.step;
     }
-    const keepFrom = Math.floor(pos);
+    const keepFrom = Math.min(Math.floor(pos), buf.length);
     this.inputBuffer = buf.slice(keepFrom);
     this.pos = pos - keepFrom;
     return true;
