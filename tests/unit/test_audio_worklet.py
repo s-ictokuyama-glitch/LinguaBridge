@@ -1,5 +1,3 @@
-"""AudioWorklet の変換処理を Node.js の vm で検証する。"""
-
 import shutil
 import subprocess
 from pathlib import Path
