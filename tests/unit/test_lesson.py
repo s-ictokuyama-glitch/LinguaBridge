@@ -360,10 +360,14 @@ def saved_entries(tmp_path):
     )
 
 
+@pytest.mark.parametrize("between_lessons", [(), ("pause",), ("pause", "end", "pause")])
 @run_async
-async def test_three_lessons_keep_separate_recordings(tmp_path):
+async def test_three_lessons_keep_separate_recordings(tmp_path, between_lessons):
     async with classroom(recording_config(tmp_path)) as lesson:
         for key in [1000, 2000, 3000]:
+            if key != 1000:
+                for action in between_lessons:
+                    await lesson.control(action)
             await lesson.control("start")
             await speak(lesson, key)
             saved = await lesson.control("end")
@@ -386,8 +390,11 @@ async def test_pause_resume_keeps_one_recording(tmp_path):
     assert saved_entries(tmp_path) == [[1, 2]]
 
 
+@pytest.mark.parametrize("restart_action", ["start", "pause"])
 @run_async
-async def test_restart_retries_failed_save_before_accepting_audio(tmp_path, monkeypatch):
+async def test_restart_retries_failed_save_before_accepting_audio(
+    tmp_path, monkeypatch, restart_action
+):
     from server.recorder import SessionRecorder
 
     async with classroom(recording_config(tmp_path)) as lesson:
@@ -399,12 +406,15 @@ async def test_restart_retries_failed_save_before_accepting_audio(tmp_path, monk
             patch.setattr(SessionRecorder, "write", fail_write)
             with pytest.raises(OSError, match="disk unavailable"):
                 await lesson.control("end")
-            with pytest.raises(OSError, match="disk unavailable"):
-                await lesson.control("start")
-            assert lesson.state == "ended"
-            await speak(lesson, 2000)
-        await lesson.control("start")
+            for action in [restart_action, "pause", "start"]:
+                with pytest.raises(OSError, match="disk unavailable"):
+                    await lesson.control(action)
+                assert lesson.state == "ended"
+                await speak(lesson, 2000)
+        await lesson.control(restart_action)
         assert saved_entries(tmp_path) == [[1]]
+        if restart_action == "pause":
+            await lesson.control("start")
         await speak(lesson, 3000)
         await lesson.control("end")
     assert saved_entries(tmp_path) == [[1], [2]]

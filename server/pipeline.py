@@ -683,7 +683,7 @@ class Pipeline:
 
     async def on_lesson_state(self, state: proto.SessionState) -> None:
         previous = self._state
-        if previous == "ended" and state == "live":
+        if previous == "ended" and state != "ended":
             await self.finalize_recording()
             self._recorder = SessionRecorder(
                 self._recording_out_dir, self._recording_languages
