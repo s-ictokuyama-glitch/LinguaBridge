@@ -13,12 +13,14 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import RecordingConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import wait_for
 from tests.fs_guard import AUDIO_SUFFIXES, added_files, guard_audio_writers, snapshot
 from tests.integration.test_ws_boundary import (
     join_student,
@@ -49,16 +51,14 @@ def run_lesson(app, *, utterances=(1000, 2000, 3000)) -> None:
             join_teacher(teacher)
             join_student(student, "en")
             start_session(teacher)
-            student.receive_json()  # session live
+            wait_for(student, proto.SessionStateMsg, state="live")
 
             for key in utterances:
                 send_utterance(teacher, key=key)
-            finals = 0
-            while finals < len(utterances):
-                if teacher.receive_json()["type"] == "asr_final":
-                    finals += 1
+            for _ in utterances:
+                wait_for(teacher, proto.AsrFinal)
             teacher.send_json({"type": "control", "action": "end"})
-            teacher.receive_json()
+            wait_for(teacher, proto.SessionStateMsg, state="ended")
 
 
 class TestGuardItself:

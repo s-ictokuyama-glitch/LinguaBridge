@@ -16,13 +16,14 @@ from __future__ import annotations
 import numpy as np
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import TurnConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
-from tests.helpers import chunks, silence_pcm, speech_pcm
+from tests.helpers import chunks, silence_pcm, speech_pcm, wait_for
 from tests.integration.test_ws_boundary import join_student, join_teacher, start_session
 
 CONTINUING = FakeASREngine.PHRASES[3000]  # 「今日は天気がいいですね。」= 継続クラス
@@ -54,7 +55,7 @@ def send_two_segments_with_a_short_gap(teacher) -> None:
         teacher.send_bytes(chunk)
 
 
-def captions(strategy: str) -> list[dict]:
+def captions(strategy: str) -> list[proto.Caption]:
     app = make_app(strategy)
     with TestClient(app) as client:
         with (
@@ -64,32 +65,27 @@ def captions(strategy: str) -> list[dict]:
             join_student(student, "en")
             join_teacher(teacher)
             start_session(teacher)
-            assert student.receive_json() == {"type": "session", "state": "live"}
+            wait_for(student, proto.SessionStateMsg, state="live")
             send_two_segments_with_a_short_gap(teacher)
-            first = student.receive_json()
-            assert first["type"] == "caption"
+            frames: list[proto.ServerMessage] = []
+            wait_for(student, proto.Caption, received=frames)
             teacher.send_json({"type": "control", "action": "end"})
-            out = [first]
-            for _ in range(4):  # 2枚目があれば拾う。無ければ session/ended で抜ける
-                msg = student.receive_json()
-                if msg["type"] != "caption":
-                    break
-                out.append(msg)
-            return out
+            wait_for(student, proto.SessionStateMsg, state="ended", received=frames)
+            return [msg for msg in frames if isinstance(msg, proto.Caption)]
 
 
 def test_simple_splits_at_every_silence():
     """既定の simple は #27 以前と同じく、無音長だけで2枚に割る。"""
     cards = captions("simple")
-    assert [c["ja"] for c in cards] == [CONTINUING, TERMINAL]
-    assert [c["seq"] for c in cards] == [1, 2]
+    assert [c.ja for c in cards] == [CONTINUING, TERMINAL]
+    assert [c.seq for c in cards] == [1, 2]
 
 
 def test_morph_merges_across_a_mid_sentence_gap():
     """morph は継続クラスの Segment を次と連結し、字幕カードを1枚にする。"""
     cards = captions("morph")
     assert len(cards) == 1
-    assert cards[0]["ja"] == CONTINUING + TERMINAL
-    assert cards[0]["seq"] == 1
+    assert cards[0].ja == CONTINUING + TERMINAL
+    assert cards[0].seq == 1
     # 生徒に届く訳文も連結後の1件（＝ Hy-MT2 の呼び出しが1回で済む）
-    assert cards[0]["text"] == f"[en] {CONTINUING + TERMINAL}"
+    assert cards[0].text == f"[en] {CONTINUING + TERMINAL}"

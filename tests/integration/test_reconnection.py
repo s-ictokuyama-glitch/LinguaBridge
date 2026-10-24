@@ -18,7 +18,7 @@ class TestTeacherDisconnect:
             wait_for(student, SessionStateMsg, state="paused")
 
             with client.websocket_connect("/ws") as teacher2:
-                assert join_teacher(teacher2)["type"] == "joined"
+                assert join_teacher(teacher2).type == "joined"
                 # 再接続で自動再開
                 wait_for(student, SessionStateMsg, state="live")
                 send_utterance(teacher2, key=1000)

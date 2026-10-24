@@ -11,11 +11,13 @@ import pytest
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app, origin_allowed
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import join_student, join_teacher
 
 
@@ -65,14 +67,14 @@ class TestOriginRule:
                 with client.websocket_connect(
                     "/ws", headers={"origin": "https://evil.example.com"}
                 ) as ws:
-                    ws.receive_json()
+                    ws.receive_text()
 
     def test_same_origin_browser_client_still_works(self):
         with TestClient(make_app()) as client:
             with client.websocket_connect(
                 "/ws", headers={"origin": "http://testserver"}
             ) as ws:
-                assert join_student(ws, "en")["type"] == "joined"
+                assert join_student(ws, "en").type == "joined"
 
 
 class TestMessageSizeLimits:
@@ -82,26 +84,26 @@ class TestMessageSizeLimits:
         with TestClient(make_app(max_text_bytes=256)) as client:
             with client.websocket_connect("/ws") as ws:
                 ws.send_text("x" * 1000)
-                msg = ws.receive_json()
-                assert msg["type"] == "error"
-                assert msg["code"] == "too_large"
+                msg = wait_for(ws, proto.ErrorMsg)
+                assert msg.type == "error"
+                assert msg.code == "too_large"
                 # 接続は生きており、正規のメッセージは通る
-                assert join_student(ws, "en")["type"] == "joined"
+                assert join_student(ws, "en").type == "joined"
 
     def test_the_text_limit_counts_bytes_not_characters(self):
         """日本語は1文字3バイト。文字数で測ると上限が実質3倍になる。"""
         with TestClient(make_app(max_text_bytes=256)) as client:
             with client.websocket_connect("/ws") as ws:
                 ws.send_text("あ" * 100)  # 100文字 = 300バイト
-                assert ws.receive_json()["code"] == "too_large"
+                wait_for(ws, proto.ErrorMsg, code="too_large")
 
     def test_oversized_audio_frame_is_discarded_and_the_teacher_keeps_control(self):
         with TestClient(make_app(max_audio_bytes=3200)) as client:
             with client.websocket_connect("/ws") as teacher:
                 join_teacher(teacher)
                 teacher.send_json({"type": "control", "action": "start"})
-                assert teacher.receive_json()["state"] == "live"
+                wait_for(teacher, proto.SessionStateMsg, state="live")
                 teacher.send_bytes(b"\x00" * 100_000)  # 上限超過。捨てられる
                 # 受信ループが生きていることを control の往復で示す
                 teacher.send_json({"type": "control", "action": "pause"})
-                assert teacher.receive_json()["state"] == "paused"
+                wait_for(teacher, proto.SessionStateMsg, state="paused")

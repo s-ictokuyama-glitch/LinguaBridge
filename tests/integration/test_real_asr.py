@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.hallucination import hallucination_reason
 from server.audio.vad import Segment, SileroVAD, VoiceSegmenter
@@ -21,7 +22,7 @@ from server.config import AppConfig, VadConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE
-from tests.helpers import SAMPLE_RATE, chunks, silence_pcm
+from tests.helpers import SAMPLE_RATE, chunks, silence_pcm, wait_for
 
 # モデル読込（module fixture の setup）も制限時間に含まれる。ディスクキャッシュが冷えた
 # 初回や、ウイルス対策の走査中は既定の20秒を超えうる。thread 方式の timeout は
@@ -172,20 +173,19 @@ class TestRealAsrOverWebSocket:
                 student.send_json(
                     {"type": "join", "role": "student", "code": JOIN_CODE, "lang": "en"}
                 )
-                assert student.receive_json()["type"] == "joined"
+                wait_for(student, proto.Joined)
                 teacher.send_json({"type": "join", "role": "teacher", "code": JOIN_CODE})
-                assert teacher.receive_json()["type"] == "joined"
+                wait_for(teacher, proto.Joined)
                 teacher.send_json({"type": "control", "action": "start"})
-                assert student.receive_json() == {"type": "session", "state": "live"}
+                wait_for(student, proto.SessionStateMsg, state="live")
 
                 pcm = np.concatenate([load_fixture_pcm(), silence_pcm(0.8)])
                 for chunk in chunks(pcm):
                     teacher.send_bytes(chunk)
 
-                cap = student.receive_json()
-                assert cap["type"] == "caption"
-                assert "教科書" in cap["ja"]
-                assert cap["text"] == f"[en] {cap['ja']}"  # フェイク訳文の原文=実文字起こし
+                cap = wait_for(student, proto.Caption)
+                assert "教科書" in cap.ja
+                assert cap.text == f"[en] {cap.ja}"  # フェイク訳文の原文=実文字起こし
 
 
 @requires_reazon

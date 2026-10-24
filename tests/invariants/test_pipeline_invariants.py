@@ -19,12 +19,14 @@ import contextlib
 import pytest
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, Language, MtConfig, PartialConfig, VadConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE
+from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import (
     PHRASE_1000,
     PHRASE_2000,
@@ -51,12 +53,7 @@ def make_app(langs: list[str]):
 
 def await_finals(teacher, count: int) -> list[str]:
     """先生の asr_final を count 件受けて処理完了を同期する。確定した日本語を返す。"""
-    finals: list[str] = []
-    while len(finals) < count:
-        msg = teacher.receive_json()
-        if msg["type"] == "asr_final":
-            finals.append(msg["ja"])
-    return finals
+    return [wait_for(teacher, proto.AsrFinal).ja for _ in range(count)]
 
 
 def drain_mt_queue(teacher, mt: FakeTranslationEngine, expected: int) -> None:
@@ -64,12 +61,8 @@ def drain_mt_queue(teacher, mt: FakeTranslationEngine, expected: int) -> None:
 
     asr_final は翻訳より先に届くため、asr_final だけでは翻訳完了を同期できない。
     """
-    for _ in range(200):
-        if len(mt.calls) >= expected:
-            return
-        with contextlib.suppress(Exception):
-            teacher.receive_json()
-    raise AssertionError(f"翻訳が {expected} 件に達しませんでした（{len(mt.calls)} 件）")
+    if len(mt.calls) < expected:
+        wait_for(teacher, proto.Stats, mt_calls=expected)
 
 
 class TestOneTeacherStreamOneAsrPipeline:
@@ -167,7 +160,7 @@ class TestOneInferencePerActiveLanguage:
                 with client.websocket_connect("/ws") as student:
                     join_student(student, "vi")
                     start_session(teacher)
-                    student.receive_json()  # session live
+                    wait_for(student, proto.SessionStateMsg, state="live")
                     send_utterance(teacher, key=1000)
                     await_finals(teacher, 1)
                     drain_mt_queue(teacher, mt, expected=1)
@@ -195,8 +188,8 @@ class TestOneFinalizedUtteranceOneTranslationSource:
                     join_student(en, "en")
                     join_student(zh, "zh")
                     start_session(teacher)
-                    en.receive_json()
-                    zh.receive_json()
+                    wait_for(en, proto.SessionStateMsg, state="live")
+                    wait_for(zh, proto.SessionStateMsg, state="live")
 
                     for key in (1000, 2000, 3000):
                         send_utterance(teacher, key=key)
@@ -222,7 +215,7 @@ class TestOneFinalizedUtteranceOneTranslationSource:
                 with client.websocket_connect("/ws") as student:
                     join_student(student, "en")
                     start_session(teacher)
-                    student.receive_json()  # session live
+                    wait_for(student, proto.SessionStateMsg, state="live")
 
                     send_utterance(teacher, key=4000)  # 既知の幻覚フレーズ
                     send_utterance(teacher, key=1000)
@@ -249,19 +242,19 @@ class TestRepeatedUtteranceIsTranslatedOnce:
                 with client.websocket_connect("/ws") as student:
                     join_student(student, "en")
                     start_session(teacher)
-                    student.receive_json()  # session live
+                    wait_for(student, proto.SessionStateMsg, state="live")
 
                     send_utterance(teacher, key=1000)
                     send_utterance(teacher, key=1000)  # 同一原文
-                    captions = [student.receive_json() for _ in range(2)]
+                    captions = [wait_for(student, proto.Caption) for _ in range(2)]
 
         assert mt.calls == [(PHRASE_1000, "en")], (
             f"同一原文で翻訳が {len(mt.calls)} 回走りました（期待: 1回）"
         )
         # 推論を省いても字幕は2件とも届く（seq は別なので生徒は2枚のカードを見る）
-        assert [c["ja"] for c in captions] == [PHRASE_1000, PHRASE_1000]
-        assert [c["text"] for c in captions] == [f"[en] {PHRASE_1000}"] * 2
-        assert captions[0]["seq"] != captions[1]["seq"]
+        assert [c.ja for c in captions] == [PHRASE_1000, PHRASE_1000]
+        assert [c.text for c in captions] == [f"[en] {PHRASE_1000}"] * 2
+        assert captions[0].seq != captions[1].seq
 
     def test_cache_does_not_leak_across_languages(self):
         """英語のキャッシュが中国語の字幕に出てこない（キーの取り違えの検出）。"""
@@ -276,17 +269,17 @@ class TestRepeatedUtteranceIsTranslatedOnce:
                     join_student(en, "en")
                     join_student(zh, "zh")
                     start_session(teacher)
-                    en.receive_json()
-                    zh.receive_json()
+                    wait_for(en, proto.SessionStateMsg, state="live")
+                    wait_for(zh, proto.SessionStateMsg, state="live")
 
                     send_utterance(teacher, key=1000)
                     send_utterance(teacher, key=1000)
-                    en_caps = [en.receive_json() for _ in range(2)]
-                    zh_caps = [zh.receive_json() for _ in range(2)]
+                    en_caps = [wait_for(en, proto.Caption) for _ in range(2)]
+                    zh_caps = [wait_for(zh, proto.Caption) for _ in range(2)]
 
         assert sorted(mt.calls) == sorted([(PHRASE_1000, "en"), (PHRASE_1000, "zh")])
-        assert {c["text"] for c in en_caps} == {f"[en] {PHRASE_1000}"}
-        assert {c["text"] for c in zh_caps} == {f"[zh] {PHRASE_1000}"}
+        assert {c.text for c in en_caps} == {f"[en] {PHRASE_1000}"}
+        assert {c.text for c in zh_caps} == {f"[zh] {PHRASE_1000}"}
 
 
 class TestCacheCanBeDisabled:
@@ -307,12 +300,12 @@ class TestCacheCanBeDisabled:
                 with client.websocket_connect("/ws") as student:
                     join_student(student, "en")
                     start_session(teacher)
-                    student.receive_json()
+                    wait_for(student, proto.SessionStateMsg, state="live")
 
                     send_utterance(teacher, key=1000)
                     send_utterance(teacher, key=1000)
                     for _ in range(2):
-                        student.receive_json()
+                        wait_for(student, proto.Caption)
 
         assert mt.calls == [(PHRASE_1000, "en")] * 2
 

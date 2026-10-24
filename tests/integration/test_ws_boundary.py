@@ -21,17 +21,17 @@ PHRASE_3000 = "今日は天気がいいですね。"
 def join_student(
     ws, lang: str, code: str = JOIN_CODE, last_seq: int | None = None,
     *, expected: type[Joined] | type[JoinRejected] = Joined,
-) -> dict:
+) -> Joined | JoinRejected:
     payload: dict = {"type": "join", "role": "student", "code": code, "lang": lang}
     if last_seq is not None:
         payload["last_seq"] = last_seq
     ws.send_json(payload)
-    return wait_for(ws, expected).model_dump()
+    return wait_for(ws, expected)
 
 
-def join_teacher(ws, code: str = JOIN_CODE) -> dict:
+def join_teacher(ws, code: str = JOIN_CODE) -> Joined:
     ws.send_json({"type": "join", "role": "teacher", "code": code})
-    return wait_for(ws, Joined).model_dump()
+    return wait_for(ws, Joined)
 
 
 def start_session(teacher) -> None:
@@ -48,19 +48,19 @@ class TestJoin:
     def test_student_join_ok(self, client):
         with client.websocket_connect("/ws") as student:
             msg = join_student(student, "en")
-            assert msg["type"] == "joined"
-            assert msg["seq_head"] == 0
-            assert msg["history_from"] == 1  # 履歴なし＝次に発行されるseq
-            assert msg["session_state"] == "idle"
-            assert [lang["code"] for lang in msg["languages"]] == ["en", "zh"]
+            assert msg.type == "joined"
+            assert msg.seq_head == 0
+            assert msg.history_from == 1  # 履歴なし＝次に発行されるseq
+            assert msg.session_state == "idle"
+            assert [lang.code for lang in msg.languages] == ["en", "zh"]
 
 
 
 class TestCaptionFlow:
     def test_teacher_speech_reaches_student_in_selected_lang(self, client):
         with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
-            assert join_student(student, "en")["type"] == "joined"
-            assert join_teacher(teacher)["type"] == "joined"
+            assert join_student(student, "en").type == "joined"
+            assert join_teacher(teacher).type == "joined"
             start_session(teacher)
             wait_for(student, SessionStateMsg, state="live")
 
