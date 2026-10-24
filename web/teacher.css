@@ -23,7 +23,8 @@ body:not([data-state="idle"]) #join-panel { display: none; }
 .code { font-size: 4.2rem; font-weight: 800; letter-spacing: 0.12em; line-height: 1; font-variant-numeric: tabular-nums; }
 .url { font-size: 0.9rem; color: var(--ink-2); word-break: break-all; }
 
-/* 発車標：罫線で区切った1本の表示板。狭い画面では中だけ横スクロール */
+/* 発車標：罫線で区切った1本の表示板。狭い画面では折り返し、操作ボタンを独立した段にする
+   （横スクロールにすると「開始」が画面外に隠れる） */
 .statusrow { display: flex; flex-wrap: nowrap; align-items: stretch; border: 2px solid var(--ink); border-radius: 4px; overflow-x: auto; background: var(--paper); }
 .cell { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 16px; border-right: 1px solid var(--rule); white-space: nowrap; }
 .cell small { font-size: 0.78rem; color: var(--ink-3); }
@@ -75,4 +76,7 @@ details summary { cursor: pointer; font-weight: 600; }
   .subline { padding: 8px var(--gutter); }
   #join-panel { grid-template-columns: 1fr; }
   .code { font-size: 3.2rem; }
+  .statusrow { flex-wrap: wrap; overflow-x: visible; }
+  .cell-mic { flex-basis: 100%; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .cell.controls { flex-basis: 100%; margin-left: 0; border-top: 1px solid var(--rule); }
 }
