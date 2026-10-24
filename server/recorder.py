@@ -36,6 +36,7 @@ class SessionRecorder:
         self._languages = languages
         self._utterances: list[Utterance] = []
         self._written = False
+        self._session_dir: Path | None = None
 
     def add(self, utterance: Utterance) -> None:
         """記録ON中に確定した発話を蓄積する（訳文は後から同じオブジェクトに入る）。"""
@@ -68,9 +69,21 @@ class SessionRecorder:
         """
         if self._written or not self._utterances:
             return None
-        self._written = True
-        session_dir = self._out_dir / self._utterances[0].created_at.strftime("%Y-%m-%d_%H%M")
-        session_dir.mkdir(parents=True, exist_ok=True)
+        if self._session_dir is None:
+            self._out_dir.mkdir(parents=True, exist_ok=True)
+            name = self._utterances[0].created_at.strftime("%Y-%m-%d_%H%M")
+            session_dir = self._out_dir / name
+            suffix = 1
+            while True:
+                try:
+                    session_dir.mkdir(exist_ok=False)
+                except FileExistsError:
+                    session_dir = self._out_dir / f"{name}_{suffix}"
+                    suffix += 1
+                else:
+                    self._session_dir = session_dir
+                    break
+        session_dir = self._session_dir
 
         with (session_dir / "transcript.jsonl").open("w", encoding="utf-8") as f:
             for utt in self._utterances:
@@ -90,6 +103,7 @@ class SessionRecorder:
                     u.translations[lang].text if lang in u.translations else None
                 ),
             )
+        self._written = True
         return session_dir
 
     def _write_markdown(self, path: Path, title: str, getter) -> None:

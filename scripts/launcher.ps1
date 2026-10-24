@@ -158,6 +158,7 @@ function Write-LocationWarning([Parameter(Mandatory)][string]$PackageRoot) {
 # 戻り値: not-needed / cleared / failed。どの場合も起動は続ける（例外も外へ出さない）。
 function Clear-MarkOfTheWeb([Parameter(Mandatory)][string]$AppRoot) {
     try {
+        Import-Module Microsoft.PowerShell.Utility -ErrorAction Stop
         $marker = Join-Path $AppRoot ".motw-cleared"
         $version = Join-Path $AppRoot "version.json"
         $stamp = "version " + $(if (Test-Path -LiteralPath $version) { (Get-FileHash -LiteralPath $version).Hash } else { "none" })
