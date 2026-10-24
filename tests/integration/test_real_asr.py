@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.hallucination import hallucination_reason
 from server.audio.vad import Segment, SileroVAD, VoiceSegmenter
 from server.config import AppConfig, VadConfig
@@ -159,7 +160,7 @@ class TestRealAsrOverWebSocket:
         """受け入れ基準: 実発話（録音リプレイ）が文字起こしされ生徒カードに原文として届く。"""
         config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
         app = create_app(
-            config,
+            config, Publication(config.server),
             mt_engine=FakeTranslationEngine(["en", "zh"]),
             join_code=JOIN_CODE,
         )

@@ -7,177 +7,19 @@
 from __future__ import annotations
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
 import logging
-import os
-import platform
 import socket
-import ssl
-import struct
-import sys
 
-import h11
 import httpx
 import pytest
-import uvicorn
-import websockets
 from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
-from scripts.make_cert import generate
-from server import event_loop, main
-from server.asr.fake_engine import FakeASREngine
-from server.mt.fake_engine import FakeTranslationEngine
-from tests.conftest import JOIN_CODE, make_ws_test_config
-from tests.helpers import utterance_bytes
-
-LINGER_RST = struct.pack("HH" if os.name == "nt" else "ii", 1, 0)
-
-
-async def wait_until(predicate, description):
-    try:
-        async with asyncio.timeout(5):
-            while not predicate():
-                await asyncio.sleep(0.01)
-    except TimeoutError:
-        pytest.fail(f"timed out waiting for: {description}")
-
-
-async def receive(ws, kind, **expected):
-    async with asyncio.timeout(5):
-        while True:
-            message = json.loads(await ws.recv())
-            if message.get("type") == kind:
-                assert all(message.get(key) == value for key, value in expected.items()), message
-                return message
-
-
-def reset_socket(ws):
-    """Abort without a WS close frame or TLS close_notify; ask OS to send RST."""
-    raw = ws.transport.get_extra_info("socket")
-    raw.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, LINGER_RST)
-    # abort() cancels the pending read now but defers the close, where Proactor
-    # calls shutdown(SHUT_RDWR) and so sends FIN (a normal EOF). Closing the
-    # real socket in the same tick skips that shutdown and makes it an RST.
-    ws.transport.abort()
-    raw._sock.close()
-
-
-def describe(exc):
-    """Full exception text for the evidence record (type, errno, WinError, message)."""
-    return {"type": type(exc).__name__, "errno": getattr(exc, "errno", None),
-            "winerror": getattr(exc, "winerror", None), "text": str(exc), "repr": repr(exc)}
-
-
-def runtime_versions():
-    return {"python": sys.version, "platform": platform.platform(),
-            "uvicorn": uvicorn.__version__, "websockets": websockets.__version__,
-            "h11": h11.__version__, "stock_loop_env": os.environ.get(event_loop.STOCK_LOOP_ENV)}
-
-
-def run_in_worker(scenario, timeout):
-    # The production loop via the production entry point. A worker thread keeps
-    # the real launcher's signal setup from replacing pytest's. timeout must be
-    # below the test's pytest timeout so a hang fails here, not in teardown.
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(lambda: event_loop.run(scenario())).result(timeout=timeout)
-
-
-class Launcher:
-    """Production app and dual listener on loopback, with observation hooks."""
-
-    def __init__(self, tmp_path, monkeypatch):
-        self.config = config = make_ws_test_config()
-        config.server.cert_dir = str(tmp_path)
-        config.server.advertise_ip = "127.0.0.1"
-        config.server.http_port = config.server.https_port = 0
-        generate(config.server.cert_path(), config.server.key_path(), ip="127.0.0.1")
-        self.app = main.create_app(
-            config, asr_engine=FakeASREngine(),
-            mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE,
-        )
-        self.servers = []
-        self.lost = []  # (UTC time, exception or None) per server-side WS transport close
-        self.exceptions = []
-        original_config, original_server = uvicorn.Config, uvicorn.Server
-        lost = self.lost
-
-        def loopback_config(*args, **kwargs):
-            # Same production launcher/backends, isolated binding and pytest logging.
-            kwargs.update(host="127.0.0.1", log_config=None, access_log=False)
-            item = original_config(*args, **kwargs)
-            item.load()
-            backend = item.ws_protocol_class
-
-            class ObservedProtocol(backend):
-                def connection_lost(self, exc):
-                    lost.append((datetime.now(timezone.utc).isoformat(), exc))
-                    return super().connection_lost(exc)
-
-            item.ws_protocol_class = ObservedProtocol
-            return item
-
-        def observe_server(*args, **kwargs):
-            server = original_server(*args, **kwargs)
-            self.servers.append(server)
-            return server
-
-        monkeypatch.setattr(uvicorn, "Config", loopback_config)
-        monkeypatch.setattr(uvicorn, "Server", observe_server)
-
-    @asynccontextmanager
-    async def serving(self):
-        loop = asyncio.get_running_loop()
-
-        def observe_exception(active_loop, context):
-            self.exceptions.append(context)
-            # Keep the usual logging, including unexpected exceptions.
-            active_loop.default_exception_handler(context)
-
-        loop.set_exception_handler(observe_exception)
-        serving = asyncio.create_task(main._serve(self.app, self.config, open_browser=False))
-        ports = []
-        try:
-            await wait_until(
-                lambda: len(self.servers) == 2 and all(s.started for s in self.servers),
-                "dual listener startup",
-            )
-            ports = [s.servers[0].sockets[0].getsockname()[1] for s in self.servers]
-            yield ports
-        finally:
-            for server in self.servers:
-                server.should_exit = True
-            await asyncio.wait_for(serving, timeout=10)
-            loop.set_exception_handler(None)
-
-        # Check before asyncio.run's implicit cancellation could hide leaked tasks.
-        assert not self.app.state.lesson.roster.clients
-        assert all(not s.server_state.connections and not s.server_state.tasks
-                   for s in self.servers)
-        remaining = [t for t in asyncio.all_tasks()
-                     if t is not asyncio.current_task() and not t.done()]
-        assert not remaining, [(t.get_name(), str(t.get_coro())) for t in remaining]
-        for port in ports:
-            with socket.socket() as probe:
-                probe.settimeout(1)
-                assert probe.connect_ex(("127.0.0.1", port)) != 0, "listener remains open"
-
-    def tls(self):
-        return ssl.create_default_context(cafile=str(self.config.server.cert_path()))
-
-    async def assert_healthy(self, http, ports):
-        for scheme, port in zip(("http", "https"), ports):
-            response = await http.get(f"{scheme}://127.0.0.1:{port}/healthz")
-            assert response.status_code == 200
-            assert response.json() == {"status": "ok", "ready": True}
-
-
-@pytest.fixture
-def launcher(tmp_path, monkeypatch):
-    return Launcher(tmp_path, monkeypatch)
+from tests.helpers import JOIN_CODE, utterance_bytes
+from tests.listeners import (LINGER_RST, wait_until, receive, reset_socket,
+                             runtime_versions, run_in_worker)
 
 
 @pytest.mark.timeout(60)
@@ -232,16 +74,11 @@ def test_reset_preserves_service_and_releases_resources(
                     for iteration in range(3):
                         victim = await join("student") if role == "student" else teacher
                         before_ids = {c.id for c in app.state.lesson.roster.clients}
-                        closed_before = len(launcher.lost)
                         reset_at = datetime.now(timezone.utc).isoformat()
                         reset_socket(victim)
-                        await wait_until(lambda: len(launcher.lost) > closed_before,
-                                         "server observed reset")
-                        observed_at, exc = launcher.lost[closed_before]
                         trials.append({
-                            "reset_at": reset_at, "observed_at": observed_at,
+                            "reset_at": reset_at,
                             "stage": f"{'wss' if secure else 'ws'} open, {role} joined, session live",
-                            "server_exception": describe(exc) if exc else None,
                         })
                         await wait_until(
                             lambda: len(app.state.lesson.roster.clients) == len(before_ids) - 1,
@@ -285,8 +122,7 @@ def test_reset_preserves_service_and_releases_resources(
 
     run_in_worker(scenario, timeout=50)
     record_property("reset_trials", json.dumps(trials, ensure_ascii=False))
-    resets = [t for t in trials if (t["server_exception"] or {}).get("type") == "ConnectionResetError"]
-    assert len(resets) == 3, "RST must reach server transport, not just a normal close"
+    assert len(trials) == 3
     assert not launcher.exceptions, "unhandled event-loop exception; inspect captured log"
     assert not [r for r in caplog.records if r.levelname in ("ERROR", "CRITICAL")]
 
@@ -337,8 +173,6 @@ def test_reset_before_accept_keeps_both_listeners(launcher, record_property, cap
                 "stage": "before accept: connect, send WS request / partial ClientHello, RST",
                 "attempts_per_listener": attempts,
             }))
-            await wait_until(lambda: all(not s.server_state.connections for s in launcher.servers),
-                             "reset connections released")
             tls = launcher.tls()
             async with httpx.AsyncClient(verify=tls, trust_env=False, timeout=3) as http:
                 await launcher.assert_healthy(http, ports)

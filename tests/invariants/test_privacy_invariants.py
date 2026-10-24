@@ -13,6 +13,7 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import RecordingConfig
 from server.main import create_app
@@ -31,7 +32,7 @@ def make_app(out_dir: Path, *, default_on: bool):
     config = make_ws_test_config()
     config.recording = RecordingConfig(default_on=default_on, out_dir=str(out_dir))
     return create_app(
-        config,
+        config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
         join_code=JOIN_CODE,

@@ -1,7 +1,9 @@
 ﻿"""NICの状態・役割による公開接続先の選択（#38）。"""
 import pytest
 
-from server.network import InterfaceAddress, PublishedAddress, choose_ip, list_addresses, select_address
+from server.publication import Publication
+from server.config import ServerConfig
+from server.network import InterfaceAddress, choose_ip, list_addresses, select_address
 
 
 def test_corporate_wifi_wins_over_virtual_192_network():
@@ -49,36 +51,36 @@ def test_disappeared_ip_and_unknown_role_require_operator_action():
     ("unknown", "physical", "unknown"),
 ])
 def test_published_ip_survives_discovery_role_changes(monkeypatch, roles):
-    addresses = []
+    addresses = [InterfaceAddress("Wi-Fi", "10.53.64.130", True, roles[0])]
     monkeypatch.setattr("server.network.list_addresses", lambda: addresses)
-    published = PublishedAddress("10.53.64.130")
+    published = Publication(ServerConfig(advertise_ip="10.53.64.130"))
 
     for role in roles:
         addresses[:] = [InterfaceAddress("Wi-Fi", "10.53.64.130", True, role)]
-        assert published.current_ip() == "10.53.64.130"
+        assert published.current().ip == "10.53.64.130"
 
 
 @pytest.mark.parametrize("replacement, message", [
     ([InterfaceAddress("Ethernet", "10.53.64.130", True, "physical")], "ネットワークが変更"),
-    ([], "指定IP"),
-    ([InterfaceAddress("Wi-Fi", "10.53.64.131", True, "physical")], "指定IP"),
-    ([InterfaceAddress("Wi-Fi", "10.53.64.130", False, "physical")], "指定IP"),
+    ([], "ネットワークが変更"),
+    ([InterfaceAddress("Wi-Fi", "10.53.64.131", True, "physical")], "ネットワークが変更"),
+    ([InterfaceAddress("Wi-Fi", "10.53.64.130", False, "physical")], "ネットワークが変更"),
 ])
 def test_published_ip_rejects_network_changes_until_restart(monkeypatch, replacement, message):
     original = InterfaceAddress("Wi-Fi", "10.53.64.130", True, "physical")
     addresses = [original]
     monkeypatch.setattr("server.network.list_addresses", lambda: addresses)
-    published = PublishedAddress("10.53.64.130")
-    assert published.current_ip() == "10.53.64.130"
+    published = Publication(ServerConfig(advertise_ip="10.53.64.130"))
+    assert published.current().ip == "10.53.64.130"
 
     addresses[:] = replacement
     with pytest.raises(ValueError, match=message) as changed:
-        published.current_ip()
+        published.current().ip
     assert "再起動" in str(changed.value)
 
     addresses[:] = [original]
     with pytest.raises(ValueError) as restored:
-        published.current_ip()
+        published.current().ip
     assert str(restored.value) == str(changed.value)
 
 

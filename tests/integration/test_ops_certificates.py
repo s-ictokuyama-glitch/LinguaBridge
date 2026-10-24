@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-import signal
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import uvicorn
 from cryptography import x509
 
 import scripts.make_cert as make_cert
 import server.main as server_main
+from server.publication import Publication
+from server.network import InterfaceAddress
 from server.config import AppConfig, ServerConfig
-from tests.integration.test_certificate_workflow import write_pair
+from tests.certificates import write_pair
 
 
 def test_startup_without_certificate_prints_local_http_teacher_url(
@@ -29,84 +29,63 @@ def test_startup_without_certificate_prints_local_http_teacher_url(
         server=ServerConfig(http_port=18009, cert_dir=str(cert_dir))
     )
     app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234")))
-    serve_calls: list[tuple[object, AppConfig, bool]] = []
+    serve_calls: list[tuple[object, bool]] = []
 
     async def fake_serve(
-        candidate_app: object, candidate_config: AppConfig, *, open_browser: bool
+        candidate_app: object, *, open_browser: bool
     ) -> None:
-        serve_calls.append((candidate_app, candidate_config, open_browser))
+        serve_calls.append((candidate_app, open_browser))
 
     monkeypatch.setattr(sys, "argv", ["server/main.py", "--config", "isolated.yaml"])
     monkeypatch.setattr(server_main, "load_config", lambda *_, **__: config)
-    monkeypatch.setattr(server_main, "create_app", lambda _: app)
-    monkeypatch.setattr(server_main, "get_lan_ip", lambda: "192.168.50.23")
+    monkeypatch.setattr(server_main, "create_app", lambda _, publication: app)
+    monkeypatch.setattr("server.network.list_addresses", lambda: [
+        InterfaceAddress("Wi-Fi", "192.168.50.23", True, "physical")])
     monkeypatch.setattr(server_main, "_serve", fake_serve)
 
     server_main.main()
 
     output = capsys.readouterr().out
-    assert config.server.tls_ready() is False
+    assert Publication(config.server).https_available is False
     assert "http://127.0.0.1:18009/teacher" in output
     assert "証明書なし" in output
     teacher_lines = [line.strip() for line in output.splitlines() if "先生ページ" in line]
     assert teacher_lines == [
         "先生ページ : http://127.0.0.1:18009/teacher（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
     ]
-    assert serve_calls == [(app, config, False)]
+    assert serve_calls == [(app, False)]
 
 
-def test_serve_without_certificate_is_http_only_and_opens_local_teacher_url(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    cert_dir = tmp_path / "empty-certs"
-    cert_dir.mkdir()
-    config = AppConfig(
-        server=ServerConfig(http_port=18009, https_port=18443, cert_dir=str(cert_dir))
-    )
-    pipeline = object()
-    app = SimpleNamespace(state=SimpleNamespace(pipeline=pipeline))
-    uvicorn_configs: list[dict[str, object]] = []
-    served_configs: list[object] = []
-    opened_pages: list[tuple[object, str]] = []
+def test_serve_without_certificate_is_http_only_and_opens_local_teacher_url(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    from server.serving import start_listeners
+    from server.asr.fake_engine import FakeASREngine
+    from server.mt.fake_engine import FakeTranslationEngine
 
-    def fake_uvicorn_config(candidate_app: object, **kwargs: object) -> object:
-        configured = SimpleNamespace(app=candidate_app, options=kwargs)
-        uvicorn_configs.append({"app": candidate_app, **kwargs})
-        return configured
+    config = AppConfig(server=ServerConfig(http_port=0, cert_dir=str(tmp_path)))
+    publication = Publication(config.server)
+    app = server_main.create_app(config, publication, asr_engine=FakeASREngine(),
+                                 mt_engine=FakeTranslationEngine(["en", "zh"]))
+    opened = []
 
-    class FakeServer:
-        def __init__(self, configured: object) -> None:
-            self.configured = configured
-            self.should_exit = False
+    async def open_page(pipeline, url):
+        opened.append(url)
 
-        async def serve(self) -> None:
-            served_configs.append(self.configured)
-            await asyncio.sleep(0)
+    @asynccontextmanager
+    async def loopback(app, specs, **kwargs):
+        from dataclasses import replace
+        async with start_listeners(app, [replace(spec, host="127.0.0.1") for spec in specs],
+                                   install_signals=False, **kwargs) as running:
+            assert len(running.ports) == 1
+            await asyncio.sleep(0.05)
+            running.stop()
+            yield running
 
-    async def fake_open_teacher_page(candidate_pipeline: object, url: str) -> None:
-        opened_pages.append((candidate_pipeline, url))
-
-    monkeypatch.setattr(uvicorn, "Config", fake_uvicorn_config)
-    monkeypatch.setattr(uvicorn, "Server", FakeServer)
-    monkeypatch.setattr(signal, "signal", lambda *_: None)
-    monkeypatch.setattr(
-        server_main, "_open_teacher_page_when_ready", fake_open_teacher_page
-    )
-
-    asyncio.run(server_main._serve(app, config, open_browser=True))
-
-    assert config.server.tls_ready() is False
-    assert uvicorn_configs == [
-        {
-            "app": app,
-            "host": "0.0.0.0",
-            "port": 18009,
-            "log_level": "info",
-            "timeout_graceful_shutdown": server_main.GRACEFUL_SHUTDOWN_S,
-        }
-    ]
-    assert len(served_configs) == 1
-    assert opened_pages == [(pipeline, "http://127.0.0.1:18009/teacher")]
+    monkeypatch.setattr("server.serving.start_listeners", loopback)
+    monkeypatch.setattr(server_main, "_open_teacher_page_when_ready", open_page)
+    asyncio.run(server_main._serve(app, open_browser=True))
+    assert opened == [publication.teacher_url]
+    assert not publication.https_available
 
 
 def test_generate_writes_required_sans_to_isolated_directory(
@@ -115,7 +94,8 @@ def test_generate_writes_required_sans_to_isolated_directory(
     lan_ip = "192.168.50.23"
     cert_path = tmp_path / "isolated-certs" / "cert.pem"
     key_path = tmp_path / "isolated-certs" / "key.pem"
-    monkeypatch.setattr(make_cert, "get_lan_ip", lambda: lan_ip)
+    monkeypatch.setattr("server.network.list_addresses", lambda: [
+        InterfaceAddress("Wi-Fi", lan_ip, True, "physical")])
 
     make_cert.generate(cert_path, key_path)
 
@@ -142,19 +122,20 @@ def _run_startup_banner(
     key_path.write_bytes(b"not a private key")
     config = AppConfig(server=ServerConfig(cert_dir=str(tmp_path)))
     app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234")))
-    serve_calls: list[tuple[object, AppConfig, bool]] = []
+    serve_calls: list[tuple[object, bool]] = []
     banners_before_serve: list[str] = []
 
     async def fake_serve(
-        candidate_app: object, candidate_config: AppConfig, *, open_browser: bool
+        candidate_app: object, *, open_browser: bool
     ) -> None:
         banners_before_serve.append(capsys.readouterr().out)
-        serve_calls.append((candidate_app, candidate_config, open_browser))
+        serve_calls.append((candidate_app, open_browser))
 
     monkeypatch.setattr(sys, "argv", ["server/main.py", "--config", "isolated.yaml"])
     monkeypatch.setattr(server_main, "load_config", lambda *_, **__: config)
-    monkeypatch.setattr(server_main, "create_app", lambda _: app)
-    monkeypatch.setattr(server_main, "get_lan_ip", lambda: "192.168.50.23")
+    monkeypatch.setattr(server_main, "create_app", lambda _, publication: app)
+    monkeypatch.setattr("server.network.list_addresses", lambda: [
+        InterfaceAddress("Wi-Fi", "192.168.50.23", True, "physical")])
     monkeypatch.setattr(server_main, "_serve", fake_serve)
     if days_remaining is not None:
         # 形式不正のファイルと内部関数のモックではなく、実際の証明書で期限を検証する。
@@ -162,7 +143,7 @@ def _run_startup_banner(
 
     server_main.main()
 
-    assert serve_calls == [(app, config, False)]
+    assert serve_calls == [(app, False)]
     assert len(banners_before_serve) == 1
     assert capsys.readouterr().out == ""
     return banners_before_serve[0]

@@ -29,8 +29,8 @@ sys.path.insert(0, str(ROOT))
 from server.config import ServerConfig, add_layer_arguments, config_cli_args, load_config  # noqa: E402
 from server.certificates import certificate_ready, inspect_certificate, print_certificate_report  # noqa: E402
 from server.launch_commands import launch_commands  # noqa: E402
-from server.main import get_lan_ip  # noqa: E402
-from server.network import choose_ip  # noqa: E402
+from server.publication import Publication  # noqa: E402
+from server.network import resolve_ip  # noqa: E402
 
 VALID_DAYS = 825
 # 既存ファイルを変更せず、正常とも確認できなかった。setup.ps1 は警告として続行する。
@@ -69,7 +69,7 @@ def generate(cert_path: Path, key_path: Path, *, ip: str | None = None) -> None:
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + datetime.timedelta(days=VALID_DAYS))
-        .add_extension(x509.SubjectAlternativeName(build_san(ip or get_lan_ip())), critical=False)
+        .add_extension(x509.SubjectAlternativeName(build_san(ip or resolve_ip())), critical=False)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
@@ -199,15 +199,16 @@ def main() -> int:
     key_path = config.server.key_path()
     keep_existing = not args.force and args.restore is None and (cert_path.exists() or key_path.exists())
     try:
-        ip: str | None = choose_ip(args.advertise_ip or config.server.advertise_ip,
-                                   interactive=args.select_network)
+        publication = Publication(config.server, requested_ip=args.advertise_ip,
+                                  interactive=args.select_network)
+        ip: str | None = publication.ip
     except ValueError as exc:
         if not keep_existing or args.advertise_ip:  # 明示したIPの誤りは入力ミスとして失敗
             print(f"証明書を生成できません: {exc}")
             return 1
         print(f"接続先未確定のため既存の証明書は未確認: {exc}")
         ip = None
-    report = inspect_certificate(config.server, ip)
+    report = publication.tls if ip is not None else inspect_certificate(config.server, None)
     print_certificate_report(report)
     if keep_existing or ip is None:  # ip が None になるのは keep_existing のときだけ（型の絞り込み）
         print("既存ファイルは変更していません。再発行はサーバー停止後に同じ接続先で --force。")
@@ -223,7 +224,7 @@ def main() -> int:
     print_certificate_report(inspect_certificate(config.server, ip))
     print("サーバーを同じ接続先で再起動し、HTTPSを再確認してください。")
     print(f"  {launch_commands().diagnostics} {config_args} --advertise-ip {ip} --json")
-    print(f"  https://{ip}:{config.server.https_port}/healthz")
+    print(f"  {publication.https_url('/healthz')}")
     print("警告承認・復元手順: docs/certificate-recovery.md")
     return 0
 

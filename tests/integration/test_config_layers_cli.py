@@ -17,7 +17,7 @@ from scripts import make_cert
 from server import diagnostics, main
 from server.launch_commands import ROOT
 from server.network import InterfaceAddress
-from tests.integration.test_certificate_workflow import IP, write_pair
+from tests.certificates import IP, write_pair
 
 
 def layered_files(tmp_path):
@@ -47,8 +47,8 @@ def test_server_starts_with_override_and_data_root(tmp_path, monkeypatch, capsys
     ])
     served = {}
 
-    async def serve(app, config, *, open_browser):
-        served["config"] = config
+    async def serve(app, *, open_browser):
+        served["config"] = app.state.config
         with TestClient(app) as client:
             served.update(client.get("/api/teacher-info").json())
 
@@ -70,7 +70,7 @@ def test_server_without_layer_arguments_prints_the_same_hints(tmp_path, monkeypa
     use_network(monkeypatch)
     monkeypatch.setattr("sys.argv", ["server", "--config", str(base)])
 
-    async def serve(app, config, *, open_browser):
+    async def serve(app, *, open_browser):
         pass
 
     monkeypatch.setattr(main, "_serve", serve)
@@ -112,7 +112,7 @@ def test_diagnostics_without_layer_arguments_keeps_report_shape(tmp_path, monkey
     base, _, _ = layered_files(tmp_path)
     use_network(monkeypatch)
     deny_os_observations(monkeypatch)
-    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip: {
+    monkeypatch.setattr(diagnostics, "inspect_tls", lambda _, ip, **kwargs: {
         "selected": ip, "certificate": {"status": "failed"}, "key_pair": {"status": "ok"},
     })
 
@@ -217,7 +217,7 @@ def startup_output(tmp_path, monkeypatch, capsys):
         "--data-root", str(data),
     ])
 
-    async def serve(app, config, *, open_browser):
+    async def serve(app, *, open_browser):
         pass
 
     monkeypatch.setattr(main, "_serve", serve)

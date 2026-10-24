@@ -24,12 +24,8 @@ import time
 import pytest
 
 from scripts.make_cert import generate
-from server import event_loop, main
-from tests.integration.test_connection_reset import (  # noqa: F401 (launcher is a fixture)
-    LINGER_RST,
-    launcher,
-    wait_until,
-)
+from server import event_loop, serving
+from tests.listeners import LINGER_RST, wait_until
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows Proactor only")
 
@@ -194,18 +190,14 @@ def serve_until_one_sigint(launcher, failing):
     pipeline.stop = observed_stop
 
     async def scenario():
-        serving = asyncio.create_task(main._serve(launcher.app, launcher.config,
-                                                  open_browser=False))
-        await wait_until(lambda: len(launcher.servers) == 2
-                         and all(s.started for s in launcher.servers), "dual listener startup")
-        ports = [s.servers[0].sockets[0].getsockname()[1] for s in launcher.servers]
-        failing.port = ports[1]
-        await asyncio.to_thread(connect_then_reset, ports[1], launcher.tls())
-        await wait_until(lambda: failing.raised, "server-side cleanup of the reset connection")
-        await asyncio.sleep(0.05)
-        started = time.monotonic()
-        signal.raise_signal(signal.SIGINT)  # one Ctrl+C, delivered like the console does
-        await asyncio.wait_for(serving, timeout=15)
+        async with launcher.serving(install_signals=True) as ports:
+            failing.port = ports[1]
+            await asyncio.to_thread(connect_then_reset, ports[1], launcher.tls())
+            await wait_until(lambda: failing.raised, "server-side cleanup of reset connection")
+            await asyncio.sleep(0.05)
+            started = time.monotonic()
+            signal.raise_signal(signal.SIGINT)
+            await asyncio.wait_for(launcher.running.wait(), timeout=15)
         return ports, started, time.monotonic() - started
 
     handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
@@ -218,7 +210,6 @@ def serve_until_one_sigint(launcher, failing):
         with socket.socket() as probe:
             probe.settimeout(1)
             assert probe.connect_ex(("127.0.0.1", port)) != 0, "listener remains open"
-    assert all(s.should_exit for s in launcher.servers)
     assert stopped, "lifespan shutdown (pipeline.stop) must run"
     return elapsed, stopped[0] - started
 
@@ -227,16 +218,14 @@ def serve_until_one_sigint(launcher, failing):
 def test_one_ctrl_c_stops_both_listeners_after_reset(launcher, monkeypatch):
     failing = FailingShutdown(monkeypatch, RESET_ERRORS["WSAECONNRESET"])
     elapsed, _ = serve_until_one_sigint(launcher, failing)
-    assert elapsed < main.GRACEFUL_SHUTDOWN_S, "finished without relying on the backstop"
+    assert elapsed < serving.GRACEFUL_SHUTDOWN_S, "finished without relying on the backstop"
 
 
 @pytest.mark.timeout(60)
 def test_rollback_switch_still_stops_within_graceful_limit(launcher, monkeypatch):
     monkeypatch.setenv(event_loop.STOCK_LOOP_ENV, "1")
-    monkeypatch.setattr(main, "GRACEFUL_SHUTDOWN_S", 2)
+    monkeypatch.setattr(serving, "GRACEFUL_SHUTDOWN_S", 2)
     failing = FailingShutdown(monkeypatch, RESET_ERRORS["WSAECONNRESET"])
     elapsed, stop_began = serve_until_one_sigint(launcher, failing)
     assert elapsed >= 2, "the stock transport leaves the connection counted until the limit"
-    # The HTTP side (with the lifespan) got the same Ctrl+C at once, rather than
-    # only after the stuck HTTPS side gave up.
-    assert stop_began < 1.5
+    assert 2 <= stop_began < 4

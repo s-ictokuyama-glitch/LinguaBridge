@@ -23,6 +23,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from server import ws_protocol as proto
+from server.publication import Publication
 from server.asr.base import ASREngine, ASRResult
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, AsrConfig, ModelsConfig, MtConfig
@@ -76,8 +77,9 @@ class RecordingSocket:
 
 
 def make_app(*, asr_engine=None, mt_engine=None):
+    config = make_ws_test_config()
     return create_app(
-        make_ws_test_config(),
+        config, Publication(config.server),
         asr_engine=asr_engine or FakeASREngine(),
         mt_engine=mt_engine or FakeTranslationEngine(["en", "zh"]),
         join_code=JOIN_CODE,
@@ -97,7 +99,7 @@ class TestFailClosedOnMissingModels:
             mt=MtConfig(engine="fake"),
         )
         with pytest.raises(FileNotFoundError, match="download_models"):
-            create_app(config)
+            create_app(config, Publication(config.server))
 
     def test_missing_hymt_model_never_falls_back_to_cloud(self, tmp_path):
         config = AppConfig(
@@ -106,7 +108,7 @@ class TestFailClosedOnMissingModels:
             mt=MtConfig(engine="hy-mt2"),
         )
         with pytest.raises(FileNotFoundError, match="download_models"):
-            create_app(config)
+            create_app(config, Publication(config.server))
 
     def test_truncated_model_is_rejected_not_loaded(self, tmp_path):
         """ダウンロード中断で途中まで落ちたGGUFを掴んだまま起動しない。"""
@@ -119,7 +121,7 @@ class TestFailClosedOnMissingModels:
             mt=MtConfig(engine="hy-mt2"),
         )
         with pytest.raises(FileNotFoundError, match="不完全"):
-            create_app(config)
+            create_app(config, Publication(config.server))
 
     def test_unknown_engine_name_is_an_error_not_a_silent_fallback(self):
         config = AppConfig(mt=MtConfig(engine="some-cloud-api"))

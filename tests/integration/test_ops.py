@@ -13,17 +13,19 @@ import time
 import pytest
 from starlette.testclient import TestClient
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
-from server.config import AppConfig, AsrConfig, ModelsConfig, MtConfig
-from server.main import build_asr_engine, cert_days_remaining, create_app
+from server.config import ServerConfig, AppConfig, AsrConfig, ModelsConfig, MtConfig
+from server.main import build_asr_engine, create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from server.network import InterfaceAddress
 from tests.conftest import JOIN_CODE, make_ws_test_config
 
 
 def make_app(*, asr_engine=None):
+    config = make_ws_test_config()
     return create_app(
-        make_ws_test_config(),
+        config, Publication(config.server),
         asr_engine=asr_engine or FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
         join_code=JOIN_CODE,
@@ -88,52 +90,6 @@ class TestModelValidation:
             build_asr_engine(config)
 
 
-def _write_cert(path, days_valid: int) -> None:
-    """指定日数だけ有効な自己署名証明書を書き出す（E-15の残存期間チェック検証用）。"""
-    import datetime
-
-    from cryptography import x509
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.x509.oid import NameOID
-
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
-    now = datetime.datetime.now(datetime.timezone.utc)
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        # not_valid_before は常に after より前（days_valid が負=期限切れでも成立させる）
-        .not_valid_before(now - datetime.timedelta(days=400))
-        .not_valid_after(now + datetime.timedelta(days=days_valid))
-        .sign(key, hashes.SHA256())
-    )
-    path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-
-
-class TestCertExpiry:
-    def test_remaining_days_for_fresh_cert(self, tmp_path):
-        cert = tmp_path / "cert.pem"
-        _write_cert(cert, days_valid=100)
-        days = cert_days_remaining(cert)
-        assert days is not None and 98 <= days <= 100
-
-    def test_expired_cert_reports_negative(self, tmp_path):
-        cert = tmp_path / "cert.pem"
-        _write_cert(cert, days_valid=-5)
-        days = cert_days_remaining(cert)
-        assert days is not None and days < 0
-
-    def test_missing_or_bogus_cert_returns_none(self, tmp_path):
-        assert cert_days_remaining(tmp_path / "nope.pem") is None
-        bogus = tmp_path / "bogus.pem"
-        bogus.write_text("not a certificate")
-        assert cert_days_remaining(bogus) is None
-
-
 class TestConnectionDiagnostics:
     @pytest.mark.timeout(90)
     def test_windows_launcher_preserves_os_settings(self):
@@ -186,8 +142,7 @@ class TestConnectionDiagnostics:
         config = make_ws_test_config()
         config.server.http_port = 18081
         config.server.https_port = 18444
-        monkeypatch.setattr("server.main.get_lan_ip", lambda: "192.168.5.25")
-        app = create_app(config, asr_engine=FakeASREngine(),
+        app = create_app(config, Publication(config.server), asr_engine=FakeASREngine(),
                          mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
         with TestClient(app) as client:
             response = client.get("/connection-help")
@@ -344,7 +299,6 @@ class TestConnectionDiagnostics:
         from scripts.make_cert import generate
         from server.diagnostics import diagnose
 
-        monkeypatch.setattr("scripts.make_cert.get_lan_ip", lambda: "192.168.5.25")
         cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
         generate(cert, key)
         config = make_ws_test_config()
@@ -417,7 +371,7 @@ class TestConnectionDiagnostics:
     def test_next_steps_separate_server_remote_models_and_stages(self):
         from server.diagnostics import next_steps
 
-        text = "\n".join(next_steps(self.steps_report()))
+        text = "\n".join(next_steps(self.steps_report(), Publication(ServerConfig(http_port=18081, https_port=18444))))
         assert "http://127.0.0.1:18081/healthz" in text
         assert "同PCと別端末で http://192.168.5.25:18081/healthz を比較" in text
         assert "/ready の503はモデル未準備" in text
@@ -432,10 +386,10 @@ class TestConnectionDiagnostics:
     def test_certificate_failure_points_to_recovery_not_remote_trust(self):
         from server.diagnostics import next_steps
 
-        text = "\n".join(next_steps(self.steps_report(certificate="failed")))
+        text = "\n".join(next_steps(self.steps_report(certificate="failed"), Publication(ServerConfig(http_port=18081, https_port=18444))))
         assert "docs/certificate-recovery.md" in text
         assert r'.venv\Scripts\python scripts\make_cert.py --config "custom.yaml" --advertise-ip 192.168.5.25' in text
-        assert "certificate-recovery" not in "\n".join(next_steps(self.steps_report(certificate="unknown")))
+        assert "certificate-recovery" not in "\n".join(next_steps(self.steps_report(certificate="unknown"), Publication(ServerConfig(http_port=18081, https_port=18444))))
 
     def test_record_templates_share_one_field_list(self, monkeypatch):
         import re
@@ -453,8 +407,8 @@ class TestConnectionDiagnostics:
             assert label in template
         guide = (Path(__file__).resolve().parents[2] / "docs" / "connection-diagnostics.md").read_text(encoding="utf-8")
         assert re.search(r"```text\n(.*?)\n```", guide, re.S).group(1) == template
-        monkeypatch.setattr("server.main.get_lan_ip", lambda: "192.168.5.25")
-        app = create_app(make_ws_test_config(), asr_engine=FakeASREngine(),
+        config = make_ws_test_config()
+        app = create_app(config, Publication(config.server), asr_engine=FakeASREngine(),
                          mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
         with TestClient(app) as client:
             assert f"<pre>{escape(template)}</pre>" in client.get("/connection-help").text
@@ -471,7 +425,7 @@ class TestConnectionDiagnostics:
     def test_help_without_selected_ip_keeps_guidance_but_hides_remote_urls(self, monkeypatch):
         config = make_ws_test_config()
         config.server.http_port = 18081
-        app = create_app(config, asr_engine=FakeASREngine(),
+        app = create_app(config, Publication(config.server), asr_engine=FakeASREngine(),
                          mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
         monkeypatch.setattr("server.network.list_addresses", lambda: [])
         with TestClient(app) as client:

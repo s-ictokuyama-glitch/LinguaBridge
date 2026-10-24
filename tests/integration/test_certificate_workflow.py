@@ -1,38 +1,19 @@
 """#40: 確定した接続先に対する起動案内と証明書CLI。"""
 
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes
 from starlette.testclient import TestClient
 
 from scripts import make_cert
 from server import main
+from server.publication import Publication
 from server.config import AppConfig, ServerConfig
 
 
-IP = "192.168.5.25"
-
-
-def write_pair(directory, *, ip=IP, days=90, starts=-1, names=None):
-    directory.mkdir(parents=True, exist_ok=True)
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
-    now = datetime.now(timezone.utc)
-    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
-            .public_key(key.public_key()).serial_number(x509.random_serial_number())
-            .not_valid_before(now + timedelta(days=starts))
-            .not_valid_after(now + timedelta(days=days))
-            .add_extension(x509.SubjectAlternativeName(make_cert.build_san(ip) if names is None else names), False)
-            .sign(key, hashes.SHA256()))
-    (directory / "cert.pem").write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    (directory / "key.pem").write_bytes(key.private_bytes(
-        serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
-        serialization.NoEncryption()))
+from tests.certificates import IP, write_pair
 
 
 def startup(directory, monkeypatch, capsys):
@@ -42,7 +23,7 @@ def startup(directory, monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["server", "--config", "custom config.yaml"])
     info = {}
 
-    async def serve(app, config, *, open_browser):
+    async def serve(app, *, open_browser):
         with TestClient(app) as client:
             info.update(client.get("/api/teacher-info").json())
 
@@ -257,68 +238,41 @@ def test_explicit_ip_not_on_this_pc_fails_even_with_existing_pair(tmp_path, monk
 
 
 def serve_once(config, monkeypatch):
-    """本番の _serve をループバック・空きポートで1回起動し、提供中のTLSを診断して終了する。
-
-    起動ごとにアプリを作り直す（停止→再起動の模擬）。待受とTLSは実物、推論だけフェイク。
-    """
     import asyncio
-    from concurrent.futures import ThreadPoolExecutor
-
-    import uvicorn
-    from server import event_loop
     from server.asr.fake_engine import FakeASREngine
     from server.diagnostics import inspect_tls
     from server.mt.fake_engine import FakeTranslationEngine
-    from tests.conftest import JOIN_CODE
-    from tests.net_guard import guard_network
+    from server.serving import ListenerSpec, TLSFiles, start_listeners
+    from tests.helpers import JOIN_CODE
+    from tests.listeners import run_in_worker
 
-    servers = []
-    original_config, original_server = uvicorn.Config, uvicorn.Server
-
-    def loopback_config(*args, **kwargs):
-        kwargs.update(host="127.0.0.1", log_config=None, access_log=False)
-        return original_config(*args, **kwargs)
-
-    def observe_server(*args, **kwargs):
-        servers.append(original_server(*args, **kwargs))
-        return servers[-1]
-
-    monkeypatch.setattr(uvicorn, "Config", loopback_config)
-    monkeypatch.setattr(uvicorn, "Server", observe_server)
-    app = main.create_app(config, asr_engine=FakeASREngine(),
+    publication = Publication(config.server)
+    app = main.create_app(config, publication, asr_engine=FakeASREngine(),
                           mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
+    specs = [ListenerSpec("127.0.0.1", 0, lifespan=True)]
+    if publication.https_available:
+        specs.append(ListenerSpec("127.0.0.1", 0,
+                                  tls=TLSFiles(publication.cert_path, publication.key_path)))
 
     async def scenario():
-        serving = asyncio.create_task(main._serve(app, config, open_browser=False))
-        try:
-            async with asyncio.timeout(10):
-                while not servers or not all(server.started for server in servers):
-                    await asyncio.sleep(0.01)
-            await asyncio.sleep(0.1)  # 2つ目の待受の生成を待つ（HTTPSなしなら1つのまま）
-            assert all(server.started for server in servers)
-            ports = [server.servers[0].sockets[0].getsockname()[1] for server in servers]
-            if len(ports) == 1:
-                return ports, None
-            probe = ServerConfig(cert_dir=config.server.cert_dir, https_port=ports[1])
-            with guard_network() as guard:
-                report = await asyncio.to_thread(inspect_tls, probe, "127.0.0.1")
-            guard.assert_no_external_traffic()
+        async with start_listeners(app, specs, install_signals=False) as running:
+            ports = running.ports
+            report = None
+            if len(ports) == 2:
+                probe = ServerConfig(cert_dir=config.server.cert_dir, https_port=ports[1])
+                snapshot = publication.tls
+                report = await asyncio.to_thread(inspect_tls, probe, "127.0.0.1", snapshot=snapshot)
+            running.stop()
+            await running.wait()
             return ports, report
-        finally:
-            for server in servers:
-                server.should_exit = True
-            await asyncio.wait_for(serving, timeout=10)
-
-    # 本番のイベントループ。ワーカースレッドなので本番のシグナル設定は pytest を置き換えない。
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(lambda: event_loop.run(scenario())).result(timeout=30)
+    return run_in_worker(scenario, timeout=30)
 
 
 @pytest.mark.timeout(60)
 def test_reissue_and_restore_take_effect_on_restarted_production_listener(tmp_path, monkeypatch):
     """OPS-08: 旧SAN→HTTPSなし、再発行→再起動で提供中証明書がファイルと一致、復元→元の一組。"""
     import ipaddress
-    from tests.conftest import make_ws_test_config
+    from tests.helpers import make_ws_test_config
 
     stale = [x509.IPAddress(ipaddress.ip_address("192.168.1.35"))]
     write_pair(tmp_path, names=stale)
@@ -326,13 +280,13 @@ def test_reissue_and_restore_take_effect_on_restarted_production_listener(tmp_pa
     original = [path.read_bytes() for path in paths]
     config = make_ws_test_config()
     config.server.cert_dir = str(tmp_path)
-    config.server.advertise_ip = "127.0.0.1"
+    config.server.advertise_ip = IP
     config.server.http_port = config.server.https_port = 0
 
     ports, report = serve_once(config, monkeypatch)
     assert len(ports) == 1 and report is None  # 旧SANではHTTPSを待ち受けない
 
-    make_cert.replace_pair(*paths, ip="127.0.0.1", restore=None)
+    make_cert.replace_pair(*paths, ip=IP, restore=None)
     backup = next((tmp_path / "backups").iterdir())
     ports, report = serve_once(config, monkeypatch)
     assert len(ports) == 2
@@ -346,7 +300,7 @@ def test_reissue_and_restore_take_effect_on_restarted_production_listener(tmp_pa
         "https_health": "ok", "remote_trust": "unknown"}
     assert report["served_certificate"]["sha256"] == sha256(paths[0].read_bytes())
 
-    make_cert.replace_pair(*paths, ip="127.0.0.1", restore=backup)
+    make_cert.replace_pair(*paths, ip=IP, restore=backup)
     assert [path.read_bytes() for path in paths] == original
     ports, report = serve_once(config, monkeypatch)
     assert len(ports) == 1 and report is None  # 復元成功はTLS正常ではない

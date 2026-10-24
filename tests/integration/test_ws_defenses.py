@@ -11,6 +11,7 @@ import pytest
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app, origin_allowed
 from server.mt.fake_engine import FakeTranslationEngine
@@ -23,7 +24,7 @@ def make_app(**limit_overrides):
     for key, value in limit_overrides.items():
         setattr(config.limits, key, value)
     return create_app(
-        config,
+        config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
         join_code=JOIN_CODE,

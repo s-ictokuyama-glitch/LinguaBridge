@@ -64,7 +64,6 @@ function Start-ElevatedScript([Parameter(Mandatory)][string]$Arguments) {
 }
 
 # 配布モードの初回処理。UAC で1回だけ昇格し、続けて証明書を昇格の外で作る。
-# 証明書スクリプトは server.main を経由して多くの依存を読み込むので、VC++ ランタイムを先に入れる。
 #   -Elevate : 昇格した first_run_admin.ps1 の終了コードを返す（Start-ElevatedScript と同じ約束）
 #   -MakeCert: 証明書スクリプトを実行し、その終了コードを返す
 # マーカーは昇格した処理が済んだときだけ書く（書かなければ次回また尋ねる）。証明書は

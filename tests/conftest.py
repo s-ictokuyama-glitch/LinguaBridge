@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 from starlette.testclient import TestClient, WebSocketTestSession
 
+from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
-from server.config import AppConfig, VadConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 
-JOIN_CODE = "4831"
+from tests.helpers import JOIN_CODE, make_ws_test_config
 
 
 @pytest.fixture(autouse=True)
@@ -19,12 +19,6 @@ def local_network_inventory(monkeypatch):
     monkeypatch.setattr("server.network.list_addresses", lambda: [
         InterfaceAddress("Wi-Fi", "192.168.5.25", True, "physical")
     ])
-
-
-def make_ws_test_config() -> AppConfig:
-    """WS境界テスト用の設定。VADは決定的な energy
-    （テストが送る定数振幅PCMを Silero は音声と判定しないため）。"""
-    return AppConfig(vad=VadConfig(engine="energy", threshold=300))
 
 
 # `speaking`（#29）は全クライアントへ届く通知で、既存のテストはどれも
@@ -68,8 +62,9 @@ def mt_engine() -> FakeTranslationEngine:
 
 @pytest.fixture
 def app(asr_engine: FakeASREngine, mt_engine: FakeTranslationEngine):
+    config = make_ws_test_config()
     return create_app(
-        make_ws_test_config(),
+        config, Publication(config.server),
         asr_engine=asr_engine,
         mt_engine=mt_engine,
         join_code=JOIN_CODE,
@@ -80,3 +75,9 @@ def app(asr_engine: FakeASREngine, mt_engine: FakeTranslationEngine):
 def client(app):
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def launcher(tmp_path):
+    from tests.listeners import Launcher
+    return Launcher(tmp_path)

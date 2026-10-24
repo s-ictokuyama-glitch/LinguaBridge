@@ -38,11 +38,6 @@ class ServerConfig(BaseModel):
     def key_path(self) -> Path:
         return _under_root(Path(self.cert_dir) / self.key_file)
 
-    def tls_ready(self, ip: str | None = None) -> bool:
-        from server.certificates import certificate_ready, inspect_certificate
-
-        return certificate_ready(inspect_certificate(self, ip or self.advertise_ip))
-
 
 class ModelsConfig(BaseModel):
     """モデル格納先。OneDrive同期の影響を受けない場所に置く（plan.md R-08）。"""
