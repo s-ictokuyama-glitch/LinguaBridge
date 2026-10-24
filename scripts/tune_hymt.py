@@ -28,6 +28,7 @@ import json
 import statistics
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +65,7 @@ def run_e2e_ab(rounds: int, work_dir: Path) -> dict | None:
     """
     config_path = ROOT / "config.yaml"
     original = config_path.read_text(encoding="utf-8")
+    work_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, list[dict]] = {"before": [], "after": []}
     try:
         for index in range(1, rounds + 1):
@@ -76,20 +78,25 @@ def run_e2e_ab(rounds: int, work_dir: Path) -> dict | None:
                     text = text.replace(old, new, 1)
                 config_path.write_text(text, encoding="utf-8")
                 print(f"=== e2e {name} round {index}/{rounds} ===", flush=True)
-                out = work_dir / f"{name}-{index}"
-                out.mkdir(parents=True, exist_ok=True)
-                subprocess.run(
+                out = Path(tempfile.mkdtemp(prefix=f"{name}-{index}-", dir=work_dir))
+                proc = subprocess.run(
                     [sys.executable, str(ROOT / "scripts" / "replay_client.py"),
                      "--minutes", str(E2E_MINUTES), "--engine", "hy-mt2",
                      "--out-dir", str(out), "--no-config-update"],
                     cwd=str(ROOT), capture_output=True, text=True,
                     encoding="utf-8", errors="replace",
                 )
+                if proc.returncode != 0:
+                    print(f"!!! e2e {name} round {index}: 失敗 (exit {proc.returncode})")
+                    return None
                 raw = next(iter(sorted(out.glob("*-acceptance.json"))), None)
                 if raw is None:
                     print(f"!!! e2e {name} round {index}: レポートが出ていない")
-                    continue
-                results[name].append(json.loads(raw.read_text(encoding="utf-8"))["results"][0])
+                    return None
+                payload = json.loads(raw.read_text(encoding="utf-8"))
+                if not payload.get("results"):
+                    return None
+                results[name].append(payload["results"][0])
     finally:
         # 例外でも必ず戻す。ここを落とすとリポジトリの設定が書き換わったまま残る
         config_path.write_text(original, encoding="utf-8")

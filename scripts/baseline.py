@@ -30,6 +30,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +62,7 @@ def run_e2e(minutes: float, work_dir: Path) -> dict | None:
     config.yaml も書き換えさせない（--no-config-update）。
     """
     work_dir.mkdir(parents=True, exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix="replay-", dir=work_dir))
     print(f"=== e2e: replay {minutes}分 / engine={E2E_ENGINE} ===", flush=True)
     proc = subprocess.run(
         [
@@ -68,12 +70,15 @@ def run_e2e(minutes: float, work_dir: Path) -> dict | None:
             str(ROOT / "scripts" / "replay_client.py"),
             "--minutes", str(minutes),
             "--engine", E2E_ENGINE,
-            "--out-dir", str(work_dir),
+            "--out-dir", str(out),
             "--no-config-update",
         ],
         cwd=str(ROOT),
     )
-    raw = next(iter(sorted(work_dir.glob("*-acceptance.json"))), None)
+    if proc.returncode != 0:
+        print(f"!!! e2e が失敗した (exit {proc.returncode})")
+        return None
+    raw = next(iter(sorted(out.glob("*-acceptance.json"))), None)
     if raw is None:
         print(f"!!! e2e のレポートが見つからない (exit {proc.returncode})")
         return None

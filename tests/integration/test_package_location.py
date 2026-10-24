@@ -22,7 +22,8 @@ ONEDRIVE_VARS = ("OneDrive", "OneDriveConsumer", "OneDriveCommercial")
 
 
 def powershell(command: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-    base = {k: v for k, v in os.environ.items() if k not in ONEDRIVE_VARS}
+    base = {k: v for k, v in os.environ.items()
+            if k.casefold() not in {name.casefold() for name in ONEDRIVE_VARS}}
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
          "-Command",

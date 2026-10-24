@@ -21,7 +21,8 @@ pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows の起動ロジ
 
 def launch_plan(app_root: Path) -> dict:
     command = (
-        f"$ErrorActionPreference = 'Stop'; . '{LAUNCHER}'; "
+        f"$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+        f". '{LAUNCHER}'; "
         f"Get-LaunchPlan -AppRoot '{app_root}' | ConvertTo-Json -Compress"
     )
     result = subprocess.run(

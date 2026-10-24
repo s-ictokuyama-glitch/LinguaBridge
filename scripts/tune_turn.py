@@ -30,6 +30,7 @@ import argparse
 import json
 import statistics
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -111,6 +112,8 @@ def run_e2e_ab(rounds: int, work_dir: Path, after_label: str) -> list[dict] | No
 
     config_path = ROOT / "config.yaml"
     original = config_path.read_text(encoding="utf-8")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    results: dict[str, list[dict]] = {"before": [], "after": []}
     try:
         for index in range(1, rounds + 1):
             for name in ("before", "after"):
@@ -122,9 +125,8 @@ def run_e2e_ab(rounds: int, work_dir: Path, after_label: str) -> list[dict] | No
                     text = text.replace(old, new, 1)
                 config_path.write_text(text, encoding="utf-8")
                 print(f"=== e2e {name} round {index}/{rounds} ===", flush=True)
-                out = work_dir / f"{name}-{index}"
-                out.mkdir(parents=True, exist_ok=True)
-                subprocess.run(
+                out = Path(tempfile.mkdtemp(prefix=f"{name}-{index}-", dir=work_dir))
+                proc = subprocess.run(
                     [
                         sys.executable, str(ROOT / "scripts" / "replay_client.py"),
                         "--minutes", str(E2E_MINUTES),
@@ -134,11 +136,22 @@ def run_e2e_ab(rounds: int, work_dir: Path, after_label: str) -> list[dict] | No
                     ],
                     cwd=str(ROOT),
                 )
+                if proc.returncode != 0:
+                    print(f"!!! e2e {name} round {index}: 失敗 (exit {proc.returncode})")
+                    return None
+                raw = next(iter(sorted(out.glob("*-acceptance.json"))), None)
+                if raw is None:
+                    print(f"!!! e2e {name} round {index}: レポートが出ていない")
+                    return None
+                payload = json.loads(raw.read_text(encoding="utf-8"))
+                if not payload.get("results"):
+                    return None
+                results[name].append(payload["results"][0])
     finally:
         config_path.write_text(original, encoding="utf-8")  # 必ず戻す
     return [
-        {"label": "simple（#27 以前）", "runs": load_e2e_runs(work_dir, "before")},
-        {"label": after_label, "runs": load_e2e_runs(work_dir, "after")},
+        {"label": "simple（#27 以前）", "runs": results["before"]},
+        {"label": after_label, "runs": results["after"]},
     ]
 
 

@@ -350,7 +350,7 @@ MT を `fake` に落として回数だけを見る**（多言語対応は #5）�
 ## テスト
 
 ```powershell
-.venv\Scripts\python -m pytest       # 全テスト（WS境界＋フェイクエンジン注入）
+.venv\Scripts\python -m pytest       # tests/ 配下（WS境界＋フェイクエンジン注入）
 .venv\Scripts\python -m mypy         # 型チェック
 ```
 
