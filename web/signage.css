@@ -1,10 +1,14 @@
 /* 校内サインの共通トークンと部品（生徒・先生ページが student.css / teacher.css より先に読む）。
    設計の根拠は docs/design/visual-direction.md と ADR 0002。 */
 
-/* woff2 は未同梱。端末に入っていれば使い、無ければ下のフォールバックに落ちる */
+/* 上流 googlefonts/atkinson-hyperlegible-next の可変フォントを改変せず同梱（OFL 1.1、本文は同じフォルダ）。
+   ラテン文字だけを持つので、和文・中文は下のフォールバックが受け持つ */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
-  src: local("Atkinson Hyperlegible Next"), local("AtkinsonHyperlegibleNext-Regular");
+  src: url("/static/fonts/AtkinsonHyperlegibleNext-wght.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {
