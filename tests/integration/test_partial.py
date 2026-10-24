@@ -10,7 +10,6 @@ partial は**速く見せるためだけの機能**なので、確定字幕の�
     - `partial.enabled: false` で `turn.partial` が1件も出ない（= #29 以前と同一）
 
 「発話中」は `speaking` フレームで全クライアントへ届く。
-wait_for の received に全フレームを記録し、通知の重複・順序・不在も検証する。
 """
 
 from __future__ import annotations
@@ -238,7 +237,6 @@ class TestSpeakingIndicator:
                 wait_for(student, proto.Speaking, on=False, received=frames)
                 wait_for(student, proto.SessionStateMsg, state="paused", received=frames)
 
-        # 一時停止の通知より先に「発話中」が解除される。
         speaking = [f for f in frames if isinstance(f, proto.Speaking)]
         assert [f.on for f in speaking] == [True, False]
         assert isinstance(frames[-1], proto.SessionStateMsg)

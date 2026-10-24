@@ -1,5 +1,3 @@
-"""送信モデル、受信ヘルパー、ブラウザー分岐の契約。"""
-
 from __future__ import annotations
 
 import asyncio

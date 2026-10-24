@@ -347,7 +347,6 @@ def _record_teacher_message(msg: ServerMessage, results: Results) -> None:
 
 
 async def drain_teacher(ws, results: Results) -> None:
-    """先生の字幕・計測値・通知を受信して記録する。"""
     try:
         async for raw in ws:
             _record_teacher_message(parse_server_message(raw), results)
