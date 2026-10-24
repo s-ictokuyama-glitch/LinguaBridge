@@ -57,6 +57,18 @@ from scripts.acceptance import (  # noqa: E402
     resource_trend,
 )
 from server.config import load_config  # noqa: E402
+from server.ws_protocol import (  # noqa: E402
+    AsrFinal,
+    Caption,
+    ErrorMsg,
+    Joined,
+    JoinRejected,
+    ProtocolError,
+    ServerMessage,
+    Stats,
+    TurnPartial,
+    parse_server_message,
+)
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "ja"
 # #22 の拡張音源（話速×3・文中の間・言い淀み・雑音SNR 20/10dB・無発話の雑音のみ）。
@@ -292,57 +304,54 @@ def ws_url(port: int) -> str:
 _WS_KW = {"ping_interval": None, "close_timeout": 5}
 
 
-async def drain_teacher(ws, results: Results) -> None:
-    """先生に届くメッセージを読み続ける。stats（#24 の観測値）だけ記録する。
+def _record_teacher_message(msg: ServerMessage, results: Results) -> None:
+    if isinstance(msg, TurnPartial):
+        if results.first_partial_at is None:
+            results.first_partial_at = time.monotonic()
+        results.partials.setdefault(msg.turn_id, []).append(msg.ja)
+        results.partial_at.setdefault(msg.turn_id, time.monotonic())
+    elif isinstance(msg, AsrFinal):
+        if results.first_final_at is None:
+            results.first_final_at = time.monotonic()
+        results.finals[msg.turn_id] = msg.ja
+        results.published_seqs.add(msg.seq)  # 復元判定の真値（#35）
+        results.final_at[msg.turn_id] = time.monotonic()
+    elif isinstance(msg, Stats):
+        results.stats_samples.append(
+            {
+                "at_s": round(time.monotonic() - (results.audio_started_at or 0), 1),
+                "queue_depth": msg.queue_depth,
+                "audio_queue_seconds": msg.audio_queue_seconds,
+                "median_delay_ms": msg.median_delay_ms,
+                "mt_queue_depth": msg.mt_queue_depth,
+                "overloaded": msg.overloaded,
+                "mt_cache_hit_rate": msg.mt_cache_hit_rate,
+                "mt_cache_hits": msg.mt_cache_hits,
+                "mt_cache_size": msg.mt_cache_size,
+                "asr_calls": msg.asr_calls,
+                "asr_partial_calls": msg.asr_partial_calls,
+                "mt_calls": msg.mt_calls,
+                "audio_frames_rejected": msg.audio_frames_rejected,
+                "asr_dropped_segments": msg.asr_dropped_segments,
+                "asr_dropped_seconds": msg.asr_dropped_seconds,
+                "tasks": msg.tasks,
+            }
+        )
+        if msg.tasks:
+            results.tasks.append(float(msg.tasks))
+    elif isinstance(msg, ErrorMsg):
+        # 過負荷通知（audio_dropped / mt_backlog / asr_timeout / mt_timeout）と
+        # 無音警告（mic_silent）。授業中に先生の画面へ出るものがそのまま来る
+        code = msg.code
+        results.notices[code] = results.notices.get(code, 0) + 1
 
-    読まないとサーバー→先生の送信がバッファに溜まり続けるので、いずれにせよ必要。
-    """
+
+async def drain_teacher(ws, results: Results) -> None:
     try:
         async for raw in ws:
-            msg = json.loads(raw)
-            if msg["type"] == "turn.partial":
-                if results.first_partial_at is None:
-                    results.first_partial_at = time.monotonic()
-                results.partials.setdefault(msg["turn_id"], []).append(msg["ja"])
-                results.partial_at.setdefault(msg["turn_id"], time.monotonic())
-            elif msg["type"] == "asr_final":
-                if results.first_final_at is None:
-                    results.first_final_at = time.monotonic()
-                # turn_id は #29 以降のサーバーだけが持つ（既定 0 で読む）
-                results.finals[msg.get("turn_id", 0)] = msg["ja"]
-                results.published_seqs.add(msg["seq"])  # 復元判定の真値（#35）
-                results.final_at[msg.get("turn_id", 0)] = time.monotonic()
-            elif msg["type"] == "stats":
-                results.stats_samples.append(
-                    {
-                        "at_s": round(time.monotonic() - (results.audio_started_at or 0), 1),
-                        "queue_depth": msg["queue_depth"],
-                        # 旧サーバーには無いフィールドなので既定 0 で読む
-                        "audio_queue_seconds": msg.get("audio_queue_seconds", 0.0),
-                        "median_delay_ms": msg["median_delay_ms"],
-                        "mt_queue_depth": msg.get("mt_queue_depth", 0),
-                        "overloaded": msg.get("overloaded", False),
-                        # #26 の翻訳キャッシュ。旧サーバーには無いので既定 0
-                        "mt_cache_hit_rate": msg.get("mt_cache_hit_rate", 0.0),
-                        "mt_cache_hits": msg.get("mt_cache_hits", 0),
-                        "mt_cache_size": msg.get("mt_cache_size", 0),
-                        # 通算の推論回数と破棄（#32）。旧サーバーには無いので既定 0
-                        "asr_calls": msg.get("asr_calls", 0),
-                        "asr_partial_calls": msg.get("asr_partial_calls", 0),
-                        "mt_calls": msg.get("mt_calls", 0),
-                        "audio_frames_rejected": msg.get("audio_frames_rejected", 0),
-                        "asr_dropped_segments": msg.get("asr_dropped_segments", 0),
-                        "asr_dropped_seconds": msg.get("asr_dropped_seconds", 0.0),
-                        "tasks": msg.get("tasks", 0),
-                    }
-                )
-                if msg.get("tasks"):
-                    results.tasks.append(float(msg["tasks"]))
-            elif msg["type"] == "error":
-                # 過負荷通知（audio_dropped / mt_backlog / asr_timeout / mt_timeout）と
-                # 無音警告（mic_silent）。授業中に先生の画面へ出るものがそのまま来る
-                code = msg.get("code", "unknown")
-                results.notices[code] = results.notices.get(code, 0) + 1
+            _record_teacher_message(parse_server_message(raw), results)
+    except ProtocolError as exc:
+        results.errors.append(f"teacher protocol error: {exc}")
     except Exception:
         pass  # 送信側の切断は run_teacher が記録する
 
@@ -355,7 +364,14 @@ async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -
     try:
         async with websockets.connect(ws_url(port), max_size=None, **_WS_KW) as ws:
             await ws.send(json.dumps({"type": "join", "role": "teacher", "code": code}))
-            await ws.recv()  # joined
+            while True:
+                msg = parse_server_message(await ws.recv())
+                if isinstance(msg, Joined):
+                    break
+                if isinstance(msg, JoinRejected):
+                    results.errors.append(f"teacher: join_rejected {msg.reason}")
+                    return
+                _record_teacher_message(msg, results)
             await ws.send(json.dumps({"type": "control", "action": "start"}))
             reader = asyncio.create_task(drain_teacher(ws, results))
             loop = asyncio.get_running_loop()
@@ -369,6 +385,8 @@ async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -
                 if delay > 0:
                     await asyncio.sleep(delay)
             await ws.send(json.dumps({"type": "control", "action": "end"}))  # 最後の発話を確定
+    except ProtocolError as exc:
+        results.errors.append(f"teacher protocol error: {exc}")
     except Exception as exc:  # 想定外の切断＝サーバー側の異常。試験は続行し記録する
         results.errors.append(f"teacher切断: {type(exc).__name__}")
     finally:
@@ -409,19 +427,22 @@ async def run_student(port: int, code: str, lang: str, results: Results, sid: st
                 async for raw in ws:
                     if results.stop.is_set():
                         return
-                    msg = json.loads(raw)
-                    if msg["type"] == "caption":
-                        results.record_caption(msg)
-                        results.student_seqs[sid].add(msg["seq"])
-                        last_seq = max(last_seq, msg["seq"])
-                    elif msg["type"] == "join_rejected":
-                        results.errors.append(f"student {lang}: join_rejected {msg['reason']}")
+                    msg = parse_server_message(raw)
+                    if isinstance(msg, Caption):
+                        results.record_caption(msg.model_dump())
+                        results.student_seqs[sid].add(msg.seq)
+                        last_seq = max(last_seq, msg.seq)
+                    elif isinstance(msg, JoinRejected):
+                        results.errors.append(f"student {lang}: join_rejected {msg.reason}")
                         return
             # 例外なしで async-for を抜けた＝サーバーが接続を閉じた
             if results.stop.is_set():
                 return
             _count_disconnect(results, sid)
             need_reconnect = True
+        except ProtocolError as exc:
+            results.errors.append(f"student {lang} protocol error: {exc}")
+            return
         except Exception:
             if results.stop.is_set():
                 return

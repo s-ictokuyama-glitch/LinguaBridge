@@ -13,11 +13,13 @@ import socket
 import pytest
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import (
     join_student,
     join_teacher,
@@ -80,14 +82,15 @@ class TestNoExternalTraffic:
                     join_student(student_en, "en")
                     join_student(student_zh, "zh")
                     start_session(teacher)
-                    student_en.receive_json()  # session live
-                    student_zh.receive_json()
+                    wait_for(student_en, proto.SessionStateMsg, state="live")
+                    wait_for(student_zh, proto.SessionStateMsg, state="live")
 
                     teacher.send_json({"type": "recording", "on": True})
                     for key in (1000, 2000, 3000):
                         send_utterance(teacher, key=key)
+                    wait_for(student_en, proto.RecordingState, on=True)
                     for _ in range(3):
-                        assert student_en.receive_json()["type"] in {"caption", "recording"}
+                        wait_for(student_en, proto.Caption)
                     teacher.send_json({"type": "control", "action": "end"})
                 client.get("/api/config")
                 client.get("/healthz")

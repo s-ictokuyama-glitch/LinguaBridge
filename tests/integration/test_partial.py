@@ -9,9 +9,7 @@ partial は**速く見せるためだけの機能**なので、確定字幕の�
     - partial は **seq を消費しない**
     - `partial.enabled: false` で `turn.partial` が1件も出ない（= #29 以前と同一）
 
-「発話中」は `speaking` フレームで全クライアントへ届く。conftest の
-`skip_indicator_frames` が他のテストからこれを隠しているので、
-**この1ファイルだけが `raw_receive_json` で生のフレーム列を読む**。
+「発話中」は `speaking` フレームで全クライアントへ届く。
 """
 
 from __future__ import annotations
@@ -20,13 +18,14 @@ import numpy as np
 import pytest
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import PartialConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
-from tests.conftest import JOIN_CODE, make_ws_test_config, raw_receive_json
-from tests.helpers import chunks, silence_pcm, speech_pcm
+from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import chunks, silence_pcm, speech_pcm, wait_for
 from tests.integration.test_ws_boundary import join_student, join_teacher
 
 PHRASE = FakeASREngine.PHRASES[2000]  # 「光合成には日光が必要です。」= StrongEnd
@@ -68,19 +67,7 @@ def utterance_with_a_mid_pause(teacher) -> None:
 
 def start(teacher) -> None:
     teacher.send_json({"type": "control", "action": "start"})
-    while raw_receive_json(teacher).get("type") != "session":
-        pass
-
-
-def drain_until(ws, wanted: str, limit: int = 60) -> list[dict]:
-    """`wanted` 型のフレームが来るまで生のフレームを集める（`wanted` を含む）。"""
-    frames: list[dict] = []
-    for _ in range(limit):
-        msg = raw_receive_json(ws)
-        frames.append(msg)
-        if msg.get("type") == wanted:
-            return frames
-    raise AssertionError(f"{wanted} が来なかった: {[f.get('type') for f in frames]}")
+    wait_for(teacher, proto.SessionStateMsg, state="live")
 
 
 class TestPartialReachesOnlyTheTeacher:
@@ -91,16 +78,16 @@ class TestPartialReachesOnlyTheTeacher:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                frames = drain_until(teacher, "asr_final")
+                frames: list[proto.ServerMessage] = []
+                final = wait_for(teacher, proto.AsrFinal, received=frames)
 
-        partials = [f for f in frames if f["type"] == "turn.partial"]
-        final = frames[-1]
+        partials = [f for f in frames if isinstance(f, proto.TurnPartial)]
         assert partials, "文中の間があるのに partial が1件も出ていない"
-        assert all(p["ja"] for p in partials)
+        assert all(p.ja for p in partials)
         # 確定と同じ Turn を指していること（先生UIはこれで暫定行を差し替える）
-        assert {p["turn_id"] for p in partials} == {final["turn_id"]}
+        assert {p.turn_id for p in partials} == {final.turn_id}
         # revision は turn 内で単調増加
-        revisions = [p["revision"] for p in partials]
+        revisions = [p.revision for p in partials]
         assert revisions == sorted(revisions) and len(set(revisions)) == len(revisions)
 
     def test_students_never_receive_a_partial(self):
@@ -114,12 +101,12 @@ class TestPartialReachesOnlyTheTeacher:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                student_frames = drain_until(student, "caption")
+                student_frames: list[proto.ServerMessage] = []
+                caption = wait_for(student, proto.Caption, received=student_frames)
 
-        assert "turn.partial" not in {f["type"] for f in student_frames}
+        assert not any(isinstance(f, proto.TurnPartial) for f in student_frames)
         # 生徒に届いた日本語は確定字幕に付く原文だけ
-        caption = student_frames[-1]
-        assert caption["ja"] == PHRASE
+        assert caption.ja == PHRASE
 
     def test_partial_is_disabled_by_default_config(self):
         """`partial.enabled: false` は #29 以前と同一の挙動（turn.partial がゼロ件）。"""
@@ -129,9 +116,10 @@ class TestPartialReachesOnlyTheTeacher:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                frames = drain_until(teacher, "asr_final")
+                frames: list[proto.ServerMessage] = []
+                wait_for(teacher, proto.AsrFinal, received=frames)
 
-        assert "turn.partial" not in {f["type"] for f in frames}
+        assert not any(isinstance(f, proto.TurnPartial) for f in frames)
 
 
 class TestPartialDoesNotTouchTheConfirmedPath:
@@ -149,7 +137,7 @@ class TestPartialDoesNotTouchTheConfirmedPath:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                drain_until(student, "caption")
+                wait_for(student, proto.Caption)
 
         # partial は翻訳へ流れない。1発話 = 1言語 = 翻訳1回のまま
         assert mt.calls == [(PHRASE, "en")]
@@ -161,9 +149,9 @@ class TestPartialDoesNotTouchTheConfirmedPath:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                final = drain_until(teacher, "asr_final")[-1]
+                final = wait_for(teacher, proto.AsrFinal)
 
-        assert final["seq"] == 1  # partial が何回出ても seq は1発話ぶんしか進まない
+        assert final.seq == 1  # partial が何回出ても seq は1発話ぶんしか進まない
 
     def test_partial_does_not_enter_the_history(self):
         """再接続した生徒が復元するのは確定字幕だけ。partial は履歴に載らない。"""
@@ -177,13 +165,15 @@ class TestPartialDoesNotTouchTheConfirmedPath:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                drain_until(student, "caption")
+                wait_for(student, proto.Caption)
 
             with client.websocket_connect("/ws") as rejoined:
                 joined = join_student(rejoined, "en", last_seq=0)
-                assert joined["seq_head"] == 1  # partial のぶん増えていない
-                restored = drain_until(rejoined, "caption")[-1]
-                assert restored["seq"] == 1 and restored["ja"] == PHRASE
+                assert joined.seq_head == 1  # partial のぶん増えていない
+                frames: list[proto.ServerMessage] = []
+                restored = wait_for(rejoined, proto.Caption, received=frames)
+                assert restored.seq == 1 and restored.ja == PHRASE
+                assert not any(isinstance(f, proto.TurnPartial) for f in frames)
 
 
 class TestSpeakingIndicator:
@@ -198,9 +188,12 @@ class TestSpeakingIndicator:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                frames = drain_until(student, "caption")
+                frames: list[proto.ServerMessage] = []
+                wait_for(student, proto.Speaking, on=True, received=frames)
+                wait_for(student, proto.Speaking, on=False, received=frames)
+                wait_for(student, proto.Caption, received=frames)
 
-        speaking = [f["on"] for f in frames if f["type"] == "speaking"]
+        speaking = [f.on for f in frames if isinstance(f, proto.Speaking)]
         assert speaking, "「発話中」が1件も届いていない"
         assert speaking[0] is True
         # 同じ値が連続しない = 変化時にだけ送っている（毎フレーム送っていない）
@@ -218,9 +211,10 @@ class TestSpeakingIndicator:
                 join_teacher(teacher)
                 start(teacher)
                 utterance_with_a_mid_pause(teacher)
-                frames = drain_until(student, "caption")
+                frames: list[proto.ServerMessage] = []
+                wait_for(student, proto.Caption, received=frames)
 
-        assert "speaking" not in {f["type"] for f in frames}
+        assert not any(isinstance(f, proto.Speaking) for f in frames)
 
     def test_indicator_clears_when_the_session_pauses_mid_utterance(self):
         """**発話の途中で**止める。発話が終わってから止めても ON は既に畳まれている。"""
@@ -236,14 +230,16 @@ class TestSpeakingIndicator:
                 # 発話を閉じる無音を送らないまま一時停止する
                 for chunk in chunks(speech_pcm(2000, 0.8)):
                     teacher.send_bytes(chunk)
-                assert raw_receive_json(student) == {"type": "session", "state": "live"}
-                assert raw_receive_json(student) == {"type": "speaking", "on": True}
+                wait_for(student, proto.SessionStateMsg, state="live")
+                frames: list[proto.ServerMessage] = []
+                wait_for(student, proto.Speaking, on=True, received=frames)
                 teacher.send_json({"type": "control", "action": "pause"})
-                frames = drain_until(student, "session")
+                wait_for(student, proto.Speaking, on=False, received=frames)
+                wait_for(student, proto.SessionStateMsg, state="paused", received=frames)
 
-        # 一時停止で「発話中」が残らない（残ると生徒は永久に待つ）
-        assert {"type": "speaking", "on": False} in frames
-        assert frames[-1] == {"type": "session", "state": "paused"}
+        speaking = [f for f in frames if isinstance(f, proto.Speaking)]
+        assert [f.on for f in speaking] == [True, False]
+        assert isinstance(frames[-1], proto.SessionStateMsg)
 
 
 class TestPartialNeverQueuesBehindAFinal:
@@ -266,9 +262,9 @@ class TestPartialNeverQueuesBehindAFinal:
                     utterance_with_a_mid_pause(teacher)
                 # 4件とも確定する。ここが返ること自体が「partial の抑制は確定字幕に
                 # 影響しない」の検証で、返らなければ interim が確定を押しのけている
-                finals = [drain_until(teacher, "asr_final")[-1] for _ in range(4)]
+                finals = [wait_for(teacher, proto.AsrFinal) for _ in range(4)]
 
-            assert [f["seq"] for f in finals] == [1, 2, 3, 4]
+            assert [f.seq for f in finals] == [1, 2, 3, 4]
             # 捨てた interim を黙って消していない（数えている）
             pipeline = app.state.pipeline
             assert pipeline.interims_skipped + pipeline.partials_sent > 0

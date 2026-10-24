@@ -6,11 +6,14 @@ FakeASREngine の規約: 発話中の最初の非ゼロサンプル値がフレ�
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Coroutine, Iterator
+from typing import TypeVar, overload
 
 import numpy as np
+from starlette.testclient import WebSocketTestSession
 
 from server.config import AppConfig, VadConfig
+from server.ws_protocol import ServerMessage, parse_server_message
 
 JOIN_CODE = "4831"
 
@@ -61,7 +64,55 @@ class RecordingSocket:
         return await self._frames.get()
 
 
-async def wait_for(socket: RecordingSocket, kind: str, **fields: object) -> dict:
+_Message = TypeVar("_Message", bound=ServerMessage)
+
+
+@overload
+def wait_for(socket: RecordingSocket, kind: str, **fields: object) -> Coroutine[None, None, dict]: ...
+
+
+@overload
+def wait_for(
+    socket: WebSocketTestSession,
+    kind: type[_Message],
+    *,
+    received: list[ServerMessage] | None = None,
+    raw_received: list[str] | None = None,
+    **fields: object,
+) -> _Message: ...
+
+
+def wait_for(
+    socket: RecordingSocket | WebSocketTestSession,
+    kind: str | type[_Message],
+    **fields: object,
+) -> Coroutine[None, None, dict] | _Message:
+    if isinstance(socket, RecordingSocket):
+        if not isinstance(kind, str):
+            raise TypeError("RecordingSocket requires a string message type")
+        return _wait_for_recording(socket, kind, **fields)
+    if isinstance(kind, str):
+        raise TypeError("WebSocketTestSession requires a server message model")
+    received = fields.pop("received", None)
+    if received is not None and not isinstance(received, list):
+        raise TypeError("received must be a list of server messages")
+    raw_received = fields.pop("raw_received", None)
+    if raw_received is not None and not isinstance(raw_received, list):
+        raise TypeError("raw_received must be a list of server frames")
+    while True:
+        raw = socket.receive_text()
+        if raw_received is not None:
+            raw_received.append(raw)
+        message = parse_server_message(raw)
+        if received is not None:
+            received.append(message)
+        if isinstance(message, kind) and all(
+            getattr(message, key) == value for key, value in fields.items()
+        ):
+            return message
+
+
+async def _wait_for_recording(socket: RecordingSocket, kind: str, **fields: object) -> dict:
     import asyncio
     async with asyncio.timeout(5):
         while True:

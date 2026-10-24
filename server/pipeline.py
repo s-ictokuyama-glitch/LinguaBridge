@@ -788,7 +788,7 @@ class Pipeline:
                 )
             )
 
-    async def _notify_overload(self, code: str, message: str) -> None:
+    async def _notify_overload(self, code: proto.ErrorCode, message: str) -> None:
         """先生へ過負荷を知らせる。同じ code はクールダウン中は送らない
         （溢れている間は毎件発生しうるので、通知が新たな過負荷にならないように）。"""
         now = time.monotonic()

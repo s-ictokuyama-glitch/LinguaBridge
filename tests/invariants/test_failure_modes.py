@@ -32,7 +32,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
-from tests.helpers import chunks, speech_pcm, utterance_bytes
+from tests.helpers import chunks, speech_pcm, utterance_bytes, wait_for
 from tests.integration.test_ws_boundary import (
     PHRASE_1000,
     join_student,
@@ -144,18 +144,17 @@ class TestDisconnect:
             with client.websocket_connect("/ws") as teacher:
                 join_teacher(teacher)
                 start_session(teacher)
-                assert student.receive_json()["state"] == "live"
+                wait_for(student, proto.SessionStateMsg, state="live")
                 # 発話終了を判定する無音を付けずに切る（発話は宙ぶらりんのまま）
                 for chunk in chunks(speech_pcm(1000, 1.0)):
                     teacher.send_bytes(chunk)
 
-            seen: dict[str, dict] = {}
-            while {"session", "caption"} - seen.keys():
-                msg = student.receive_json()
-                seen[msg["type"]] = msg
+            seen: list[proto.ServerMessage] = []
+            caption = wait_for(student, proto.Caption, received=seen)
+            if not any(isinstance(msg, proto.SessionStateMsg) and msg.state == "paused" for msg in seen):
+                wait_for(student, proto.SessionStateMsg, state="paused")
 
-        assert seen["session"]["state"] == "paused", "先生切断で自動一時停止しない"
-        assert seen["caption"]["ja"] == PHRASE_1000, "切断時に処理中の音声が失われた"
+        assert caption.ja == PHRASE_1000, "切断時に処理中の音声が失われた"
         assert len(asr_engine.calls) == 1
 
     def test_student_disconnect_does_not_stop_delivery_to_others(self, client, asr_engine):
@@ -166,20 +165,22 @@ class TestDisconnect:
                 with client.websocket_connect("/ws") as leaving:
                     join_student(leaving, "en")
                     start_session(teacher)
-                    staying.receive_json()
-                    leaving.receive_json()
+                    wait_for(staying, proto.SessionStateMsg, state="live")
+                    wait_for(leaving, proto.SessionStateMsg, state="live")
                 # 1人が去る
                 send_utterance(teacher, key=1000)
-                assert staying.receive_json()["ja"] == PHRASE_1000
+                assert wait_for(staying, proto.Caption).ja == PHRASE_1000
         assert len(asr_engine.calls) == 1
 
 
 class TestInvalidJoinCode:
     def test_rejection_does_not_leak_the_join_code(self, client):
         with client.websocket_connect("/ws") as intruder:
-            msg = join_student(intruder, "en", code="0000")
-            assert msg == {"type": "join_rejected", "reason": "bad_code"}
-            assert JOIN_CODE not in str(msg)
+            intruder.send_json({"type": "join", "role": "student", "code": "0000", "lang": "en"})
+            frames: list[str] = []
+            msg = wait_for(intruder, proto.JoinRejected, raw_received=frames)
+            assert msg.reason == "bad_code"
+            assert all(JOIN_CODE not in frame for frame in frames)
 
     def test_rejected_client_receives_no_captions(self, client):
         """拒否された接続は字幕の配信対象にならない。
@@ -190,13 +191,15 @@ class TestInvalidJoinCode:
         with client.websocket_connect("/ws") as teacher:
             join_teacher(teacher)
             with client.websocket_connect("/ws") as intruder:
-                assert join_student(intruder, "en", code="0000")["type"] == "join_rejected"
+                assert join_student(intruder, "en", code="0000", expected=proto.JoinRejected).type == "join_rejected"
                 start_session(teacher)
                 send_utterance(teacher, key=1000)
-                while teacher.receive_json()["type"] != "asr_final":
-                    pass
+                wait_for(teacher, proto.AsrFinal)
                 # ここまでで字幕1件が配信済み。拒否中の接続には届いていないはず
-                assert join_student(intruder, "en")["type"] == "joined"
+                intruder.send_json({"type": "join", "role": "student", "code": JOIN_CODE, "lang": "en"})
+                seen: list[proto.ServerMessage] = []
+                joined = wait_for(intruder, proto.Joined, received=seen)
+                assert seen == [joined]
 
 
 # --------------------------------------------------------------------------
@@ -218,11 +221,10 @@ class TestShutdown:
                     join_teacher(teacher)
                     join_student(student, "en")
                     start_session(teacher)
-                    student.receive_json()
+                    wait_for(student, proto.SessionStateMsg, state="live")
                     for _ in range(3):
                         send_utterance(teacher, key=1000)
-                    while teacher.receive_json()["type"] != "asr_final":
-                        pass
+                    wait_for(teacher, proto.AsrFinal)
         finally:
             gate.set()  # 止めたワーカースレッドを解放（プロセス終了時のjoin対策）
         elapsed = time.monotonic() - started

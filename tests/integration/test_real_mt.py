@@ -11,12 +11,13 @@ import re
 import pytest
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.config import AppConfig, MtConfig, VadConfig
 from server.main import create_app
 from server.asr.fake_engine import FakeASREngine
 from tests.conftest import JOIN_CODE
-from tests.helpers import utterance_bytes
+from tests.helpers import utterance_bytes, wait_for
 
 # モデル読込（module fixture の setup）も制限時間に含まれる。ディスクキャッシュが冷えた
 # 初回や、ウイルス対策の走査中は既定の20秒を超えうる。thread 方式の timeout は
@@ -117,19 +118,18 @@ class TestRealMtOverWebSocket:
                 student.send_json(
                     {"type": "join", "role": "student", "code": JOIN_CODE, "lang": "en"}
                 )
-                assert student.receive_json()["type"] == "joined"
+                wait_for(student, proto.Joined)
                 teacher.send_json({"type": "join", "role": "teacher", "code": JOIN_CODE})
-                assert teacher.receive_json()["type"] == "joined"
+                wait_for(teacher, proto.Joined)
                 teacher.send_json({"type": "control", "action": "start"})
-                assert student.receive_json() == {"type": "session", "state": "live"}
+                wait_for(student, proto.SessionStateMsg, state="live")
 
                 # フェイクASRの規約: 振幅2000 → 「光合成には日光が必要です。」
                 for chunk in utterance_bytes(2000):
                     teacher.send_bytes(chunk)
 
-                cap = student.receive_json()
-                assert cap["type"] == "caption"
-                assert cap["ja"] == "光合成には日光が必要です。"
-                assert cap["lang"] == "en"
-                assert "photosynthesis" in cap["text"].lower()
-                assert not HIRAGANA.search(cap["text"])
+                cap = wait_for(student, proto.Caption)
+                assert cap.ja == "光合成には日光が必要です。"
+                assert cap.lang == "en"
+                assert "photosynthesis" in cap.text.lower()
+                assert not HIRAGANA.search(cap.text)

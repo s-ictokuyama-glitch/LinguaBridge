@@ -21,6 +21,10 @@ class ProtocolError(Exception):
 SessionState = Literal["idle", "live", "paused", "ended"]
 # "full" は生徒の同時接続上限に達したとき（#25 A-4 / limits.max_students）
 JoinRejectReason = Literal["bad_code", "bad_lang", "rate_limited", "full"]
+ErrorCode = Literal[
+    "bad_lang", "too_large", "bad_message", "not_joined", "mic_silent",
+    "audio_dropped", "asr_timeout", "mt_backlog", "mt_timeout",
+]
 
 
 # ---- クライアント → サーバー ----
@@ -188,5 +192,22 @@ class Stats(BaseModel):
 
 class ErrorMsg(BaseModel):
     type: Literal["error"] = "error"
-    code: str
+    code: ErrorCode
     message: str
+
+
+ServerMessage = Union[
+    Joined, RecordingState, JoinRejected, Caption, SessionStateMsg,
+    AsrFinal, TurnPartial, Speaking, Stats, ErrorMsg,
+]
+
+_server_adapter: TypeAdapter[ServerMessage] = TypeAdapter(
+    Annotated[ServerMessage, Field(discriminator="type")]
+)
+
+
+def parse_server_message(raw: str | bytes) -> ServerMessage:
+    try:
+        return _server_adapter.validate_json(raw)
+    except ValidationError as exc:
+        raise ProtocolError(f"invalid server message: {exc.error_count()} error(s)") from exc

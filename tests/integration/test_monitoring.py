@@ -10,12 +10,14 @@ import threading
 
 from starlette.testclient import TestClient
 
+from server import ws_protocol as proto
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
 from server.config import MonitoringConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import (
     join_student,
     join_teacher,
@@ -40,18 +42,8 @@ def make_app(*, mt_engine=None, monitoring=FAST_MONITORING, join_code=JOIN_CODE)
     )
 
 
-def drain_until(ws, predicate, max_msgs=400):
-    """条件に合うメッセージが来るまで受信して返す。統計が定期配信されるので
-    receive_json はブロックし続けない。"""
-    for _ in range(max_msgs):
-        msg = ws.receive_json()
-        if predicate(msg):
-            return msg
-    raise AssertionError("条件に合うメッセージが所定回数内に届かなかった")
-
-
 def next_stats(ws):
-    return drain_until(ws, lambda m: m["type"] == "stats")
+    return wait_for(ws, proto.Stats)
 
 
 class TestStatsBroadcast:
@@ -70,11 +62,11 @@ class TestStatsBroadcast:
                 join_student(s_zh, "zh")
 
                 stats = next_stats(teacher)
-                assert stats["students"] == 3
-                assert stats["langs"] == {"en": 2, "zh": 1}
-                assert stats["queue_depth"] == 0
-                assert isinstance(stats["median_delay_ms"], int)
-                assert stats["overloaded"] is False
+                assert stats.students == 3
+                assert stats.langs == {"en": 2, "zh": 1}
+                assert stats.queue_depth == 0
+                assert isinstance(stats.median_delay_ms, int)
+                assert stats.overloaded is False
 
     def test_stats_reflect_language_change_and_leave(self):
         app = make_app()
@@ -82,12 +74,12 @@ class TestStatsBroadcast:
             join_teacher(teacher)
             with client.websocket_connect("/ws") as student:
                 join_student(student, "en")
-                assert next_stats(teacher)["langs"] == {"en": 1}
+                assert next_stats(teacher).langs == {"en": 1}
 
                 student.send_json({"type": "set_lang", "lang": "zh"})
-                drain_until(teacher, lambda m: m["type"] == "stats" and m["langs"] == {"zh": 1})
+                wait_for(teacher, proto.Stats, langs={"zh": 1})
             # 生徒切断後は接続数0に戻る（teacher は外側 with なので生存）
-            drain_until(teacher, lambda m: m["type"] == "stats" and m["students"] == 0)
+            wait_for(teacher, proto.Stats, students=0)
 
     def test_median_delay_populated_after_captions(self):
         app = make_app()
@@ -99,12 +91,12 @@ class TestStatsBroadcast:
                 join_teacher(teacher)
                 join_student(student, "en")
                 start_session(teacher)
-                student.receive_json()  # session live
+                wait_for(student, proto.SessionStateMsg, state="live")
                 for _ in range(3):
                     send_utterance(teacher, key=1000)
                 for _ in range(3):
-                    assert student.receive_json()["type"] == "caption"
-                assert next_stats(teacher)["median_delay_ms"] >= 0
+                    wait_for(student, proto.Caption)
+                assert next_stats(teacher).median_delay_ms >= 0
 
 
 class TestOverloadWarning:
@@ -120,26 +112,19 @@ class TestOverloadWarning:
                 join_teacher(teacher)
                 join_student(student, "en")
                 start_session(teacher)
-                student.receive_json()  # session live
+                wait_for(student, proto.SessionStateMsg, state="live")
 
                 # 5発話を送るとMTジョブが滞留する（ワーカーは1件目でgate待ち）
                 for _ in range(5):
                     send_utterance(teacher, key=1000)
 
-                overloaded = drain_until(
-                    teacher, lambda m: m["type"] == "stats" and m["overloaded"]
-                )
-                assert overloaded["queue_depth"] >= 3
+                overloaded = wait_for(teacher, proto.Stats, overloaded=True)
+                assert overloaded.queue_depth >= 3
 
                 # gate を開けると処理が進み、過負荷は解消する
                 gate.set()
-                cleared = drain_until(
-                    teacher,
-                    lambda m: m["type"] == "stats"
-                    and not m["overloaded"]
-                    and m["queue_depth"] == 0,
-                )
-                assert cleared["overloaded"] is False
+                cleared = wait_for(teacher, proto.Stats, overloaded=False, queue_depth=0)
+                assert cleared.overloaded is False
 
 
 class TestSilenceWarning:
@@ -153,12 +138,10 @@ class TestSilenceWarning:
                 join_teacher(teacher)
                 join_student(student, "en")
                 start_session(teacher)
-                student.receive_json()  # session live
+                wait_for(student, proto.SessionStateMsg, state="live")
                 # 音声を一切送らない → silence_warning_s 経過で mic_silent が届く
-                warn = drain_until(
-                    teacher, lambda m: m["type"] == "error" and m["code"] == "mic_silent"
-                )
-                assert "秒" in warn["message"]
+                warn = wait_for(teacher, proto.ErrorMsg, code="mic_silent")
+                assert "秒" in warn.message
 
     def test_no_silence_warning_before_live(self):
         # idle 中は無音でも警告しない（配信開始前）
@@ -171,11 +154,12 @@ class TestSilenceWarning:
                 join_teacher(teacher)
                 join_student(student, "en")
                 # start しないまま複数回の統計を受ける間、mic_silent は来ない
-                seen = [teacher.receive_json() for _ in range(8)]
-                assert all(
-                    not (m["type"] == "error" and m["code"] == "mic_silent") for m in seen
+                seen: list[proto.ServerMessage] = []
+                for _ in range(8):
+                    wait_for(teacher, proto.Stats, received=seen)
+                assert not any(
+                    isinstance(m, proto.ErrorMsg) and m.code == "mic_silent" for m in seen
                 )
-                assert any(m["type"] == "stats" for m in seen)
 
     def test_teacher_swap_during_silence_rearms_warning(self):
         # live のまま先生が入れ替わっても、新しい先生が継続中の無音警告を見られる
@@ -183,11 +167,9 @@ class TestSilenceWarning:
         with TestClient(app) as client, client.websocket_connect("/ws") as teacher1:
             join_teacher(teacher1)
             start_session(teacher1)
-            drain_until(teacher1, lambda m: m["type"] == "error" and m["code"] == "mic_silent")
+            wait_for(teacher1, proto.ErrorMsg, code="mic_silent")
             # 後勝ちで新しい先生に入れ替わる（state は live のまま）
             with client.websocket_connect("/ws") as teacher2:
-                assert join_teacher(teacher2)["session_state"] == "live"
-                warn = drain_until(
-                    teacher2, lambda m: m["type"] == "error" and m["code"] == "mic_silent"
-                )
-                assert warn["code"] == "mic_silent"
+                assert join_teacher(teacher2).session_state == "live"
+                warn = wait_for(teacher2, proto.ErrorMsg, code="mic_silent")
+                assert warn.code == "mic_silent"

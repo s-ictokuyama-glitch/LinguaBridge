@@ -14,7 +14,9 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import RecordingConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
+from server.ws_protocol import Caption, RecordingState, SessionStateMsg
 from tests.conftest import JOIN_CODE, make_ws_test_config
+from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import (
     PHRASE_2000,
     join_student,
@@ -47,16 +49,16 @@ class TestRecordingFiles:
                 join_student(student, "en")
                 join_teacher(teacher)
                 set_recording(teacher, True)
-                teacher.receive_json()  # recording broadcast (teacher)
-                student.receive_json()  # recording broadcast (student)
+                wait_for(teacher, RecordingState, on=True)
+                wait_for(student, RecordingState, on=True)
                 start_session(teacher)
-                student.receive_json()  # session live
+                wait_for(student, SessionStateMsg, state="live")
                 send_utterance(teacher, key=2000)
-                assert student.receive_json()["type"] == "caption"
+                wait_for(student, Caption)
                 # 授業中はまだ何も書き出さない
                 assert list(tmp_path.iterdir()) == []
                 teacher.send_json({"type": "control", "action": "end"})
-                assert student.receive_json() == {"type": "session", "state": "ended"}
+                wait_for(student, SessionStateMsg, state="ended")
 
         # 終了後、記録が保存されている
         dirs = list(tmp_path.iterdir())
@@ -78,14 +80,14 @@ class TestRecordingFiles:
                 join_student(student, "en")
                 join_teacher(teacher)
                 set_recording(teacher, True)
-                teacher.receive_json()
-                student.receive_json()
+                wait_for(teacher, RecordingState, on=True)
+                wait_for(student, RecordingState, on=True)
                 start_session(teacher)
-                student.receive_json()
+                wait_for(student, SessionStateMsg, state="live")
                 send_utterance(teacher, key=2000)
-                student.receive_json()
+                wait_for(student, Caption)
                 teacher.send_json({"type": "control", "action": "end"})
-                student.receive_json()
+                wait_for(student, SessionStateMsg, state="ended")
 
         out = list(tmp_path.iterdir())[0]
         entry = json.loads((out / "transcript.jsonl").read_text(encoding="utf-8").splitlines()[0])
