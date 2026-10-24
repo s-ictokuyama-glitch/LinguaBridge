@@ -217,6 +217,7 @@ function handleMessage(msg) {
   switch (msg.type) {
     case "joined":
       state.joined = true;
+      state.ended = msg.session_state === "ended";
       state.retryDelayMs = RETRY_BASE_MS; // 再接続成功でバックオフをリセット
       // 履歴上限で復元不能になった分は欠落確定として watermark を進める
       if (msg.history_from - 1 > state.lastSeq) {
@@ -259,7 +260,7 @@ function handleMessage(msg) {
       advanceWatermark(msg.seq);
       break;
     case "session":
-      if (msg.state === "ended") state.ended = true;
+      state.ended = msg.state === "ended";
       if (msg.state !== "live") el.speakingIndicator.hidden = true; // 非liveで残さない（#29）
       setBanner(msg.state);
       break;

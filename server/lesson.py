@@ -38,8 +38,8 @@ class Lesson:
         self.recording = config.recording.default_on
 
     async def _transition(self, state: proto.SessionState) -> None:
-        self.state = state
         await self.pipeline.on_lesson_state(state)
+        self.state = state
         self.roster.broadcast(proto.SessionStateMsg(state=state).model_dump())
 
     async def control(self, action: Literal["start", "pause", "end"]) -> Path | None:
