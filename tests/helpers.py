@@ -77,6 +77,7 @@ def wait_for(
     kind: type[_Message],
     *,
     received: list[ServerMessage] | None = None,
+    raw_received: list[str] | None = None,
     **fields: object,
 ) -> _Message: ...
 
@@ -95,8 +96,14 @@ def wait_for(
     received = fields.pop("received", None)
     if received is not None and not isinstance(received, list):
         raise TypeError("received must be a list of server messages")
+    raw_received = fields.pop("raw_received", None)
+    if raw_received is not None and not isinstance(raw_received, list):
+        raise TypeError("raw_received must be a list of server frames")
     while True:
-        message = parse_server_message(socket.receive_text())
+        raw = socket.receive_text()
+        if raw_received is not None:
+            raw_received.append(raw)
+        message = parse_server_message(raw)
         if received is not None:
             received.append(message)
         if isinstance(message, kind) and all(

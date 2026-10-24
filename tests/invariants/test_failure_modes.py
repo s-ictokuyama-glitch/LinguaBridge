@@ -176,9 +176,11 @@ class TestDisconnect:
 class TestInvalidJoinCode:
     def test_rejection_does_not_leak_the_join_code(self, client):
         with client.websocket_connect("/ws") as intruder:
-            msg = join_student(intruder, "en", code="0000", expected=proto.JoinRejected)
+            intruder.send_json({"type": "join", "role": "student", "code": "0000", "lang": "en"})
+            frames: list[str] = []
+            msg = wait_for(intruder, proto.JoinRejected, raw_received=frames)
             assert msg.reason == "bad_code"
-            assert JOIN_CODE not in str(msg)
+            assert all(JOIN_CODE not in frame for frame in frames)
 
     def test_rejected_client_receives_no_captions(self, client):
         """拒否された接続は字幕の配信対象にならない。

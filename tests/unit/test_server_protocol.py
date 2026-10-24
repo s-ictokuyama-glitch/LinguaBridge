@@ -125,6 +125,18 @@ def test_sync_helper_filters_fields_and_records_all_frames():
     assert received == frames
 
 
+def test_sync_helper_keeps_unknown_fields_in_raw_observations():
+    frames = [
+        '{"type":"speaking","on":true}',
+        '{"type":"join_rejected","reason":"bad_code","debug_code":"4831"}',
+    ]
+    raw_received: list[str] = []
+    with websocket_frames(frames) as socket:
+        result = wait_for(socket, proto.JoinRejected, raw_received=raw_received)
+    assert result.reason == "bad_code"
+    assert raw_received == frames
+
+
 @pytest.mark.parametrize("raw", ['{"type":"unknown"}', '{"type":"caption"}'])
 def test_sync_helper_rejects_invalid_frames_before_target(raw):
     with websocket_frames([raw, proto.Speaking(on=True).model_dump_json()]) as socket:
