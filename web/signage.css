@@ -1,0 +1,83 @@
+/* 校内サインの共通トークンと部品（生徒・先生ページが student.css / teacher.css より先に読む）。
+   設計の根拠は docs/design/visual-direction.md と ADR 0002。 */
+
+/* woff2 は未同梱。端末に入っていれば使い、無ければ下のフォールバックに落ちる */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: local("Atkinson Hyperlegible Next"), local("AtkinsonHyperlegibleNext-Regular");
+}
+
+:root {
+  --jis-green: #00B06B;
+  --jis-yellow: #F2E700;
+  --jis-orange: #F6AA00;
+  --jis-red: #FF4B00;
+  --jis-blue: #1971FF;
+  --jis-gray: #A3ABB4;
+  --sign-ink: #000;
+
+  --paper: #FBFCFD;
+  --paper-2: #EEF2F5;
+  --ink: #0D1824;
+  --ink-2: #3C4B5A;
+  --ink-3: #6B7A89;
+  --rule: #D9E0E6;
+
+  --font: "Atkinson Hyperlegible Next", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo",
+    "Microsoft YaHei", system-ui, sans-serif;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --state: var(--jis-gray);
+  --glyph: "\2026";
+}
+
+/* 状態 → 色と記号。色は授業・接続の状態専用で、ここ以外では分岐しない。
+   記号は U+FE0E で絵文字化を防ぐ */
+[data-state="live"], .banner.live { --state: var(--jis-green); --glyph: "\25B6\FE0E"; }
+[data-state="paused"], .banner.paused { --state: var(--jis-yellow); --glyph: "\275A\FE0E\275A\FE0E"; }
+[data-state="ended"], .banner.ended { --state: var(--jis-gray); --glyph: "\25A0\FE0E"; }
+[data-state="idle"], .banner.idle { --state: var(--jis-gray); --glyph: "\2026"; }
+[data-state="disconnected"], .banner.disconnected { --state: var(--jis-orange); --glyph: "!"; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--paper); color: var(--ink); }
+button, input, select { font: inherit; }
+
+/* 状態帯：記号と状態名だけを黒で載せる */
+.band {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 56px; padding: 0 var(--gutter);
+  background: var(--state); color: var(--sign-ink);
+  font-weight: 800; font-size: 1.3rem;
+  transition: background-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
+}
+.band::before { content: var(--glyph); flex: none; min-width: 1.4em; text-align: center; letter-spacing: -0.1em; }
+
+/* 補助行：帯の色に他の意味を混ぜないため、記録中・発話中などはここへ置く */
+.subline {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px var(--gutter); background: var(--paper-2); border-bottom: 1px solid var(--rule);
+}
+.subline[hidden] { display: none; }
+
+.chip { font-size: 0.78rem; font-weight: 800; padding: 3px 8px; border-radius: 4px; color: var(--sign-ink); white-space: nowrap; }
+.chip[hidden] { display: none; }
+.chip.rec { background: var(--jis-red); }
+.chip.speak { background: var(--jis-blue); }
+
+/* 黄の注意板（▲ 付き）。黄＝注意 */
+.plate {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 10px 14px; background: var(--jis-yellow); color: var(--sign-ink);
+  font-weight: 800; line-height: 1.45;
+}
+.plate[hidden] { display: none; }
+.plate::before { content: "\25B2\FE0E"; flex: none; }
+/* 黄赤のエラー板。接続・参加の失敗用 */
+.plate.error { background: var(--jis-orange); }
+.plate.error::before { content: "!"; font-weight: 800; }
+
+:focus-visible { outline: 3px solid var(--jis-blue); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .band, .band * { transition: none; }
+}

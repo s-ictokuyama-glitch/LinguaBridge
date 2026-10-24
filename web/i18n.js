@@ -24,6 +24,10 @@ const I18N = {
     join_code_label: "参加コード（4桁）",
     join_lang_label: "言語",
     join_btn: "参加する",
+    display_settings: "表示設定",
+    close: "閉じる",
+    text_size: "文字サイズ",
+    language: "言語",
   },
   en: {
     banner_idle: "Waiting to start",
@@ -46,6 +50,10 @@ const I18N = {
     join_code_label: "Join code (4 digits)",
     join_lang_label: "Language",
     join_btn: "Join",
+    display_settings: "Display",
+    close: "Close",
+    text_size: "Text size",
+    language: "Language",
   },
   zh: {
     banner_idle: "等待开始",
@@ -68,5 +76,9 @@ const I18N = {
     join_code_label: "参加码（4位数字）",
     join_lang_label: "语言",
     join_btn: "加入",
+    display_settings: "显示设置",
+    close: "关闭",
+    text_size: "字号",
+    language: "语言",
   },
 };

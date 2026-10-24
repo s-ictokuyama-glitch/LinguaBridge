@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LinguaBridge - 授業字幕</title>
+  <link rel="stylesheet" href="/static/signage.css">
   <link rel="stylesheet" href="/static/student.css">
 </head>
 <body>
@@ -12,36 +13,55 @@
     <!-- 言語選択前は3言語併記、選択後は data-i18n で選択言語に追従 -->
     <p class="lead" data-i18n="join_lead">先生の話す内容が、選んだ言語の字幕で表示されます。</p>
     <label for="code-input" data-i18n="join_code_label">参加コード（4桁）</label>
-    <input id="code-input" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="0000">
+    <!-- 入力欄は升目の上に透明で重ねる。升目は表示専用で、入力値から描き直す -->
+    <div class="code-wrap">
+      <input id="code-input" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="0000">
+      <div class="code-cells" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    </div>
     <p class="label" data-i18n="join_lang_label">言語 / Language / 语言</p>
     <div id="lang-options"></div>
     <button id="join-btn" data-i18n="join_btn" disabled>参加する / Join / 加入</button>
-    <p id="join-error" class="error" hidden></p>
+    <p id="join-error" class="plate error" role="alert" hidden></p>
     <p><a href="/connection-help" referrerpolicy="no-referrer">接続に困ったとき</a></p>
   </section>
 
   <section id="caption-screen" class="size-m" hidden>
     <header>
-      <span id="session-banner" class="banner idle">…</span>
-      <span id="record-indicator" class="record-indicator" hidden>● 記録中</span>
-      <!-- 「発話中」インジケーター（#29）。翻訳は final のみという方針上、
-           生徒には未翻訳の日本語ではなく状態だけを見せる -->
-      <span id="speaking-indicator" class="speaking-indicator" data-i18n="speaking" hidden></span>
-      <div class="header-controls">
-        <label class="ja-toggle">
-          <input type="checkbox" id="ja-toggle" checked>
-          <span id="ja-toggle-label" data-i18n="show_ja"></span>
-        </label>
+      <span id="session-banner" class="band banner idle">…</span>
+      <div class="subline">
+        <span id="record-indicator" class="chip rec" hidden>● 記録中</span>
+        <!-- 「発話中」インジケーター（#29）。翻訳は final のみという方針上、
+             生徒には未翻訳の日本語ではなく状態だけを見せる -->
+        <span id="speaking-indicator" class="chip speak" data-i18n="speaking" hidden></span>
+        <button id="settings-btn" type="button" aria-haspopup="dialog" data-i18n="display_settings">表示設定</button>
+      </div>
+    </header>
+    <main id="cards"></main>
+    <button id="latest-btn" data-i18n="latest" hidden></button>
+
+    <div id="settings-backdrop" hidden></div>
+    <div id="settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" tabindex="-1" hidden>
+      <div class="sheet-head">
+        <b id="settings-title" data-i18n="display_settings">表示設定</b>
+        <button id="settings-close" type="button" data-i18n="close">閉じる</button>
+      </div>
+      <label class="ja-toggle">
+        <input type="checkbox" id="ja-toggle" checked>
+        <span id="ja-toggle-label" data-i18n="show_ja"></span>
+      </label>
+      <div class="sheet-row">
+        <span data-i18n="text_size">文字サイズ</span>
         <div id="size-buttons" role="group">
           <button data-size="s" data-i18n="size_s"></button>
           <button data-size="m" data-i18n="size_m"></button>
           <button data-size="l" data-i18n="size_l"></button>
         </div>
+      </div>
+      <div class="sheet-row">
+        <label for="lang-select" data-i18n="language">言語</label>
         <select id="lang-select"></select>
       </div>
-    </header>
-    <main id="cards"></main>
-    <button id="latest-btn" data-i18n="latest" hidden></button>
+    </div>
   </section>
 
   <script src="/static/i18n.js"></script>
