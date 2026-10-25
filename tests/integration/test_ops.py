@@ -151,6 +151,9 @@ class TestConnectionDiagnostics:
             assert "https://192.168.5.25:18444/healthz" in response.text
             assert "http://127.0.0.1:18081/healthz" in response.text
             assert "start.bat --diagnose" in response.text
+            assert "connection-report.json" not in response.text
+            assert "server.diagnostics" not in response.text
+            assert "{{" not in response.text
             assert "AP分離と断定" in response.text
             assert "モデル" in response.text
             assert "WS参加: 未確認" in response.text
@@ -436,6 +439,8 @@ class TestConnectionDiagnostics:
         assert "サーバーを再起動し、接続先を再選択してください" in response.text
         assert "http://127.0.0.1:18081/healthz" in response.text
         assert "start.bat --diagnose" in response.text
+        assert "connection-report.json" not in response.text
+        assert "server.diagnostics" not in response.text
         assert "別端末のWS参加: 未確認" in response.text
         assert "{{" not in response.text
         assert "https://" not in response.text
