@@ -1,0 +1,147 @@
+{
+  "snapshot_kind": "non_authoritative_qa_handoff",
+  "authoritative_state": "docs/qa/feature-status.xlsx",
+  "updated_at": "2026-09-08T12:12:50.5796893+09:00",
+  "local_audit_complete": true,
+  "product_acceptance_complete": false,
+  "workbook": "docs/qa/feature-status.xlsx",
+  "full_pytest_run": "docs/qa/runs/20260908-112049",
+  "full_pytest_result": {
+    "passed": 875,
+    "failed": 11,
+    "skipped": 1,
+    "total": 887,
+    "real_model_cases": 20,
+    "new_regressions": 0
+  },
+  "latest_browser_runs": {
+    "browser": {
+      "directory": "docs/qa/runs/20260908-112500-browser",
+      "passed": 35,
+      "failed": 8,
+      "total": 43
+    },
+    "native_browser": {
+      "directory": "docs/qa/runs/20260908-112624-native-browser",
+      "passed": 23,
+      "failed": 3,
+      "total": 26
+    }
+  },
+  "supplemental_runs": {
+    "physical_microphone": {
+      "directory": "docs/qa/runs/20260908-112900",
+      "passed": 2,
+      "failed": 0,
+      "total": 2
+    },
+    "evidence_integrity": {
+      "directory": "docs/qa/runs/20260908-111918",
+      "passed": 323,
+      "failed": 0,
+      "total": 323,
+      "also_covered_by_full_run": true
+    },
+    "excluded_environmental_attempt": {
+      "directory": "docs/qa/runs/20260908-045745",
+      "reason": "サンドボックス下のEdgeで暗号化ストア/GPUキャッシュが拒否され、CDP Runtime.enableがタイムアウト。権限付き同一試験20260908-064625で成功したため製品不合格には採用しない"
+    }
+  },
+  "coverage_audit": {
+    "directory": "docs/qa/runs/20260908-112934-coverage-audit",
+    "downgraded_to_partial": [],
+    "performance_reaudited": [
+      "PERF-03",
+      "PERF-04",
+      "PERF-05"
+    ]
+  },
+  "known_failure_diagnosis": {
+    "report": "docs/qa/findings.md",
+    "failed_story_count": 16,
+    "confirmed_root_cause_story_count": 16,
+    "independent_repair_slices": 19,
+    "pytest_counterexamples": 11,
+    "browser_counterexamples": 8,
+    "native_browser_counterexamples": 3,
+    "browser_source_hashes_match_current_checkout": true,
+    "product_code_changed_during_diagnosis": false
+  },
+  "implemented_evidence_infrastructure": [
+    "PERF-01 schema v2 validator: 固定start snapshot、session/host/source binding、全final 2N行、PCM WAV全frame・実時間、hardlink/TOCTOU、受領時系列を再検証",
+    "QUAL-01 package validator: PCM WAV、30 source segment、sealed transcript、90 evaluator assignment、外側manifestと時系列を再検証",
+    "Wizard shell parser: 10/15項目契約を実Bash経路で動的にfail-closed検証"
+  ],
+  "manual_review_obligations": [
+    "PERF-01: 物理端末10台のidentity・同時接続、45分録画全体、全final注釈、同一clock、実授業由来",
+    "QUAL-01: snapshot現場真正性、実授業由来、transcriptの監査対象run由来、30区間の意味対応、評価者本人性・資格・attestation真正性、意味評価"
+  ],
+  "completed_soak": {
+    "directory": "docs/qa/runs/20260907-095700-soak-final",
+    "report": "docs/qa/runs/20260907-095700-soak-final/2026-09-07-acceptance.md",
+    "story_evidence": "docs/qa/runs/20260907-095700-soak-final/story-evidence.json",
+    "source_manifest": "docs/qa/runs/20260907-095700-soak-final/source-manifest.json",
+    "current_reaudit": {
+      "PERF-03": true,
+      "PERF-05": true
+    }
+  },
+  "completed_scale": {
+    "directory": "docs/qa/runs/20260907-055300-scale-final",
+    "report": "docs/qa/runs/20260907-055300-scale-final/2026-09-07-scaling.md",
+    "story_evidence": "docs/qa/runs/20260907-055300-scale-final/story-evidence.json",
+    "source_manifest": "docs/qa/runs/20260907-055300-scale-final/source-manifest.json",
+    "current_reaudit": {
+      "PERF-04": true
+    }
+  },
+  "workbook_counts_at_checkpoint": {
+    "total": 96,
+    "pass": 71,
+    "fail": 16,
+    "untested": 0,
+    "partial": 7,
+    "unrunnable": 0,
+    "unimplemented": 2
+  },
+  "remaining": {
+    "partial_external": [
+      "OPS-01",
+      "OPS-02",
+      "OPS-10",
+      "OPS-12",
+      "PERF-01",
+      "PERF-02",
+      "QUAL-01"
+    ],
+    "failed": [
+      "OPS-03",
+      "OPS-08",
+      "OPS-13",
+      "OPS-14",
+      "JOIN-01",
+      "TEACH-05",
+      "MIC-05",
+      "STU-07",
+      "STU-10",
+      "STU-11",
+      "REC-05",
+      "REC-07",
+      "CONN-04",
+      "CONN-05",
+      "CONN-08",
+      "CONN-09"
+    ],
+    "unimplemented": [
+      "FUT-01",
+      "FUT-02"
+    ],
+    "external_prerequisites": [
+      "clean/隔離Windowsでの初回セットアップと実数GBダウンロード中断",
+      "学校PC・学校LAN・実DHCP変更・投影QR",
+      "物理端末10台・iPhone・Chromebook",
+      "実授業音源",
+      "英語・中国語の内容評価者"
+    ]
+  }
+}
