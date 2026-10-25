@@ -20,9 +20,9 @@ Preconditions:
 
 - 空runのdoctorが成功し、先生画面の `#start-btn` がenabledになっている。
 
-- **手入力とクエリ。** `.venv/Scripts/python.exe .agents/skills/verify/scripts/student_preferences.py --run-dir "$verifyRun"` を実行する。`result.json` の `manual_code_join` と `query_code_join` が揃い、先生の接続数が1になる。
+- **手入力とクエリ。** `.venv/Scripts/python.exe .agents/skills/verify/scripts/student_preferences.py --run-dir "$verifyRun"` を実行する。`result.json` の `actions[].action` に `manual_code_join` と `query_code_join` が揃い、先生の接続数が1になる。
 - **誤コード。** 別の生徒contextで `#code-input` に先生のコードと異なる4桁をfillし、`#lang-options button[data-code="en"]`、`#join-btn` をclickする。`#join-error` は `Wrong join code`、字幕画面はhidden。正しいコードで再試行し、先生の接続数増加まで確認する。
-- **QR。** 補助ケースは `.venv/Scripts/python.exe scripts/qa_native_browser.py --scenario native_lan_teacher_url_qr_and_caption`。実NICの自己アドレスへの参加URL、QRのOpenCV復号、字幕までを確認する。物理スマートフォンで先生画面のQRから入る入口は別途実行する。
+- **QR。** 開始前の先生画面で `#qr` の画像を保存し、QRの周囲に白い余白が残っていることを確認する。`getComputedStyle` でも白背景とpaddingを照合する。余白の表示確認とQR復号は別に記録する。補助ケースは `.venv/Scripts/python.exe scripts/qa_native_browser.py --scenario native_lan_teacher_url_qr_and_caption`。実NICの自己アドレスへの参加URL、QRのOpenCV復号、字幕までを確認する。物理スマートフォンで先生画面のQRから入る入口は別途実行する。
 
 ## Gotchas
 

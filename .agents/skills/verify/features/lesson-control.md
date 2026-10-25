@@ -7,6 +7,7 @@
 - `lesson-start` は開始から配信中へ進む。
 - `lesson-pause` は一時停止と再開を行う。
 - `lesson-end-live` と `lesson-end-paused` は両状態から終了する。
+- `lesson-responsive` は狭い先生画面でも開始・一時停止・終了を画面内に表示する。
 - `lesson-monitoring` はマイク入力メーター、生徒数・言語内訳、遅延の内訳・翻訳キャッシュ、無音・過負荷警告を扱う。
 - `lesson-partial` は任意設定の先生専用暫定文字起こしを扱う。
 - `lesson-microphone` はマイク選択、拒否後の再試行を扱う。
@@ -22,6 +23,7 @@ Preconditions:
 
 - 独立した先生・生徒contextが参加済み。実経路ではマイクと検証用発話が必要。
 
+- **狭い先生画面。** `teacher.set_viewport_size({"width": 360, "height": 800})` にし、`#start-btn`、`#pause-btn`、`#end-btn` の `bounding_box()` を読む。各ボタンの左端が0以上、右端が360以下で、横スクロールせず操作欄を見渡せることを確認する。全画面画像も保存し、配信操作前に元のviewportへ戻す。
 - **開始。** `teacher.locator('#start-btn').click()`。マイク許可後、先生 `#session-state` が `配信中`、英語生徒 `#session-banner` が `Live`。発話後の字幕まで確認する。
 - **停止と再開。** `teacher.locator('#pause-btn').click()`。先生は `一時停止中`、生徒は `Paused`。`#pause-btn` がdisabled、`#start-btn` が「再開」になったことを確認し、`teacher.locator('#start-btn').click()` で再開する。停止直前の未確定発話は確定字幕になる場合がある。停止後の音声が字幕へ追加されず、再開後の新しい発話が届くことを確認する。
 - **終了。** `teacher.locator('#end-btn').click()`。先生は `終了`、生徒は `Class has ended`。配信中と一時停止中の各入口を別runで実行する。
