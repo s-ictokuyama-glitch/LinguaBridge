@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import socket
 import subprocess
 import sys
 from http.client import HTTPConnection
+from html import escape, unescape
 
 import pytest
 from starlette.testclient import TestClient
@@ -79,6 +81,68 @@ def test_server_without_layer_arguments_prints_the_same_hints(tmp_path, monkeypa
 
     assert f'server.diagnostics --config "{base}" --advertise-ip {IP} --json' in output
     assert "--config-override" not in output and "--data-root" not in output
+
+
+@pytest.mark.parametrize("bundled", [False, True])
+@pytest.mark.parametrize("layered", [False, True])
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_help_diagnostics_preserves_startup_context(
+    tmp_path, monkeypatch, capsys, bundled, layered, unavailable,
+):
+    folder = tmp_path / "school & classroom"
+    folder.mkdir()
+    base, override, data = layered_files(folder)
+    write_pair(data / "certs")
+    use_network(monkeypatch)
+    if bundled:
+        run_as_distribution(monkeypatch)
+    arguments = ["--config", str(base)]
+    if layered:
+        arguments += ["--config-override", str(override), "--data-root", str(data)]
+    monkeypatch.setattr("sys.argv", ["server", *arguments, "--advertise-ip", IP])
+    responses = []
+
+    async def serve(app, *, open_browser):
+        if unavailable:
+            monkeypatch.setattr("server.network.list_addresses", lambda: [])
+        with TestClient(app) as client:
+            responses.append(client.get("/connection-help"))
+
+    monkeypatch.setattr(main, "_serve", serve)
+    main.main()
+    output = capsys.readouterr().out
+    response = responses[0]
+    assert response.status_code == (503 if unavailable else 200)
+    assert response.headers["cache-control"] == "no-store"
+    prefix = f"{BUNDLED} -m server.diagnostics" if bundled else r".venv\Scripts\python -m server.diagnostics"
+    config_args = layered_args(folder) if layered else f'--config "{base}"'
+    command = f"{prefix} {config_args} --advertise-ip {IP} --json"
+    assert f"<code>{escape(command)} &gt; connection-report.json</code>" in response.text
+    assert f"HTTPS再確認: 再起動後、{command}" in output
+    assert "コマンドプロンプト" in response.text
+    assert "起動時" in response.text
+    assert "start.bat --diagnose" in response.text
+    assert "{{" not in response.text
+    if bundled:
+        assert ".venv" not in response.text
+    if unavailable:
+        assert "https://" not in response.text
+
+    saved = next(unescape(code) for code in re.findall(r"<code>(.*?)</code>", response.text)
+                 if code.endswith("&gt; connection-report.json"))
+    diag_args = split(saved.removesuffix(" > connection-report.json"))
+    use_network(monkeypatch)
+    deny_os_observations(monkeypatch)
+    assert diagnostics.main(diag_args[diag_args.index("--config"):]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ports"]["http"] == (18123 if layered else 8000)
+    assert report["network"]["selected_ip"] == IP
+    assert report["record"]["config_file"] == str(base)
+    if layered:
+        assert report["tls"]["certificate"]["status"] == "ok"
+        assert report["config_layer_args"] == f'--config-override "{override}" --data-root "{data}"'
+    else:
+        assert "config_layer_args" not in report
 
 
 def deny_os_observations(monkeypatch):

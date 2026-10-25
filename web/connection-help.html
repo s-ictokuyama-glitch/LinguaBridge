@@ -23,8 +23,12 @@
     <summary>設定担当者向け：診断と次の操作</summary>
     <p>サーバーPCで、起動ウィンドウを残して別のターミナルを開き、アプリのフォルダで
       <code>start.bat --diagnose</code> を実行します。OS設定を変更せず、接続先・待受・HTTP・TLS・ファイアウォールを調べます。
-      詳細の保存は <code>.venv\Scripts\python -m server.diagnostics --json &gt; connection-report.json</code>。
-      カスタム設定で起動した場合は、診断にも同じ <code>--config</code> を指定してください。</p>
+      カスタム設定や一時選択したIPでの診断は、起動ログの診断コマンドを参照してください。</p>
+    <!-- diagnostics-command -->
+    <p>起動時の設定・上書き設定・データ領域・公開IPで詳細を保存するには、サーバーPCのコマンドプロンプトで、
+      アプリのフォルダから次を実行します。</p>
+    <p><code>{{diagnostics_command}} &gt; connection-report.json</code></p>
+    <!-- /diagnostics-command -->
     <!-- remote-steps -->
     <p>このページは操作案内です。診断を自動実行した結果ではありません。以下のIPは起動時と同じ規則による現在の候補で、Wi-Fiの実アダプターと照合してください。</p>
     <p>IPが127.0.0.1や169.254で始まる場合は、別端末用のURLとして使わず、担当者がWi-FiのIPv4と候補の取得状況を確認してください。</p>
