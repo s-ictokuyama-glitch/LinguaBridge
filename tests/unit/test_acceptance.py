@@ -154,6 +154,17 @@ class TestLatencyDrift:
         assert d.empty_windows == 1
         assert len(d.windows) == 2
 
+    def test_post_duration_drain_samples_are_not_a_final_window(self):
+        # 本試験終了後の drain は最後の翻訳を待つ猶予で、定常運転の時間窓ではない。
+        # 少数の終了時字幕を「最後の5分」と比較すると偽のドリフトになる。
+        samples = [(float(t), 100) for t in range(0, 1800, 10)]
+        samples += [(1805.0, 1800), (1810.0, 2090)]
+        d = latency_drift(samples, observation_s=1800)
+        assert d is not None
+        assert [w.index for w in d.windows] == list(range(6))
+        assert d.last_median_s == 0.1
+        assert not d.drifting
+
 
 class TestResourceTrend:
     """スレッド・ハンドル・asyncioタスクのリーク検出（#32）。"""
@@ -249,6 +260,16 @@ class TestRestoreGaps:
         assert r.gaps == 0
         assert r.beyond_history == 0
         assert r.complete
+        assert r.by_student == {
+            "s0": {
+                "lang": "en", "received": 3, "published": 3,
+                "recoverable": 3, "gaps": 0, "beyond_history": 0,
+            },
+            "s1": {
+                "lang": "en", "received": 3, "published": 3,
+                "recoverable": 3, "gaps": 0, "beyond_history": 0,
+            },
+        }
 
     def test_gap_inside_the_history_window_is_a_failure(self):
         # seq=2 だけ欠けている。履歴上限(50)の内側なので復元されるべきだった
@@ -257,6 +278,7 @@ class TestRestoreGaps:
         assert r.beyond_history == 0
         assert not r.complete
         assert r.worst_student == "s0"
+        assert r.by_student["s0"]["gaps"] == 1
 
     def test_gap_beyond_the_history_window_is_expected(self):
         """`history_resend` を超える欠落は仕様どおり（`joined.history_from` の契約）。

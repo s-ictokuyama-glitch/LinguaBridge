@@ -117,7 +117,10 @@ class LatencyDrift:
 
 
 def latency_drift(
-    samples: list[tuple[float, int]], window_s: float = DRIFT_WINDOW_S
+    samples: list[tuple[float, int]],
+    window_s: float = DRIFT_WINDOW_S,
+    *,
+    observation_s: float | None = None,
 ) -> LatencyDrift | None:
     """`(経過秒, delay_ms)` を時間窓へ束ね、窓ごとの中央値の推移を出す（#32）。
 
@@ -125,10 +128,16 @@ def latency_drift(
     見たいので窓を並べる。判定に使うのは最初と最後の窓だけで、間の窓は
     レポートで人が読むためのもの。
 
+    `at_s` は受信時刻ではなく発話確定相当時刻を渡す。`observation_s` がある場合、
+    その境界以後に確定したサンプルだけを終了後の drain として除く。計測中に確定し、
+    backlog のため drain 中に届いた字幕は終盤窓へ残さなければならない。
+
     窓が1つしか作れない（＝推移が取れない）なら None。
     caption が1件も無かった窓は中央値に混ぜず、`empty_windows` として数える
     （0件の窓を0秒として平均すると「速くなった」に見えてしまう）。
     """
+    if observation_s is not None:
+        samples = [(at_s, delay_ms) for at_s, delay_ms in samples if at_s < observation_s]
     if not samples:
         return None
     buckets: dict[int, list[int]] = {}
@@ -233,6 +242,9 @@ class RestoreResult:
     beyond_history: int  # 履歴上限の外で届かなかった seq の総数（＝仕様どおり）
     worst_student: str | None  # gaps が最も多かった生徒
     worst_gaps: int
+    # 生徒ごとの復元集合を監査できる要約。集計値だけでは「誰かが受け取った」
+    # ことと全員が復元できたことを区別できないため、証跡へそのまま保存する。
+    by_student: dict[str, dict[str, int | str]]
 
     @property
     def complete(self) -> bool:
@@ -264,15 +276,34 @@ def restore_gaps(
     total_gaps = 0
     total_beyond = 0
     worst: tuple[str, int] | None = None
+    by_student: dict[str, dict[str, int | str]] = {}
     for sid, got in student_seqs.items():
-        published = published_by_lang.get(student_langs.get(sid, ""), set())
+        lang = student_langs.get(sid, "")
+        published = published_by_lang.get(lang, set())
         if not published:
+            by_student[sid] = {
+                "lang": lang,
+                "received": len(got),
+                "published": 0,
+                "recoverable": 0,
+                "gaps": 0,
+                "beyond_history": 0,
+            }
             continue
         # 復元対象は「最新 history_limit 件」。それより古いものは範囲外
         recoverable = set(sorted(published)[-history_limit:])
         gaps = len(recoverable - got)
+        beyond = len((published - recoverable) - got)
         total_gaps += gaps
-        total_beyond += len((published - recoverable) - got)
+        total_beyond += beyond
+        by_student[sid] = {
+            "lang": lang,
+            "received": len(got),
+            "published": len(published),
+            "recoverable": len(recoverable),
+            "gaps": gaps,
+            "beyond_history": beyond,
+        }
         if worst is None or gaps > worst[1]:
             worst = (sid, gaps)
     return RestoreResult(
@@ -281,6 +312,7 @@ def restore_gaps(
         beyond_history=total_beyond,
         worst_student=worst[0] if worst else None,
         worst_gaps=worst[1] if worst else 0,
+        by_student=by_student,
     )
 
 
