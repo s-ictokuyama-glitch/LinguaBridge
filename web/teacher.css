@@ -19,7 +19,8 @@ body:not([data-state="idle"]) #join-panel { display: none; }
 .join-step { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; min-width: 0; }
 .step-no { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: var(--paper); font-weight: 800; font-size: 1.3rem; }
 .step-cap { font-weight: 800; font-size: 1.15rem; }
-#qr { background: #fff; padding: 8px; border: 1px solid var(--rule); min-height: 216px; min-width: 216px; }
+/* QRは読み取りに4モジュール分（約24px）の白い余白が要る。余白が細いとカメラや復号器が位置を見失う */
+#qr { background: #fff; padding: 24px; border: 1px solid var(--rule); min-height: 248px; min-width: 248px; }
 .code { font-size: 4.2rem; font-weight: 800; letter-spacing: 0.12em; line-height: 1; font-variant-numeric: tabular-nums; }
 .url { font-size: 0.9rem; color: var(--ink-2); word-break: break-all; }
 

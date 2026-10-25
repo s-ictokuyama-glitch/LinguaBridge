@@ -43,6 +43,8 @@
 /* 字幕は新しいほど大きく濃く。カードは seq 順に並ぶので末尾からの位置だけで段階を決める */
 #cards { flex: 1; min-height: 0; overflow-y: auto; padding: 14px var(--gutter) 24px; display: flex; flex-direction: column; gap: 14px; }
 .card { position: relative; padding-right: 3.2em; }
+/* 大きな文字×狭い幅（200%拡大相当）でも長い英単語がカードからはみ出さないよう、単語の途中でも折り返す（STU-11） */
+.card .text, .card .ja { overflow-wrap: anywhere; }
 .card .text { line-height: 1.45; font-size: calc(1rem * var(--scale)); color: var(--ink-3); }
 .card .ja { margin-top: 3px; font-size: calc(0.78rem * var(--scale)); color: var(--ink-3); line-height: 1.5; }
 #cards .card:nth-last-child(4) .text { font-size: calc(1.05rem * var(--scale)); }
