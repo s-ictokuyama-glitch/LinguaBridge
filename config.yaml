@@ -45,6 +45,9 @@ asr:
     hotwords_score: 3.0
     # 長い発話で文が丸ごと落ちる脱落を抑える。0 で無効（同上の実測）
     blank_penalty: 1.5
+    # トークンがこの秒数以上出ない区間を再デコードして補う。長い発話の冒頭の文が丸ごと
+    # 消える脱落への対策。0 で無効（同上の実測）
+    refill_gap_s: 1.5
 
 vad:
   engine: silero             # "silero" | "energy"（energyはテスト・フォールバック用）

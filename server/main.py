@@ -78,6 +78,7 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
             hotwords_file=hotwords,
             hotwords_score=config.asr.sherpa.hotwords_score,
             blank_penalty=config.asr.sherpa.blank_penalty,
+            refill_gap_s=config.asr.sherpa.refill_gap_s,
         )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 

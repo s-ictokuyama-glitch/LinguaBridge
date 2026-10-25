@@ -75,12 +75,22 @@ class SherpaConfig(BaseModel):
     # 落ちる脱落を抑える（授業動画の実測で 1.5 が脱落を最も減らした。
     # docs/bench/2026-10-25-lesson-asr.md）
     blank_penalty: float = 1.5
+    # トークンがこの秒数以上出ない区間を再デコードして補う。0 で無効。長い発話の冒頭の文が
+    # 丸ごと消える脱落への対策（授業動画の実測で 1.5。docs/bench/2026-10-25-lesson-asr.md）
+    refill_gap_s: float = 1.5
 
     @field_validator("lead_in_ms")
     @classmethod
     def _lead_in_non_negative(cls, v: int) -> int:
         if v < 0:
             raise ValueError("asr.sherpa.lead_in_ms は0以上にすること")
+        return v
+
+    @field_validator("refill_gap_s")
+    @classmethod
+    def _refill_gap_non_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("asr.sherpa.refill_gap_s は0以上にすること")
         return v
 
     @field_validator("blank_penalty")
