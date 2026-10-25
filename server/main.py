@@ -149,6 +149,7 @@ def create_app(
     mt_engine: TranslationEngine | None = None,
     join_code: str | None = None,
     join_limiter: JoinRateLimiter | None = None,
+    diagnostics_command: str | None = None,
 ) -> FastAPI:
     roster = Roster(config.limits)
     pipeline = Pipeline(
@@ -191,6 +192,13 @@ def create_app(
             "http_port": publication.http_port, "https_port": publication.https_port,
             "record_template": record_template(),
         }
+        if diagnostics_command is None:
+            page = re.sub(
+                r"<!-- diagnostics-command -->.*?<!-- /diagnostics-command -->\s*",
+                "", page, flags=re.S,
+            )
+        else:
+            values["diagnostics_command"] = diagnostics_command
         # テンプレートは <!-- remote-steps --> と <!-- unavailable-steps --> の2区間を持ち、片方だけ残す。
         try:
             values["ip"] = publication.current().ip
@@ -370,7 +378,8 @@ def main() -> None:
         publication = Publication(config.server, requested_ip=args.advertise_ip,
                                   interactive=args.select_network)
         ip = publication.ip
-        app = create_app(config, publication)
+        diagnostics_command = f"{commands.diagnostics} {config_args} --advertise-ip {ip} --json"
+        app = create_app(config, publication, diagnostics_command=diagnostics_command)
     except (FileNotFoundError, ValueError) as exc:  # モデル欠損/設定不整合（E-13）。生tbを見せない
         print(f"起動できません: {exc}")
         raise SystemExit(1) from exc
@@ -398,7 +407,7 @@ def main() -> None:
     if not https or (days is not None and days < 30):
         print("  サーバーを停止して次を実行（旧証明書・鍵は一組で自動退避）:")
         print(f"    {commands.make_cert} {config_args} --advertise-ip {ip} --force")
-    print(f"  HTTPS再確認: 再起動後、{commands.diagnostics} {config_args} --advertise-ip {ip} --json")
+    print(f"  HTTPS再確認: 再起動後、{diagnostics_command}")
     print("  警告承認・復元手順: docs/certificate-recovery.md")
     print("=" * 66)
     try:
