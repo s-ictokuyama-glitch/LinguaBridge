@@ -1,0 +1,7 @@
+# Optional classroom accuracy profile; CPU transcription takes longer than ReazonSpeech.
+# python -m server.main --config-override config.accuracy.yaml
+asr:
+  engine: faster-whisper
+  model: kotoba-whisper-v2.0-faster
+vad:
+  pre_roll_ms: 480

@@ -9,7 +9,7 @@ VC++ ランタイムのインストーラー・版情報を載せた本体領域
   (1) 同梱したネイティブDLLの依存先が「同梱物・Windows 標準・VC++ ランタイム」のどれか
   (2) 実エンジンのネイティブモジュールを同梱の Python で import できる
   (3) 同梱の llama.cpp が CPU を判定して命令セットを選ぶ作りで（AVX-512 前提でない、#52）、
-      同梱の Python で Hy-MT2 をロードして翻訳できる
+      同梱の Python で選択ASR/MTをロード・warmupし、選択MTで翻訳できる
   (4) 同梱の Python から、フェイクのエンジン構成と一時的なデータルートでサーバーを起動し、
       準備完了のエンドポイントが 200 を返す
 
@@ -39,14 +39,20 @@ import urllib.error
 import urllib.request
 import zipfile
 from collections.abc import Iterable, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+sys.dont_write_bytecode = True
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scripts.download_models import SPECS, ModelSpec  # noqa: E402
-from server.config import load_config  # noqa: E402
+from scripts.download_models import SPECS, ModelSpec, download_one  # noqa: E402
+from server.config import AppConfig, load_config  # noqa: E402
 
 EMBED_PYTHON_VERSION = "3.12.10"
 EMBED_PYTHON_URL = (
@@ -57,8 +63,6 @@ EMBED_PYTHON_URL = (
 EMBED_PYTHON_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
 VC_REDIST_URL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 
-# 既定構成（reazonspeech-k2-v2 と hy-mt2）と予備の NLLB（本体とトークナイザ）。whisper 系は運ばない
-BUNDLED_MODELS = ("reazonspeech", "hy-mt2", "nllb", "nllb-tokenizer")
 SPECS_BY_NAME = {spec.name: spec for spec in SPECS}
 NATIVE_MODULES = ("sherpa_onnx", "llama_cpp", "ctranslate2", "onnxruntime")
 
@@ -85,7 +89,6 @@ VC_RUNTIME_DLLS = frozenset({
     "concrt140.dll", "vccorlib140.dll", "vcomp140.dll", "vcamp140.dll",
 })
 
-MODELS_DIR_LINE = re.compile(r'^(  dir: )"%LOCALAPPDATA%/LinguaBridge/models"$', re.MULTILINE)
 CODE_FILES = (
     "scripts/__init__.py", "scripts/run.ps1", "scripts/launcher.ps1", "scripts/make_cert.py",
     "scripts/diagnose_windows.ps1", "scripts/network_interfaces.ps1",
@@ -108,19 +111,76 @@ HYMT_SAMPLE = "こんにちは。"
 LLAMA_PROBE = """\
 import json, sys
 import llama_cpp
-from server.config import load_config
-from server.mt.hymt_engine import HyMt2Engine, load_cpu_backends
+from server.mt.hymt_engine import load_cpu_backends
 load_cpu_backends()
 print(json.dumps({"system_info": llama_cpp.llama_print_system_info().decode()}), flush=True)
-config = load_config(sys.argv[1])
-engine = HyMt2Engine(config.models.resolve(config.mt.hy_mt2.gguf_path))
-engine.warmup()
-print(json.dumps({"translation": engine.translate(sys.argv[2], "en")}), flush=True)
 """
 
 
 class BuildError(Exception):
     """ビルドを止める理由。メッセージはそのまま開発者に見せる。"""
+
+
+@dataclass(frozen=True)
+class ModelBinding:
+    name: str
+    field: str
+    gguf: bool = False
+
+
+@dataclass(frozen=True)
+class EngineChoice:
+    section: str
+    engine: str
+    label: str
+    models: tuple[ModelBinding, ...]
+
+
+ENGINE_CHOICES = (
+    EngineChoice("asr", "sherpa", "ReazonSpeech（高速・句読点なし）",
+                 (ModelBinding("reazonspeech", "asr.sherpa.model"),)),
+    EngineChoice("asr", "faster-whisper", "Kotoba（精度重視・CPUではReazonSpeechより遅い）",
+                 (ModelBinding("kotoba", "asr.model"),)),
+    EngineChoice("asr", "faster-whisper", "Whisper small（多言語）",
+                 (ModelBinding("whisper-small", "asr.model"),)),
+    EngineChoice("mt", "hy-mt2", "Hy-MT2（品質重視）",
+                 (ModelBinding("hy-mt2", "mt.hy_mt2.gguf_path", gguf=True),)),
+    EngineChoice("mt", "nllb", "NLLB（翻訳品質の既知課題 #53・非商用限定）",
+                 (ModelBinding("nllb", "mt.nllb.model_dir"),
+                  ModelBinding("nllb-tokenizer", "mt.nllb.tokenizer_dir"))),
+)
+MODEL_DEPENDENCIES = {
+    choice.models[0].name: tuple(binding.name for binding in choice.models[1:])
+    for choice in ENGINE_CHOICES if len(choice.models) > 1
+}
+
+
+def _config_field(config: AppConfig, field: str):
+    value = config
+    for part in field.split("."):
+        value = getattr(value, part)
+    return value
+
+
+@dataclass(frozen=True)
+class MissingModel:
+    spec: ModelSpec
+    directory: Path
+    reason: str
+
+
+class MissingModels(BuildError):
+    def __init__(self, models: tuple[MissingModel, ...]):
+        self.models = models
+        super().__init__("\n".join(
+            f"{item.spec.name}: {item.directory}（{item.reason}）\n"
+            f"取得: .venv\\Scripts\\python scripts/download_models.py --only {item.spec.name}"
+            for item in models
+        ))
+
+
+class BuildCancelled(Exception):
+    pass
 
 
 # ---- 純粋な判定（tests/unit/test_build_package.py） ------------------------------------------
@@ -193,8 +253,13 @@ def _spec_files(spec: ModelSpec, directory: Path) -> tuple[list[Path], str | Non
     files = _visible_files(directory)
     if spec.kind == "gguf":
         matches = [f for f in files if fnmatch.fnmatch(f.name.lower(), spec.gguf_pattern.lower())]
-        return (matches[:1], None) if matches else ([], f"{spec.gguf_pattern} がありません")
+        if len(matches) > 1:
+            raise BuildError(f"{spec.name}: {spec.gguf_pattern} の候補が複数あります")
+        return (matches, None) if matches else ([], f"{spec.gguf_pattern} がありません")
     if spec.allow_patterns is None:
+        for name in ("model.bin", "config.json"):
+            if not (directory / name).is_file():
+                return [], f"{name} がありません"
         return (files, None) if files else ([], "ファイルがありません")
     chosen: list[Path] = []
     for pattern in spec.allow_patterns:
@@ -205,26 +270,289 @@ def _spec_files(spec: ModelSpec, directory: Path) -> tuple[list[Path], str | Non
     return chosen, None
 
 
-def bundled_model_files(models_dir: Path) -> list[Path]:
-    """同梱するモデルのファイル一覧。1つでも欠けていれば取得方法つきで止める。"""
-    files: list[Path] = []
-    problems: list[str] = []
-    for name in BUNDLED_MODELS:
+@dataclass(frozen=True)
+class BundleFile:
+    source: Path
+    relative: PurePosixPath
+    bytes: int
+
+
+@dataclass(frozen=True)
+class BundledModel:
+    spec: ModelSpec
+    files: tuple[BundleFile, ...]
+    required_by: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class BundlePlan:
+    config_yaml: str
+    models: tuple[BundledModel, ...]
+
+    @property
+    def total_bytes(self) -> int:
+        return sum(file.bytes for model in self.models for file in model.files)
+
+
+def _relative_path(value: str, field: str) -> PurePosixPath:
+    path = PurePosixPath(value.replace("\\", "/"))
+    if path.is_absolute() or ".." in path.parts or ":" in value or not path.parts:
+        raise BuildError(f"{field}: モデル内の相対パスを指定してください: {value}")
+    return path
+
+
+def _load_build_config(config_path: Path, override: Path | None) -> AppConfig:
+    for path in (config_path, override):
+        if path is not None and not path.is_file():
+            raise BuildError(f"設定ファイルがありません: {path}")
+    try:
+        return load_config(config_path, override=override)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise BuildError(f"設定を読み込めません: {exc}") from exc
+
+
+def plan_bundle(
+    config_path: Path, *, override: Path | None = None, models_dir: Path | None = None,
+    include: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
+) -> BundlePlan:
+    return _inspect_bundle(_load_build_config(config_path, override), models_dir=models_dir,
+                           include=include, exclude=exclude)
+
+
+def _check_model_links(directory: Path) -> None:
+    for entry in (*directory.parents, directory, *directory.rglob("*")):
+        if entry.is_symlink() or entry.is_junction():
+            raise BuildError(f"モデル内のリンクは同梱できません: {entry}")
+
+
+def _configured_choices(config: AppConfig) -> tuple[EngineChoice, ...]:
+    choices = []
+    for section in ("asr", "mt"):
+        engine = getattr(config, section).engine
+        candidates = [choice for choice in ENGINE_CHOICES
+                      if choice.section == section and choice.engine == engine]
+        if not candidates:
+            raise BuildError(f"配布できない {section}.engine: {engine}")
+        selected = None
+        for choice in candidates:
+            binding = choice.models[0]
+            value = _config_field(config, binding.field)
+            relative = _relative_path(value, binding.field)
+            model_path = relative.parent if binding.gguf else relative
+            if model_path.as_posix() == SPECS_BY_NAME[binding.name].subdir:
+                selected = choice
+                break
+        if selected is None:
+            field = candidates[0].models[0].field
+            raise BuildError(f"{field}: 登録モデルと一致しないパスです: {_config_field(config, field)}")
+        choices.append(selected)
+    return tuple(choices)
+
+
+def _inspect_bundle(
+    config: AppConfig, *, models_dir: Path | None = None,
+    include: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
+) -> BundlePlan:
+    root = (models_dir or config.models.resolved_dir).absolute()
+    unknown = (set(include) | set(exclude)) - SPECS_BY_NAME.keys()
+    if unknown:
+        raise BuildError(f"未知のモデル名: {', '.join(sorted(unknown))}")
+    if set(include) & set(exclude):
+        raise BuildError("include/exclude に同じモデルがあります")
+    required: dict[str, list[str]] = {}
+    exact_gguf: Path | None = None
+    for selected in _configured_choices(config):
+        for binding in selected.models:
+            relative = _relative_path(_config_field(config, binding.field), binding.field)
+            model_path = relative.parent if binding.gguf else relative
+            if model_path.as_posix() != SPECS_BY_NAME[binding.name].subdir:
+                raise BuildError(f"{binding.field}: 登録モデルと一致しないパスです: {relative}")
+            if binding.gguf:
+                if relative.suffix.lower() != ".gguf":
+                    raise BuildError(f"{binding.field}: GGUF を指定してください")
+                exact_gguf = root / Path(relative)
+            required.setdefault(binding.name, []).append(binding.field)
+    if config.asr.engine == "sherpa" and config.asr.sherpa.hotwords_file:
+        raise BuildError("asr.sherpa.hotwords_file は配布に収録できません")
+    for name in include:
+        required.setdefault(name, []).append("--include-model")
+    for name in tuple(required):
+        for dependency in MODEL_DEPENDENCIES.get(name, ()):
+            required.setdefault(dependency, []).append(f"{name} の依存")
+    for name in exclude:
+        if name in required:
+            raise BuildError(f"{name} は {', '.join(required[name])} が必要としています。除外できません")
+    models = []
+    missing = []
+    for name in sorted(required):
         spec = SPECS_BY_NAME[name]
-        directory = models_dir / spec.subdir
-        found, problem = _spec_files(spec, directory)
-        if problem is not None:
-            problems.append(
-                f"  - {name}: {directory}（{problem}）\n"
-                f"      取得: .venv\\Scripts\\python scripts/download_models.py --only {name}"
-            )
-        files.extend(found)
-    if problems:
-        raise BuildError(
-            "同梱するモデルが開発機に揃っていません。取得してからビルドし直してください:\n"
-            + "\n".join(problems)
-        )
-    return files
+        directory = root / spec.subdir
+        _check_model_links(directory)
+        if name == "hy-mt2" and exact_gguf is not None:
+            found = [exact_gguf] if exact_gguf.is_file() else []
+            problem = None if found else f"{exact_gguf.name} がありません"
+        else:
+            found, problem = _spec_files(spec, directory)
+        if problem:
+            missing.append(MissingModel(spec, directory, problem))
+            continue
+        files = []
+        for source in sorted(set(found)):
+            relative = source.relative_to(root)
+            if not source.resolve().is_relative_to(root.resolve()):
+                raise BuildError(f"モデル内のリンク/外部パスは同梱できません: {source}")
+            files.append(BundleFile(source, PurePosixPath(relative.as_posix()), source.stat().st_size))
+        models.append(BundledModel(spec, tuple(files), tuple(required[name])))
+    if missing:
+        raise MissingModels(tuple(missing))
+    distribution = config.model_copy(deep=True)
+    distribution.models.dir = "models/"
+    return BundlePlan(yaml.safe_dump(distribution.model_dump(mode="json"), allow_unicode=True,
+                                     sort_keys=False), tuple(models))
+
+
+def render_plan(plan: BundlePlan) -> str:
+    lines = []
+    for model in plan.models:
+        size = sum(file.bytes for file in model.files)
+        lines.append(f"{model.spec.name}: {size} bytes ({', '.join(model.required_by)})")
+        lines.extend(f"  {file.relative}: {file.bytes} bytes <- {file.source}" for file in model.files)
+    lines.append(f"モデルpayload合計: {plan.total_bytes} bytes（ZIP全体の容量ではありません）")
+    return "\n".join(lines)
+
+
+def _answer(prompt: str) -> str:
+    answer = input(prompt).strip()
+    if answer.lower() == "q":
+        raise BuildCancelled
+    return answer
+
+
+def _numbers(prompt: str, count: int, *, multiple: bool = False) -> tuple[int, ...]:
+    while True:
+        answer = _answer(prompt)
+        if not answer:
+            return ()
+        parts = answer.split(",") if multiple else [answer]
+        if all(part.strip().isascii() and part.strip().isdigit() for part in parts):
+            values = tuple(int(part.strip()) for part in parts)
+            if all(1 <= value <= count for value in values):
+                return tuple(dict.fromkeys(values))
+        print(f"1〜{count} の番号を入力してください" + ("（複数はカンマ区切り）。" if multiple else "。"))
+
+
+def _confirm(prompt: str) -> None:
+    while True:
+        answer = _answer(prompt + " [y/N、qで中止]: ").lower()
+        if answer in ("y", "yes", "はい"):
+            return
+        if answer in ("", "n", "no", "いいえ"):
+            raise BuildCancelled
+        print("y または n を入力してください。")
+
+
+def _interactive_config(config: AppConfig) -> tuple[AppConfig, tuple[str, ...]]:
+    selected = config.model_copy(deep=True)
+    print("配布パッケージの作成。Enterは現在設定を維持、qで中止します。")
+    for section, title in (("asr", "音声認識"), ("mt", "翻訳")):
+        choices = [choice for choice in ENGINE_CHOICES if choice.section == section]
+        print(f"\n{title}（現在: {getattr(selected, section).engine}）")
+        for number, choice in enumerate(choices, 1):
+            licenses = ", ".join(dict.fromkeys(SPECS_BY_NAME[b.name].license for b in choice.models))
+            print(f"  {number}. {choice.label} [{licenses}]")
+        numbers = _numbers("番号 [Enter: 現在設定]: ", len(choices))
+        if not numbers:
+            continue
+        choice = choices[numbers[0] - 1]
+        getattr(selected, section).engine = choice.engine
+        for binding in choice.models:
+            if binding.gguf:
+                continue
+            parent, _, field = binding.field.rpartition(".")
+            setattr(_config_field(selected, parent), field, SPECS_BY_NAME[binding.name].subdir)
+        if choice.models[0].name == "kotoba":
+            profile = _load_build_config(ROOT / "config.yaml", ROOT / "config.accuracy.yaml")
+            selected.vad.pre_roll_ms = profile.vad.pre_roll_ms
+            print(f"Kotoba用のaccuracy profileを適用: vad.pre_roll_ms={selected.vad.pre_roll_ms}。"
+                  "CPUでの認識はReazonSpeechより遅くなります。")
+    active = {binding.name for choice in _configured_choices(selected) for binding in choice.models}
+    print("\n追加同梱（起動エンジンは変わりません。Enter: なし）。NLLBは品質課題 #53 があります。")
+    for number, spec in enumerate(SPECS, 1):
+        dependencies = MODEL_DEPENDENCIES.get(spec.name, ())
+        note = f"、依存 {', '.join(dependencies)} は自動追加" if dependencies else ""
+        status = "（起動設定で同梱必須）" if spec.name in active else ""
+        print(f"  {number}. {spec.name}{status} [{spec.license}]{note}")
+    numbers = _numbers("番号（例 1,3） [Enter: なし]: ", len(SPECS), multiple=True)
+    return AppConfig.model_validate(selected.model_dump()), tuple(SPECS[n - 1].name for n in numbers)
+
+
+@contextmanager
+def _interactive_work_lock(work_dir: Path):
+    work_dir.mkdir(parents=True, exist_ok=True)
+    with (work_dir / "interactive.lock").open("a+b") as lock:
+        if lock.tell() == 0:
+            lock.write(b"\0")
+            lock.flush()
+        lock.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise BuildError(f"同じ作業領域で対話ビルドが実行中です: {work_dir}") from exc
+        try:
+            yield
+        finally:
+            lock.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def interactive_build(
+    config: AppConfig, *, models_dir: Path | None, work_dir: Path, out_dir: Path,
+    include: tuple[str, ...] = (), exclude: tuple[str, ...] = (), plan_only: bool = False,
+) -> Path | None:
+    config, extras = _interactive_config(config)
+    folder = _answer(f"\nZIPの出力フォルダー [Enter: {out_dir}]: ")
+    if folder:
+        out_dir = Path(os.path.expandvars(folder.strip('"'))).expanduser()
+    out_dir = out_dir.absolute()
+    print(f"出力先: {out_dir}（実ビルド時に固有サブフォルダーを作成）")
+    print(f"起動設定: ASR={config.asr.engine}, MT={config.mt.engine}, "
+          f"vad.pre_roll_ms={config.vad.pre_roll_ms}")
+    try:
+        plan = _inspect_bundle(config, models_dir=models_dir, include=include + extras, exclude=exclude)
+    except MissingModels as missing:
+        print("\n選択モデルが不足しています。取得前の正確なbytesは不明です。")
+        for item in missing.models:
+            print(f"  {item.spec.name} [{item.spec.license}]: {item.directory}（{item.reason}）")
+        if plan_only:
+            print("プレビューのため取得・書き込みは行いません。")
+            raise
+        _confirm("表示した不足モデルだけをダウンロードしますか？")
+        root = (models_dir or config.models.resolved_dir).absolute()
+        for item in missing.models:
+            _check_model_links(item.directory)
+            try:
+                download_one(item.spec, root)
+            except Exception as exc:
+                raise BuildError(f"{item.spec.name} の取得に失敗しました: {exc}") from exc
+        plan = _inspect_bundle(config, models_dir=models_dir, include=include + extras, exclude=exclude)
+    print("\n" + render_plan(plan))
+    if plan_only:
+        print("プレビュー完了。取得・書き込みは行いません。")
+        return None
+    _confirm("この設定とモデルでビルドを開始しますか？")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    run_out = Path(tempfile.mkdtemp(prefix="build-", dir=out_dir))
+    return build(work_dir, run_out, plan)
 
 
 # ---- ビルドの各段階 --------------------------------------------------------------------------
@@ -371,40 +699,34 @@ def copy_code(app: Path, stage: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / relative, target)
     shutil.copy2(ROOT / "start.bat", stage / "start.bat")
-    write_distribution_config(ROOT / "config.yaml", app / "config.yaml")
 
 
-def write_distribution_config(source: Path, dest: Path) -> None:
-    """配布用の既定の設定。開発機の config.yaml から、モデルの場所だけを app 内に変える。"""
-    text, count = MODELS_DIR_LINE.subn(
-        r"\1models/   # 配布パッケージ: app\\models（app 基準の相対）",
-        source.read_text(encoding="utf-8"),
-    )
-    if count != 1:
-        raise BuildError(f"{source} の models.dir を配布用に置き換えられませんでした（書式が変わった？）")
-    dest.write_text(text, encoding="utf-8")
-    if load_config(dest).models.dir != "models/":
-        raise BuildError("配布用の既定の設定で models.dir が app 内を指していません")
+def write_distribution_config(plan: BundlePlan, dest: Path) -> None:
+    dest.write_bytes(plan.config_yaml.encode("utf-8"))
 
 
-def copy_models(models_dir: Path, files: list[Path], dest: Path) -> None:
-    for source in files:
-        target = dest / source.relative_to(models_dir)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-    # 同梱モデルの出所とライセンス（NLLB は CC-BY-NC）を app 内に残す
+def copy_models(plan: BundlePlan, dest: Path) -> None:
+    expected = {file.relative.as_posix(): file.bytes for model in plan.models for file in model.files}
+    for model in plan.models:
+        for file in model.files:
+            if file.source.stat().st_size != file.bytes:
+                raise BuildError(f"計画後にモデルのサイズが変わりました: {file.source}")
+            target = dest / Path(file.relative)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file.source, target)
+    actual = {path.relative_to(dest).as_posix(): path.stat().st_size for path in dest.rglob("*") if path.is_file()}
+    if actual != expected:
+        raise BuildError("コピーしたモデルのファイル集合/サイズが計画と一致しません")
     manifest = {
-        name: {
-            "repo_id": SPECS_BY_NAME[name].repo_id,
-            "license": SPECS_BY_NAME[name].license,
-            "note": SPECS_BY_NAME[name].note,
-            "path": SPECS_BY_NAME[name].subdir,
+        model.spec.name: {
+            "repo_id": model.spec.repo_id, "license": model.spec.license,
+            "note": model.spec.note, "path": model.spec.subdir,
+            "files": [file.relative.as_posix() for file in model.files],
+            "bytes": sum(file.bytes for file in model.files),
         }
-        for name in BUNDLED_MODELS
+        for model in plan.models
     }
-    (dest / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def fetch_vc_redist(cache: Path, dest: Path) -> None:
@@ -423,6 +745,7 @@ def _require_signature(path: Path, organization: str) -> None:
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
          f"$s = Get-AuthenticodeSignature -LiteralPath '{path}'; "
          "\"$($s.Status)|$($s.SignerCertificate.Subject)\""],
+        env={key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"},
         capture_output=True, encoding="utf-8",
     ).stdout.strip()
     status, _, subject = signature.partition("|")
@@ -442,13 +765,15 @@ def git_commit() -> tuple[str, bool]:
         raise BuildError(f"コミットを取得できませんでした: {exc}") from exc
 
 
-def write_version(app: Path, built_at: datetime, commit: str, dirty: bool) -> dict:
+def write_version(app: Path, built_at: datetime, commit: str, dirty: bool, plan: BundlePlan) -> dict:
     version = {
         "built_at": built_at.isoformat(timespec="seconds"),
         "commit": commit,
         "dirty": dirty,  # 未コミットの変更を含んだビルドか
         "python": EMBED_PYTHON_VERSION,
-        "models": list(BUNDLED_MODELS),
+        "models": [model.spec.name for model in plan.models],
+        "model_bytes": plan.total_bytes,
+        "config_sha256": hashlib.sha256(plan.config_yaml.encode("utf-8")).hexdigest(),
     }
     (app / "version.json").write_text(json.dumps(version, indent=2), encoding="utf-8")
     return version
@@ -520,15 +845,45 @@ def verify_llama_cpp(app: Path, python: Path) -> None:
         problem = llama_cpu_problem(reports["system_info"], lib_files)
         if problem is not None:
             raise BuildError(problem)
-    if result.returncode != 0 or not reports.get("translation"):
+    if result.returncode != 0 or not reports.get("system_info"):
         raise BuildError(
-            f"同梱の Python で Hy-MT2 をロードして翻訳できませんでした（終了コード {result.returncode}）:\n"
+            f"同梱の Python で llama.cpp の CPU 対応を確認できませんでした（終了コード {result.returncode}）:\n"
             + (result.stdout + result.stderr)[-4000:]
         )
     variants = sum(1 for name in lib_files if CPU_VARIANT_DLL.fullmatch(name))
     kind = f"CPU 判定版（{variants} 種の ggml-cpu-*.dll）" if variants else "CPU 判定なし・AVX-512 不使用"
     print(f"llama.cpp: {kind}。この開発機での命令セット: {reports['system_info'].strip()}")
-    print(f"Hy-MT2: {HYMT_SAMPLE} → {reports['translation']}")
+
+
+
+SELECTED_ENGINES_PROBE = """\
+import json, sys
+from server.config import load_config
+from server.main import build_asr_engine, build_mt_engine
+config = load_config(sys.argv[1])
+asr = build_asr_engine(config)
+asr.warmup()
+del asr
+mt = build_mt_engine(config)
+mt.warmup()
+translation = mt.translate(sys.argv[2], config.language_codes[0])
+assert isinstance(translation, str) and translation.strip(), "翻訳が空です"
+print(json.dumps({"asr": config.asr.engine, "mt": config.mt.engine, "translation": translation}), flush=True)
+"""
+
+
+def verify_selected_engines(app: Path, python: Path) -> None:
+    result = subprocess.run(
+        [str(python), "-B", "-c", SELECTED_ENGINES_PROBE, str(app / "config.yaml"), HYMT_SAMPLE],
+        env=_clean_env(),
+        capture_output=True, encoding="utf-8", errors="replace",
+    )
+    if result.returncode != 0:
+        raise BuildError(
+            f"選択ASR/MTのロード・warmup・翻訳に失敗しました（終了コード {result.returncode}）:\n"
+            + (result.stdout + result.stderr)[-4000:]
+        )
+    print(result.stdout.strip())
 
 
 def _free_port() -> int:
@@ -611,11 +966,7 @@ def write_zip(stage: Path, dest: Path) -> None:
     partial.replace(dest)
 
 
-def build(work_dir: Path, out_dir: Path, models_dir: Path) -> Path:
-    _step("同梱するモデルの確認")
-    model_files = bundled_model_files(models_dir)
-    print(f"{models_dir} から {len(model_files)} ファイル")
-
+def build(work_dir: Path, out_dir: Path, plan: BundlePlan) -> Path:
     built_at = datetime.now(timezone.utc).astimezone()
     commit, dirty = git_commit()
     cache = work_dir / "cache"
@@ -635,20 +986,22 @@ def build(work_dir: Path, out_dir: Path, models_dir: Path) -> Path:
     install_dependencies(app / "python" / "Lib" / "site-packages", work_dir, frozen, llama_wheel)
     _step("コード・Web・既定の設定")
     copy_code(app, stage)
+    write_distribution_config(plan, app / "config.yaml")
     _step("モデル")
-    copy_models(models_dir, model_files, app / "models")
+    copy_models(plan, app / "models")
     _step("VC++ ランタイムのインストーラー")
     fetch_vc_redist(cache, app / "vc_redist.x64.exe")
     _step("版情報")
-    version = write_version(app, built_at, commit, dirty)
+    version = write_version(app, built_at, commit, dirty, plan)
     print(json.dumps(version, ensure_ascii=False))
 
     _step("自己検証 (1) ネイティブDLLの依存")
     verify_dll_dependencies(app)
     _step("自己検証 (2) 実エンジンのネイティブモジュール")
     verify_native_modules(python)
-    _step("自己検証 (3) llama.cpp の CPU 対応と Hy-MT2 の翻訳")
+    _step("自己検証 (3) llama.cpp の CPU 対応")
     verify_llama_cpp(app, python)
+    verify_selected_engines(app, python)
     _step("自己検証 (4) 同梱の Python でサーバーの準備完了")
     verify_server_ready(app, python)
 
@@ -662,20 +1015,50 @@ def build(work_dir: Path, out_dir: Path, models_dir: Path) -> Path:
 
 def main() -> int:
     local = Path(os.path.expandvars("%LOCALAPPDATA%")) / "LinguaBridge"
-    parser = argparse.ArgumentParser(description="配布パッケージの zip をビルドする（#46）")
-    parser.add_argument("--work-dir", type=Path, default=local / "build",
+    parser = argparse.ArgumentParser(
+        description="配布パッケージの zip をビルドする（#46）",
+        epilog="モデル名: " + ", ".join(SPECS_BY_NAME),
+    )
+    parser.add_argument("--work-dir", type=Path, default=None,
                         help="作業領域（取得物のキャッシュと組み立て中の app）")
     parser.add_argument("--out-dir", type=Path, default=local / "dist", help="zip の出力先")
     parser.add_argument("--models-dir", type=Path, default=None,
                         help="同梱するモデルの取得元（既定: config.yaml の models.dir）")
+    parser.add_argument("--config", type=Path, default=ROOT / "config.yaml", help="基底設定")
+    parser.add_argument("--config-override", type=Path, help="基底設定へ重ねる部分設定")
+    parser.add_argument("--include-model", action="append", default=[], metavar="NAME", help="追加同梱（複数可。nllbはtokenizerも追加）")
+    parser.add_argument("--exclude-model", action="append", default=[], metavar="NAME", help="同梱禁止（必須モデルならエラー）")
+    parser.add_argument("--plan", action="store_true", help="通信・書込なしでローカル同梱計画とbytesを表示")
+    parser.add_argument("--interactive", action="store_true", help="日本語で起動モデル・追加同梱・出力先を選ぶ")
     args = parser.parse_args()
-    models_dir = args.models_dir or load_config(ROOT / "config.yaml").models.resolved_dir
+    work_dir = args.work_dir or local / ("build-interactive" if args.interactive else "build")
     try:
-        dest = build(args.work_dir, args.out_dir, models_dir)
-    except BuildError as exc:
+        if args.interactive:
+            config = _load_build_config(args.config, args.config_override)
+            kwargs = dict(models_dir=args.models_dir, work_dir=work_dir, out_dir=args.out_dir,
+                          include=tuple(args.include_model), exclude=tuple(args.exclude_model),
+                          plan_only=args.plan)
+            if args.plan:
+                dest = interactive_build(config, **kwargs)
+            else:
+                with _interactive_work_lock(work_dir):
+                    dest = interactive_build(config, **kwargs)
+            if dest is None:
+                return 0
+        else:
+            plan = plan_bundle(args.config, override=args.config_override, models_dir=args.models_dir,
+                               include=tuple(args.include_model), exclude=tuple(args.exclude_model))
+            print(render_plan(plan))
+            if args.plan:
+                return 0
+            dest = build(work_dir, args.out_dir, plan)
+        print(f"\n完了: {dest}（{dest.stat().st_size / 1e9:.2f} GB）")
+    except (BuildCancelled, EOFError, KeyboardInterrupt):
+        print("\n中止しました。")
+        return 0
+    except (BuildError, OSError, ValueError, yaml.YAMLError) as exc:
         print(f"\n[ビルド失敗] {exc}", file=sys.stderr)
         return 1
-    print(f"\n完了: {dest}（{dest.stat().st_size / 1e9:.2f} GB）")
     return 0
 
 
