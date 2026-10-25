@@ -27,3 +27,11 @@ docs/bench/_work/
 
 # #26 の E2E before/after（tune_hymt.py --e2e-ab）の作業ディレクトリ
 docs/bench/_e2e_ab/
+
+# Local QA dependencies, transient process files and pre-sync recovery copies
+.qa-tools/
+docs/qa/runs/*/tmp/
+docs/qa/runs/*/feature-status-before-sync.xlsx
+
+# QA の実行証拠（スクリーンショット・trace）は手元に残し、履歴には入れない
+docs/qa/runs/
