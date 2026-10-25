@@ -37,6 +37,9 @@ DECODER_FILE = "decoder-epoch-99-avg-1.onnx"
 DECODER_INT8_FILE = "decoder-epoch-99-avg-1.int8.onnx"
 JOINER_FILE = "joiner-epoch-99-avg-1.int8.onnx"
 TOKENS_FILE = "tokens.txt"
+# 補完で再デコードする区間の上限。これより長い区間は読み直しても同じ脱落が起きるうえ、
+# 雑音の孤立トークンに挟まれた無音を丸ごと読み直すことになる
+REFILL_MAX_S = 8.0
 
 
 class SherpaOnnxEngine(ASREngine):
@@ -57,6 +60,7 @@ class SherpaOnnxEngine(ASREngine):
         hotwords_file: Path | None = None,
         hotwords_score: float = 1.5,
         blank_penalty: float = 0.0,
+        refill_gap_s: float = 0.0,
         int8_decoder: bool = False,
     ) -> None:
         decoder = DECODER_INT8_FILE if int8_decoder else DECODER_FILE
@@ -72,6 +76,8 @@ class SherpaOnnxEngine(ASREngine):
             raise ValueError("lead_in_ms は0以上にすること")
         if blank_penalty < 0:
             raise ValueError("blank_penalty は0以上にすること")
+        if refill_gap_s < 0:
+            raise ValueError("refill_gap_s は0以上にすること")
         self._model_dir = model_dir
         self._decoder_file = decoder
         # 0 = 「ライブラリ既定」を意味する asr.cpu_threads の規約に合わせる。
@@ -82,6 +88,7 @@ class SherpaOnnxEngine(ASREngine):
         self._hotwords_file = hotwords_file
         self._hotwords_score = hotwords_score
         self._blank_penalty = blank_penalty
+        self._refill_gap_s = refill_gap_s
         self._recognizer: Any = None
 
     def warmup(self) -> None:
@@ -114,15 +121,47 @@ class SherpaOnnxEngine(ASREngine):
         if self._recognizer is None:  # 通常は起動時 warmup 済み。直接利用時の保険
             self.warmup()
         audio = pcm16.astype(np.float32) / 32768.0
-        # 冒頭の取りこぼし対策。上流の pre_roll と足りない分ではなく常に足す —
-        # 呼び出し側が pre_roll を持つかどうかにこのエンジンの精度を依存させない
-        audio = np.concatenate([self._lead_in, audio])
-        stream = self._recognizer.create_stream()
-        stream.accept_waveform(SAMPLE_RATE, audio)
-        self._recognizer.decode_stream(stream)
-        text = stream.result.text.strip()
+        result = self._decode(audio)
+        text = self._refill_gaps(audio, result) if self._refill_gap_s > 0 else result.text.strip()
         if not text:
             return ASRResult(text="", no_speech_prob=1.0)
         # transducer に確信度の相当物が無いため、幻覚フィルタの3つの数値判定は
         # すべて通す中立値を返す（既定値のまま）。判定は既知フレーズ辞書だけが効く
         return ASRResult(text=text)
+
+    def _decode(self, audio: np.ndarray) -> Any:
+        # 冒頭の取りこぼし対策。上流の pre_roll と足りない分ではなく常に足す —
+        # 呼び出し側が pre_roll を持つかどうかにこのエンジンの精度を依存させない
+        stream = self._recognizer.create_stream()
+        stream.accept_waveform(SAMPLE_RATE, np.concatenate([self._lead_in, audio]))
+        self._recognizer.decode_stream(stream)
+        return stream.result
+
+    def _refill_gaps(self, audio: np.ndarray, result: Any) -> str:
+        """トークンが `refill_gap_s` 以上出ない区間を、その区間だけ再デコードして補う。
+
+        このモデルは長い発話を受け取ると、単独なら認識できる冒頭の文を丸ごと出さない
+        （授業動画の実測。音量・探索法・リードイン長では直らず、後ろに続く発話の量で起きる）。
+        短く切ると文脈が減って用語の誤りが増えるので、全体のデコードは残し、空白だけを埋める。
+        本当の無音の空白は再デコードしても空文字になるだけ。
+        """
+        lead_s = self._lead_in.size / SAMPLE_RATE
+        tokens = list(result.tokens)
+        times = [t - lead_s for t in result.timestamps]
+        if not tokens:
+            return ""
+        # 冒頭の孤立した1〜2文字（次まで空白が続く）は雑音の取りこぼしなので、冒頭の再デコードに含める
+        first = 0
+        while first < 2 and first + 1 < len(times) and times[first + 1] - times[first] >= self._refill_gap_s:
+            first += 1
+        if self._refill_gap_s <= times[first] <= REFILL_MAX_S:
+            pieces = [self._decode(audio[: int(times[first] * SAMPLE_RATE)]).text.strip()]
+        else:
+            pieces = tokens[:first]
+        for i in range(first, len(tokens)):
+            pieces.append(tokens[i])
+            if i + 1 < len(tokens) and self._refill_gap_s <= times[i + 1] - times[i] <= REFILL_MAX_S:
+                # 直前のトークンの音を二重に読まないよう、トークン1つ分（約0.12秒）後ろから切る
+                start = int((times[i] + 0.12) * SAMPLE_RATE)
+                pieces.append(self._decode(audio[start : int(times[i + 1] * SAMPLE_RATE)]).text.strip())
+        return "".join(pieces).strip()

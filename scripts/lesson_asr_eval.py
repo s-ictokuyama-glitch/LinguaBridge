@@ -66,6 +66,7 @@ def main() -> int:
     parser.add_argument("--hotwords", default=None, help="既定は config.yaml の値。none で無効")
     parser.add_argument("--hotwords-score", type=float, default=None)
     parser.add_argument("--blank-penalty", type=float, default=None)
+    parser.add_argument("--refill-gap", type=float, default=None, help="0 で再デコードによる補完を無効")
     args = parser.parse_args()
 
     config = load_config(ROOT / "config.yaml")
@@ -80,6 +81,7 @@ def main() -> int:
         hotwords_file=sherpa.resolved_hotwords_file(),
         hotwords_score=sherpa.hotwords_score if args.hotwords_score is None else args.hotwords_score,
         blank_penalty=sherpa.blank_penalty if args.blank_penalty is None else args.blank_penalty,
+        refill_gap_s=sherpa.refill_gap_s if args.refill_gap is None else args.refill_gap,
     )
     engine.warmup()
 

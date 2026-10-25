@@ -197,3 +197,83 @@ class TestBlankPenalty:
         monkeypatch.setattr(sherpa_onnx.OfflineRecognizer, "from_transducer", fake_from_transducer)
         SherpaOnnxEngine(make_model_dir(tmp_path), blank_penalty=1.5).warmup()
         assert seen["blank_penalty"] == 1.5
+
+
+class _TimedRecognizer:
+    """長い入力では冒頭の文を落とし、短い入力なら出す ReazonSpeech の挙動を再現するスタブ。
+
+    授業動画の実測: 冒頭4秒の文は単独なら認識されるが、後ろに発話が続いて
+    入力が8秒を超えると出力されなくなる。
+    """
+
+    def __init__(self) -> None:
+        self.decoded_seconds: list[float] = []
+
+    def create_stream(self) -> "_TimedStream":
+        return _TimedStream(self)
+
+    def decode_stream(self, stream: "_TimedStream") -> None:
+        seconds = stream.audio.size / SAMPLE_RATE
+        self.decoded_seconds.append(seconds)
+        if seconds > 8.0:  # 冒頭の文が消え、雑音の1文字と後半だけが残る
+            stream.result = _timed_result(["イ", "続", "い", "て"], [0.0, 4.64, 4.76, 5.0])
+        else:
+            stream.result = _timed_result(["花", "粉", "症"], [0.9, 1.2, 1.5])
+
+
+class _TimedStream:
+    def __init__(self, recognizer: _TimedRecognizer) -> None:
+        self.audio = np.zeros(0, dtype=np.float32)
+        self.result = None
+
+    def accept_waveform(self, sample_rate: int, audio: np.ndarray) -> None:
+        self.audio = audio
+
+
+def _timed_result(tokens: list[str], timestamps: list[float]):
+    return type("R", (), {"text": "".join(tokens), "tokens": tokens, "timestamps": timestamps})()
+
+
+class TestOpeningDropRefill:
+    """長い発話で冒頭の文が丸ごと消える脱落（docs/bench/2026-10-25-lesson-asr.md）。
+
+    トークンが出ない長い空白を検出し、その区間だけ再デコードして補う。
+    """
+
+    def test_dropped_opening_is_recovered(self, tmp_path: Path) -> None:
+        engine = SherpaOnnxEngine(make_model_dir(tmp_path), lead_in_ms=600, refill_gap_s=1.5)
+        engine._recognizer = _TimedRecognizer()  # type: ignore[assignment]
+        result = engine.transcribe(np.full(SAMPLE_RATE * 20, 1000, dtype=np.int16), SAMPLE_RATE)
+        assert result.text == "花粉症続いて"
+
+    def test_refill_off_keeps_the_single_decode(self, tmp_path: Path) -> None:
+        engine = SherpaOnnxEngine(make_model_dir(tmp_path), lead_in_ms=600, refill_gap_s=0.0)
+        recognizer = _TimedRecognizer()
+        engine._recognizer = recognizer  # type: ignore[assignment]
+        result = engine.transcribe(np.full(SAMPLE_RATE * 20, 1000, dtype=np.int16), SAMPLE_RATE)
+        assert result.text == "イ続いて"
+        assert len(recognizer.decoded_seconds) == 1
+
+    def test_no_gap_means_no_extra_decode(self, tmp_path: Path) -> None:
+        engine = SherpaOnnxEngine(make_model_dir(tmp_path), lead_in_ms=600, refill_gap_s=1.5)
+        recognizer = _TimedRecognizer()
+        engine._recognizer = recognizer  # type: ignore[assignment]
+        result = engine.transcribe(np.full(SAMPLE_RATE * 5, 1000, dtype=np.int16), SAMPLE_RATE)
+        assert result.text == "花粉症"
+        assert len(recognizer.decoded_seconds) == 1
+
+    def test_noise_between_isolated_tokens_is_not_reread(self, tmp_path: Path) -> None:
+        """雑音だけの20秒で両端に1文字ずつ出たとき、間の無音を丸ごと読み直さない。"""
+        engine = SherpaOnnxEngine(make_model_dir(tmp_path), lead_in_ms=600, refill_gap_s=1.5)
+        recognizer = _TimedRecognizer()
+        recognizer.decode_stream = lambda stream: (  # type: ignore[method-assign]
+            recognizer.decoded_seconds.append(stream.audio.size / SAMPLE_RATE),
+            setattr(stream, "result", _timed_result(["う", "ん"], [0.0, 19.96])),
+        )
+        engine._recognizer = recognizer  # type: ignore[assignment]
+        result = engine.transcribe(np.full(SAMPLE_RATE * 20, 10, dtype=np.int16), SAMPLE_RATE)
+        assert result.text == "うん"
+        assert len(recognizer.decoded_seconds) == 1
+
+    def test_default_matches_the_lesson_measurement(self) -> None:
+        assert SherpaConfig().refill_gap_s == 1.5
