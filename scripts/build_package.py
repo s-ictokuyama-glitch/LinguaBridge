@@ -372,8 +372,11 @@ def _inspect_bundle(
                     raise BuildError(f"{binding.field}: GGUF を指定してください")
                 exact_gguf = root / Path(relative)
             required.setdefault(binding.name, []).append(binding.field)
-    if config.asr.engine == "sherpa" and config.asr.sherpa.hotwords_file:
-        raise BuildError("asr.sherpa.hotwords_file は配布に収録できません")
+    hotwords = config.asr.sherpa.resolved_hotwords_file()
+    if config.asr.engine == "sherpa" and hotwords is not None:
+        # copy_code が運ぶのは server/ 以下だけ。それ以外を指す設定は配布先で見つからない
+        if not hotwords.resolve().is_relative_to((ROOT / "server").resolve()) or not hotwords.is_file():
+            raise BuildError(f"asr.sherpa.hotwords_file は server/ 配下の既存ファイルにしてください: {hotwords}")
     for name in include:
         required.setdefault(name, []).append("--include-model")
     for name in tuple(required):

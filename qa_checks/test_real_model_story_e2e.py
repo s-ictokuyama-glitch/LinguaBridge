@@ -117,7 +117,6 @@ def test_asr06_configured_hotword_corrects_known_domain_term(tmp_path: Path) -> 
                         decoding_method="modified_beam_search",
                         lead_in_ms=600,
                         hotwords_file=None,
-                        hotwords_score=1.5,
                     ),
                 )
             )
@@ -133,7 +132,6 @@ def test_asr06_configured_hotword_corrects_known_domain_term(tmp_path: Path) -> 
                         decoding_method="modified_beam_search",
                         lead_in_ms=600,
                         hotwords_file=str(hotwords_file),
-                        hotwords_score=1.5,
                     ),
                 )
             )

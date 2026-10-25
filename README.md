@@ -280,7 +280,7 @@ VAD pre-roll を適用する。CPUでの認識は ReazonSpeech より遅い。NL
 有効設定や依存が必要とするモデルの除外はエラーになる。エンジンを変えるには `--config PATH` で基底設定、
 または `--config-override PATH` で部分上書きを指定する。明示した設定ファイルの欠落はエラーになる。
 配布設定には上書き後の全実効値を保存し、`models.dir` だけを `app/models` 相対へ変える。
-外部モデルパス・モデル内リンク・有効なsherpaのhotwordsファイル指定は配布できない。
+外部モデルパス・モデル内リンクは配布できない。sherpaのhotwordsファイルは `server/` 配下の既存ファイルだけを指定できる（本体と一緒に同梱される）。
 
 最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・llama.cpp の CPU 対応・選択ASR/MTのロードとwarmupと翻訳・
 同梱の Python でのサーバー起動と `/ready` 200）を行い、1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。

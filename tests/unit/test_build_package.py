@@ -8,11 +8,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scripts.build_package import (
     CODE_FILES,
     ROOT,
     BuildError,
+    copy_code,
     plan_bundle,
     copy_models,
     write_distribution_config,
@@ -135,6 +137,16 @@ def test_default_only_requires_active_models(tmp_path):
     assert all(".cache" not in str(file.relative) for model in selected.models for file in model.files)
 
 
+def test_default_hotwords_ship_with_the_code(tmp_path):
+    """既定の教科用語は server/ 配下にあり、copy_code で app へ運ばれる。"""
+    populate(tmp_path)
+    config = yaml.safe_load(plan(tmp_path).config_yaml)
+    hotwords = config["asr"]["sherpa"]["hotwords_file"]
+    assert hotwords.startswith("server/")
+    copy_code(tmp_path / "app", tmp_path)
+    assert (tmp_path / "app" / hotwords).is_file()
+
+
 def test_include_nllb_adds_tokenizer(tmp_path):
     populate(tmp_path)
     selected = plan(tmp_path, include=("nllb",))
@@ -200,6 +212,7 @@ def test_nllb_active_selects_dependencies(tmp_path):
     "asr: {engine: fake}", "mt: {engine: fake}",
     "asr: {sherpa: {model: ../outside}}", "mt: {hy_mt2: {gguf_path: C:/outside.gguf}}",
     "asr: {sherpa: {hotwords_file: custom.txt}}",
+    "asr: {sherpa: {hotwords_file: server/asr/hotwords/missing.txt}}",
 ])
 def test_nonportable_config_is_rejected(tmp_path, text):
     override = tmp_path / "override.yaml"

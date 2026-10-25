@@ -171,3 +171,29 @@ class _FakeStream:
     def accept_waveform(self, sample_rate: int, audio: np.ndarray) -> None:
         self._seen["sample_rate"] = sample_rate
         self._seen["audio"] = audio
+
+
+class TestBlankPenalty:
+    """授業動画の実測: 長い発話で文が丸ごと落ちる。blank_penalty が脱落を抑える。"""
+
+    def test_default_matches_the_lesson_measurement(self) -> None:
+        assert SherpaConfig().blank_penalty == 1.5
+
+    def test_negative_is_rejected(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError):
+            SherpaConfig(blank_penalty=-0.1)
+        with pytest.raises(ValueError):
+            SherpaOnnxEngine(make_model_dir(tmp_path), blank_penalty=-0.1)
+
+    def test_penalty_reaches_the_recognizer(self, tmp_path: Path, monkeypatch) -> None:
+        import sherpa_onnx
+
+        seen: dict = {}
+
+        def fake_from_transducer(**kwargs):
+            seen.update(kwargs)
+            return _FakeRecognizer({}, text="")
+
+        monkeypatch.setattr(sherpa_onnx.OfflineRecognizer, "from_transducer", fake_from_transducer)
+        SherpaOnnxEngine(make_model_dir(tmp_path), blank_penalty=1.5).warmup()
+        assert seen["blank_penalty"] == 1.5
