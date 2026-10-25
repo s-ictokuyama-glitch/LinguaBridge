@@ -19,6 +19,16 @@ ASR の既定は判断ゲート②（#28）で確定した。ReazonSpeech は日
 whisper small(9.62%) / kotoba(3.94%) を上回り（**2.09%**）、デコードは 10倍速い。
 ただし**句読点を出力しない**（訳文には付くので生徒の字幕は影響を受けない）。
 
+「今日は植物」を「共和植物」と認識する既知音源には、任意の
+[`config.accuracy.yaml`](config.accuracy.yaml) を用意している。
+既存の `models.dir/kotoba-whisper-v2.0-faster` がある環境で
+`.venv/Scripts/python.exe -m server.main --config-override config.accuracy.yaml`
+を実行すると、Kotobaとプリロール480msを使う。通常起動の既定設定は変わらない。
+CPU処理時間が増えるため、授業環境で字幕遅延を確認してから使う。
+Kotobaは標準配布モデルに含まれない。全発話の精度向上を保証する設定ではない。
+[原因・実ブラウザーでの検証結果](.agents/skills/verify/references/asr-opening-fix-proof.md) を参照。
+[HuBERT・ZipformerのCPU速度・精度・容量比較](docs/bench/2026-10-21-asr-family-comparison.md) も記録している。速度重視の既定ASRは維持している。
+
 - 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、
   文字起こしライブ表示、**モニタリング**（2秒ごとの統計＝接続数・言語内訳・キュー深度・
   遅延中央値、マイク入力レベルメーター、30秒無音警告、キュー滞留の過負荷警告）、
@@ -233,15 +243,46 @@ powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベ�
 ## 配布パッケージのビルド（イシュー #46、ADR 0001）
 
 開発環境の無いサーバーPC向けに、埋め込み版 Python 3.12・依存・コード・Web・配布用の既定の設定・
-同梱モデル（reazonspeech-k2-v2 / hy-mt2 / NLLB）・`vc_redist.x64.exe`・版情報（`app\version.json`）を
-まとめた zip を開発機で作る。同梱モデルは先に `download_models.py` で取得しておく（欠けていれば取得コマンドを示して止まる）。
+有効なASR/MTのモデル（既定は reazonspeech-k2-v2 / hy-mt2）・`vc_redist.x64.exe`・版情報（`app\version.json`）を
+まとめた zip を開発機で作る。
+
+`build.bat` をダブルクリックすると、日本語で音声認識、翻訳、追加同梱、出力フォルダーを選べる。
+Enter は現在の起動設定を維持し、追加同梱は既定なし。Kotoba を選ぶと `config.accuracy.yaml` の
+VAD pre-roll を適用する。CPUでの認識は ReazonSpeech より遅い。NLLB は翻訳品質の既知課題 #53 と非商用ライセンスに注意する。
+不足した選択モデルと依存だけを確認後に取得し、ローカルモデルの実測 bytes と設定を表示してからビルド開始を確認する。
+`q`、Ctrl+C、入力終了で中止できる。元の設定ファイルや `.venv` は変更しない。
+
+出力先は既定で `%LOCALAPPDATA%\LinguaBridge\dist`。対話ビルドでは固有サブフォルダーへ保存し、既存 ZIP を上書きしない。
+作業領域は既定で `%LOCALAPPDATA%\LinguaBridge\build-interactive`。キャッシュを再利用し、同じ領域での対話ビルドの二重起動は拒否する。
+`build.bat --plan` は選択とローカル検査だけを行い、取得・ビルド領域への書き込みは行わない。
+不足モデルがある場合は不足一覧を表示して終了する。`.venv` がなければ画面に表示する準備コマンドを実行する。
+初回は以下の依存導入と Visual Studio Build Tools の準備が必要。
 
 ```powershell
 .venv\Scripts\pip install -r requirements-dev.txt   # DLL 依存の検査に pefile を使う
 .venv\Scripts\python scripts\build_package.py       # → %LOCALAPPDATA%\LinguaBridge\dist\LinguaBridge-<日時>-<コミット>.zip
 ```
 
-最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・llama.cpp の CPU 対応と Hy-MT2 の翻訳・
+従来の非対話 CLI では同梱モデルを先に `download_models.py` で取得しておく。不足時は取得コマンドを示して止まる。
+
+`--plan` はローカルファイルの同梱計画と正確なモデルpayload bytesを表示する。通信・ビルド領域への書き込みは行わない。
+表示容量はモデルの非圧縮合計で、完成ZIP全体の容量ではない。未選択モデルは不要。
+
+```powershell
+.venv\Scripts\python scripts\build_package.py --plan
+.venv\Scripts\python scripts\build_package.py --include-model nllb --plan
+.venv\Scripts\python scripts\build_package.py --include-model nllb
+.venv\Scripts\python scripts\build_package.py --config-override config.accuracy.yaml --plan
+```
+
+予備のNLLBは明示追加するとtokenizerも同梱する。`--include-model NAME` と `--exclude-model NAME` は複数指定できる。
+モデル名は `reazonspeech`、`kotoba`、`whisper-small`、`hy-mt2`、`nllb`、`nllb-tokenizer`。`--help` でも確認できる。
+有効設定や依存が必要とするモデルの除外はエラーになる。エンジンを変えるには `--config PATH` で基底設定、
+または `--config-override PATH` で部分上書きを指定する。明示した設定ファイルの欠落はエラーになる。
+配布設定には上書き後の全実効値を保存し、`models.dir` だけを `app/models` 相対へ変える。
+外部モデルパス・モデル内リンク・有効なsherpaのhotwordsファイル指定は配布できない。
+
+最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・llama.cpp の CPU 対応・選択ASR/MTのロードとwarmupと翻訳・
 同梱の Python でのサーバー起動と `/ready` 200）を行い、1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。
 
 ### llama.cpp（llama-cpp-python）の入れ方と対象 CPU（イシュー #52）
@@ -262,8 +303,8 @@ powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベ�
 - 速さ（2026-10-21・開発機 Ryzen 7 8840U・Hy-MT2 4スレッド・6文×5回の中央値）: ビルド済み wheel 633 ms、
   CPU 判定版（`cascadelake` が選ばれる）638 ms、AVX2 の `haswell` 版に固定 642 ms。差は 1.5% 以内
 - 自己検証 (3) は、同梱の llama.cpp が CPU を判定しない作りなのに `llama_print_system_info()` が `AVX512 = 1` を返したら、
-  理由と直し方を示して zip を作らない（ビルド済み wheel を二度と配布しないための関所）。続けて同梱の Python で Hy-MT2 を
-  ロードし、1文訳せることを確かめる
+  理由と直し方を示して zip を作らない（ビルド済み wheel を二度と配布しないための関所）。選択したASR/MTを同梱の Python で
+  ロード・warmupし、選択MTで1文訳せることを確かめる
 zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LinguaBridge\`）で `start.bat` を実行すると、
 `app\python\python.exe` があるため配布モード（`setup.ps1` を呼ばず、隣の `data\` をデータルート・
 `data\config.yaml` を上書き設定にする）で起動する。同梱の Python が無いリポジトリでは従来どおり `.venv` の開発モード。
@@ -356,3 +397,4 @@ MT を `fake` に落として回数だけを見る**（多言語対応は #5）�
 
 テスト方針は plan.md §9 を参照。機能テストは WebSocket 境界で書き、
 ASR/翻訳は `ASREngine` / `TranslationEngine` 抽象に決定的フェイクを注入する。
+追加QAとブラウザー試験は [QA実行手順](docs/qa/README.md) を参照。
