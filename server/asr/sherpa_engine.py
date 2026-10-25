@@ -56,6 +56,7 @@ class SherpaOnnxEngine(ASREngine):
         lead_in_ms: int = 600,
         hotwords_file: Path | None = None,
         hotwords_score: float = 1.5,
+        blank_penalty: float = 0.0,
         int8_decoder: bool = False,
     ) -> None:
         decoder = DECODER_INT8_FILE if int8_decoder else DECODER_FILE
@@ -69,6 +70,8 @@ class SherpaOnnxEngine(ASREngine):
             )
         if lead_in_ms < 0:
             raise ValueError("lead_in_ms は0以上にすること")
+        if blank_penalty < 0:
+            raise ValueError("blank_penalty は0以上にすること")
         self._model_dir = model_dir
         self._decoder_file = decoder
         # 0 = 「ライブラリ既定」を意味する asr.cpu_threads の規約に合わせる。
@@ -78,6 +81,7 @@ class SherpaOnnxEngine(ASREngine):
         self._lead_in = np.zeros(SAMPLE_RATE * lead_in_ms // 1000, dtype=np.float32)
         self._hotwords_file = hotwords_file
         self._hotwords_score = hotwords_score
+        self._blank_penalty = blank_penalty
         self._recognizer: Any = None
 
     def warmup(self) -> None:
@@ -98,6 +102,7 @@ class SherpaOnnxEngine(ASREngine):
             # hotwords は modified_beam_search でしか効かない（sherpa-onnx の仕様）
             hotwords_file=str(self._hotwords_file) if self._hotwords_file else "",
             hotwords_score=self._hotwords_score,
+            blank_penalty=self._blank_penalty,
             dither=0.0,  # 上の docstring 参照。動かすと壊れる
         )
         self.transcribe(np.zeros(SAMPLE_RATE, dtype=np.int16), SAMPLE_RATE)

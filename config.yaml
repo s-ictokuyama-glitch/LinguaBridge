@@ -38,10 +38,13 @@ asr:
     # greedy より modified_beam_search の方が CER 3.48%→2.09% と良く、
     # decode 中央値は 0.11s→0.13s しか増えない（#28）。hotwords も beam でしか効かない
     decoding_method: modified_beam_search
-    # 教科用語の contextual biasing。機構は動作確認済みだが（「原子の風」→「原子の数」）、
-    # 既定の語彙では直す対象が無かったので未使用。実授業の誤りを見てから決める（map の fog）
-    hotwords_file: null
-    hotwords_score: 1.5
+    # 教科用語の contextual biasing。1行1語。授業の教科に合わせてファイルを差し替える。
+    # 地理総合の授業動画で「炊飯球→水半球」「交点→公転」などを直し、理科の拡張コーパスでは
+    # 悪化しなかった（score 3.0。docs/bench/2026-10-25-lesson-asr.md）
+    hotwords_file: server/asr/hotwords/geography.txt
+    hotwords_score: 3.0
+    # 長い発話で文が丸ごと落ちる脱落を抑える。0 で無効（同上の実測）
+    blank_penalty: 1.5
 
 vad:
   engine: silero             # "silero" | "energy"（energyはテスト・フォールバック用）

@@ -69,13 +69,25 @@ class SherpaConfig(BaseModel):
     # hotwords（教科用語の contextual biasing）も modified_beam_search でしか効かない
     decoding_method: str = "modified_beam_search"  # "greedy_search" | "modified_beam_search"
     hotwords_file: str | None = None  # リポジトリルートからの相対パス。None で無効
-    hotwords_score: float = 1.5
+    # blank_penalty 1.5 と組むと 1.5 では hotwords が効かなくなる（「原子の数」で実測）。2.0 以上にする
+    hotwords_score: float = 3.0
+    # 空白トークン（blank）の対数確率から引く値。0 で無効。長い発話で文が丸ごと
+    # 落ちる脱落を抑える（授業動画の実測で 1.5 が脱落を最も減らした。
+    # docs/bench/2026-10-25-lesson-asr.md）
+    blank_penalty: float = 1.5
 
     @field_validator("lead_in_ms")
     @classmethod
     def _lead_in_non_negative(cls, v: int) -> int:
         if v < 0:
             raise ValueError("asr.sherpa.lead_in_ms は0以上にすること")
+        return v
+
+    @field_validator("blank_penalty")
+    @classmethod
+    def _blank_penalty_non_negative(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("asr.sherpa.blank_penalty は0以上にすること")
         return v
 
     def resolved_hotwords_file(self) -> Path | None:
