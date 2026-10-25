@@ -355,3 +355,26 @@ def test_speech_activity_resumes_same_open_utterance_after_capture_gap():
     assert seg.feed(np.zeros(0, dtype=np.int16)) == []
     assert seg.is_open
     assert isinstance(seg.feed(speech_pcm(2000, 0.3))[0], SpeechActivity)
+
+
+def test_forced_split_cuts_at_the_breath_before_the_limit():
+    """強制分割は上限ちょうどのフレームではなく、直前の息継ぎで切る。
+
+    授業動画の実測: 30秒の上限で語の途中が切られ、次の Segment の文頭の語が別の語に化けた。
+    """
+    seg = make_segmenter(max_utterance_s=2)
+    pcm = np.concatenate([speech_pcm(1000, 1.5), silence_pcm(0.2), speech_pcm(2000, 1.0), silence_pcm(1.0)])
+    segments = feed_all(seg, pcm)
+    first, second = segments[0], segments[1]
+    assert first.forced
+    assert 1.5 <= first.pcm.size / SAMPLE_RATE <= 1.7  # 息継ぎの中で切れている
+    assert not np.any(first.pcm == 2000)  # 後ろの語は前の Segment に混ざらない
+    assert int(second.pcm[second.pcm != 0][0]) == 2000  # 後ろの語は丸ごと次の Segment の頭にある
+    assert np.count_nonzero(second.pcm == 2000) == SAMPLE_RATE  # 1サンプルも欠けない
+
+
+def test_forced_split_without_a_breath_still_respects_the_limit():
+    seg = make_segmenter(max_utterance_s=2)
+    segments = feed_all(seg, np.concatenate([speech_pcm(1000, 5.0), silence_pcm(1.0)]))
+    assert all(s.pcm.size <= 2 * SAMPLE_RATE + SAMPLE_RATE // 10 for s in segments)
+    assert sum(np.count_nonzero(s.pcm == 1000) for s in segments) == 5 * SAMPLE_RATE

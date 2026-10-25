@@ -33,6 +33,9 @@ import numpy as np
 if TYPE_CHECKING:
     from server.config import VadConfig
 
+# 強制分割で切る位置を探す範囲（上限の直前の秒数）。この中で一番静かなフレームで切る
+FORCE_LOOKBACK_S = 2
+
 
 class FrameVAD(Protocol):
     frame_ms: int  # この実装が要求する判定フレーム長
@@ -372,9 +375,35 @@ class VoiceSegmenter:
         )
 
     def _maybe_force_close(self) -> Segment | None:
-        if self._offset - self._utt_start_sample >= self._max_samples:
+        """上限に達したら、直前 FORCE_LOOKBACK_S の中で一番静かなフレームで切る。
+
+        上限ちょうどで切ると語の途中が割れ、次の Segment の文頭の語が別の語に化ける
+        （授業動画の実測。docs/bench/2026-10-25-lesson-asr.md）。切った後ろは捨てず、
+        次の発話の頭として開いたまま持ち越す。
+        """
+        if self._offset - self._utt_start_sample < self._max_samples:
+            return None
+        lookback = min(len(self._frames) // 2, -(-FORCE_LOOKBACK_S * self._sample_rate // self._frame_len))
+        tail = self._frames[len(self._frames) - lookback :]
+        quietest = int(np.argmin([np.abs(f.astype(np.int32)).mean() for f in tail])) if tail else 0
+        keep = len(self._frames) - lookback + quietest + 1
+        carried = self._frames[keep:]
+        if not carried:
             return self._close(forced=True)
-        return None
+        kept = self._frames[:keep]
+        cut_sample = self._utt_start_sample + sum(f.size for f in kept)
+        segment = Segment(
+            pcm=np.concatenate(kept),
+            t_start=self._utt_start_sample / self._sample_rate,
+            t_end=min(self._last_speech_end_sample, cut_sample) / self._sample_rate,
+            closed_at=time.monotonic(),
+            forced=True,
+        )
+        self._frames = carried
+        self._utt_start_sample = cut_sample
+        self._last_speech_end_sample = max(self._last_speech_end_sample, cut_sample)
+        self._post_silence_run = None  # 発話は続いているので無音待ちではない
+        return segment
 
     def _close(self, forced: bool) -> Segment:
         segment = Segment(
