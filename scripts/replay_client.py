@@ -23,26 +23,197 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import Counter
 import contextlib
 import datetime
 import json
+import os
 import random
+import stat
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
 import wave
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
-import numpy as np
-import psutil
+ROOT = Path(os.path.abspath(Path(__file__).parent.parent))
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
 
+def _replay_real_directory_chain(path: Path) -> bool:
+    absolute = Path(os.path.abspath(path))
+    components = [Path(absolute.parts[0])]
+    for part in absolute.parts[1:]:
+        components.append(components[-1] / part)
+
+    def snapshot() -> tuple[tuple[str, int, int], ...] | None:
+        result: list[tuple[str, int, int]] = []
+        try:
+            for component in components:
+                state = component.lstat()
+                if (
+                    not stat.S_ISDIR(state.st_mode)
+                    or stat.S_ISLNK(state.st_mode)
+                    or bool(
+                        getattr(state, "st_file_attributes", 0)
+                        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+                    )
+                    or bool(
+                        getattr(os.path, "isjunction", lambda _path: False)(
+                            component
+                        )
+                    )
+                ):
+                    return None
+                result.append((str(component), state.st_dev, state.st_ino))
+        except OSError:
+            return None
+        return tuple(result)
+
+    before = snapshot()
+    return before is not None and snapshot() == before
+
+
+def _replay_venv_site_packages() -> Path:
+    venv_root = Path(os.path.abspath(sys.executable)).parent.parent
+    candidates = (
+        venv_root / "Lib" / "site-packages",
+        venv_root
+        / "lib"
+        / f"python{sys.version_info.major}.{sys.version_info.minor}"
+        / "site-packages",
+    )
+    existing = [path for path in candidates if path.is_dir()]
+    if len(existing) != 1 or not (venv_root / "pyvenv.cfg").is_file():
+        raise RuntimeError("replay requires one auditable virtualenv site-packages")
+    site_packages = Path(os.path.abspath(existing[0]))
+    if not _replay_real_directory_chain(site_packages):
+        raise RuntimeError(
+            "replay site-packages and its ancestors must be real directories"
+        )
+    return site_packages
+
+
+def _replay_isolated_base_paths() -> tuple[Path, ...]:
+    base = Path(os.path.abspath(sys.base_prefix))
+    if os.name != "nt":
+        version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+        return (
+            base / "lib" / f"{version.replace('.', '')}.zip",
+            base / "lib" / version,
+            base / "lib" / version / "lib-dynload",
+        )
+    return (
+        base / f"python{sys.version_info.major}{sys.version_info.minor}.zip",
+        base / "DLLs",
+        base / "Lib",
+        base,
+    )
+
+
+def _replay_bootstrap_isolated_process() -> bool:
+    qualified_flags = bool(
+        sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.ignore_environment
+        and sys.flags.safe_path
+        and sys.dont_write_bytecode
+    )
+    if __name__ == "__main__" and not qualified_flags:
+        with tempfile.TemporaryDirectory(
+            prefix="linguabridge-replay-qualified-pycache-"
+        ) as directory:
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if not key.upper().startswith("PYTHON")
+            }
+            command = [
+                sys.executable,
+                "-I",
+                "-S",
+                "-B",
+                "-X",
+                f"pycache_prefix={Path(os.path.abspath(directory))}",
+                str(Path(os.path.abspath(__file__))),
+                *sys.argv[1:],
+            ]
+            raise SystemExit(subprocess.call(command, cwd=str(ROOT), env=environment))
+    if not qualified_flags:
+        return False
+    site_packages = _replay_venv_site_packages()
+    if not _replay_real_directory_chain(ROOT):
+        raise RuntimeError("replay root and its ancestors must be real directories")
+    if (site_packages / "scripts").exists() or (site_packages / "server").exists():
+        raise RuntimeError("site-packages shadows a repository package")
+    base_paths = tuple(str(path) for path in _replay_isolated_base_paths())
+    expected = (*base_paths, str(site_packages), str(ROOT))
+    if tuple(sys.path) == base_paths:
+        sys.path.extend((str(site_packages), str(ROOT)))
+    return tuple(sys.path) == expected
+
+
+_QUALIFIED_BOOTSTRAP = _replay_bootstrap_isolated_process()
+_REPLAY_PREIMPORT_MODULE_NAMES = frozenset(sys.modules)
+_REPLAY_CRITICAL_PREFIXES = (
+    "numpy",
+    "psutil",
+    "scripts.acceptance",
+    "scripts.text_metrics",
+    "server.ws_protocol",
+    "websockets",
+)
+_PRELOADED_REPLAY_CRITICAL_MODULES = frozenset(
+    name
+    for name in _REPLAY_PREIMPORT_MODULE_NAMES
+    if any(
+        name == prefix or name.startswith(prefix + ".")
+        for prefix in _REPLAY_CRITICAL_PREFIXES
+    )
+)
+if __name__ == "__main__" and "scripts" in _REPLAY_PREIMPORT_MODULE_NAMES:
+    _PRELOADED_REPLAY_CRITICAL_MODULES |= {"scripts"}
+
+import scripts.performance_evidence as performance_evidence_module  # noqa: E402
+
+
+def _safe_replay_cache_prefix(value: object) -> Path | None:
+    return performance_evidence_module._safe_empty_cache_prefix(value)
+
+
+_IMPORT_PYCACHE_DIRECTORY: tempfile.TemporaryDirectory[str] | None = None
+_IMPORT_PYCACHE_ROOT = (
+    _safe_replay_cache_prefix(sys.pycache_prefix)
+    if sys.dont_write_bytecode
+    else None
+)
+if _IMPORT_PYCACHE_ROOT is None:
+    _IMPORT_PYCACHE_DIRECTORY = tempfile.TemporaryDirectory(
+        prefix="linguabridge-replay-import-pycache-"
+    )
+    _IMPORT_PYCACHE_ROOT = _safe_replay_cache_prefix(
+        _IMPORT_PYCACHE_DIRECTORY.name
+    )
+    if _IMPORT_PYCACHE_ROOT is None:
+        raise RuntimeError("replay import pycache prefix is not a fresh real directory")
+    sys.pycache_prefix = str(_IMPORT_PYCACHE_ROOT)
+sys.dont_write_bytecode = True
+
+import numpy as np  # noqa: E402
+import psutil  # type: ignore[import-untyped]  # noqa: E402
+import websockets  # noqa: E402
+import yaml  # noqa: E402
+
+_monotonic = time.monotonic
+
+import scripts.acceptance as acceptance_module  # noqa: E402
+import scripts.text_metrics as text_metrics_module  # noqa: E402
+import server.config as server_config_module  # noqa: E402
 from scripts.acceptance import (  # noqa: E402
     DRIFT_WINDOW_S,
     DroppedAudio,
@@ -55,6 +226,17 @@ from scripts.acceptance import (  # noqa: E402
     latency_stats,
     memory_trend,
     resource_trend,
+)
+from scripts.performance_evidence import (  # noqa: E402
+    begin_performance_run,
+    capture_imported_module_state,
+    complete_performance_run,
+    ensure_new_performance_run,
+    fresh_python_child_environment,
+    isolated_python_module_command,
+    recheck_imported_module_state,
+    recheck_performance_run_state,
+    require_qualified_producer_bootstrap,
 )
 from server.config import load_config  # noqa: E402
 from server.ws_protocol import (  # noqa: E402
@@ -69,6 +251,32 @@ from server.ws_protocol import (  # noqa: E402
     TurnPartial,
     parse_server_message,
 )
+
+_PRODUCER_MODULE_STATE = capture_imported_module_state(
+    sys.modules["scripts"],
+    sys.modules[__name__],
+    acceptance_module,
+    performance_evidence_module,
+    text_metrics_module,
+    server_config_module,
+    sys.modules["server.ws_protocol"],
+    np,
+    psutil,
+    websockets,
+    yaml,
+)
+
+
+def _assert_producer_modules_current() -> None:
+    """Reject a run made by imported code that no longer matches disk."""
+
+    if not _QUALIFIED_BOOTSTRAP or _PRELOADED_REPLAY_CRITICAL_MODULES:
+        raise performance_evidence_module.PerformanceEvidenceError(
+            "replay evidence requires a fresh -I -S interpreter with no "
+            "preloaded runtime modules"
+        )
+    require_qualified_producer_bootstrap()
+    recheck_imported_module_state(_PRODUCER_MODULE_STATE)
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "ja"
 # #22 の拡張音源（話速×3・文中の間・言い淀み・雑音SNR 20/10dB・無発話の雑音のみ）。
@@ -115,7 +323,8 @@ def corpus_clips(corpus: str) -> list[Path]:
 
 def build_stream(minutes: float, audio_path: str | None, corpus: str = "ja") -> np.ndarray:
     if audio_path:
-        return read_wav_16k_mono(Path(audio_path))
+        path = Path(audio_path)
+        return read_wav_16k_mono(path if path.is_absolute() else ROOT / path)
     fixtures = corpus_clips(corpus)
     if not fixtures:
         sys.exit(f"fixture が無い: {FIXTURE_DIR}。scripts/make_fixture_audio.ps1 を実行のこと")
@@ -138,9 +347,11 @@ def build_stream(minutes: float, audio_path: str | None, corpus: str = "ja") -> 
 @dataclass
 class Results:
     stop: asyncio.Event = field(default_factory=asyncio.Event)
+    measurement_started: asyncio.Event = field(default_factory=asyncio.Event)
+    measurement_done: asyncio.Event = field(default_factory=asyncio.Event)
     captions: dict[tuple[int, str], int] = field(default_factory=dict)  # (seq,lang)->delay_ms
-    # 遅延ドリフト（#32）用の (配信開始からの経過秒, delay_ms)。captions は
-    # (seq,lang) で重複排除した「分布」で、いつ届いたかを保持できない
+    # 遅延ドリフト（#32）用の (配信開始から発話確定までの経過秒, delay_ms)。
+    # 受信時刻を使うと、終盤のバックログほど drain 扱いで消えるため確定時刻へ戻す。
     lat_samples: list[tuple[float, int]] = field(default_factory=list)
     rss_mb: list[float] = field(default_factory=list)
     cpu_percent: list[float] = field(default_factory=list)  # プロセスツリー合計（1コア=100%）
@@ -149,6 +360,7 @@ class Results:
     threads: list[float] = field(default_factory=list)
     handles: list[float] = field(default_factory=list)
     tasks: list[float] = field(default_factory=list)
+    resource_samples: list[dict[str, float | None]] = field(default_factory=list)
     # 先生が受けた過負荷通知の内訳（code -> 件数）。クールダウンで間引かれるので
     # 「起きたか」は分かるが「何件起きたか」はサーバーの計数器の側で見る
     notices: dict[str, int] = field(default_factory=dict)
@@ -159,13 +371,23 @@ class Results:
     # サーバーが配信した seq の真値。先生の asr_final から取る（生徒側の集合だと
     # 「全員が取りこぼした seq」を配信されなかったものと区別できない）
     published_seqs: set[int] = field(default_factory=set)
-    live_ws: dict[str, object] = field(default_factory=dict)  # sid -> 生きている接続
+    live_ws: dict[str, Any] = field(default_factory=dict)  # sid -> 生きている接続
     injected_pending: set[str] = field(default_factory=set)  # 注入で閉じた直後の生徒
     injected_disconnects: int = 0
+    injected_by_student: dict[str, int] = field(default_factory=dict)
+    injection_close_failures: int = 0
+    injection_events: list[dict] = field(default_factory=list)
+    pending_injections: dict[str, dict] = field(default_factory=dict)
+    restored_by_student: dict[str, int] = field(default_factory=dict)
     injected_at: dict[str, float] = field(default_factory=dict)  # sid -> 注入時刻
     restore_times: list[float] = field(default_factory=list)  # 注入→復帰までの秒数
     stats_samples: list[dict] = field(default_factory=list)  # 先生が受けた stats メッセージ
     audio_started_at: float | None = None  # 先生が音声送信を始めた時刻（monotonic）
+    measurement_seconds: float = 0.0  # 音声送出開始→end送信。drainは含めない
+    audio_bytes_planned: int = 0
+    audio_bytes_sent: int = 0
+    measurement_students: int = 0
+    measurement_langs: dict[str, int] = field(default_factory=dict)
     first_caption_at: float | None = None  # 最初の caption が生徒に届いた時刻
     disconnects: int = 0
     reconnect_failures: int = 0
@@ -217,8 +439,6 @@ class Results:
         - mismatch_rate: 最後の partial と確定 ja の文字距離（読み直しの量）
         - preceded_rate: 確定した turn のうち partial が先行した割合
         """
-        from scripts.text_metrics import cer_counts, corpus_rate
-
         revisions = [len(v) for v in self.partials.values()]
         paired = [
             (self.partials[tid][-1], ja)
@@ -227,8 +447,10 @@ class Results:
         ]
         # 参照＝確定した ja、仮説＝最後の partial。短い turn が過大評価されないよう
         # クリップ単位の平均ではなく編集距離の総和で取る（#22 の text_metrics の作法）
-        counts = [cer_counts(final, last) for last, final in paired]
-        mismatch_rate = corpus_rate(counts)
+        counts = [
+            text_metrics_module.cer_counts(final, last) for last, final in paired
+        ]
+        mismatch_rate = text_metrics_module.corpus_rate(counts)
         exact = sum(1 for c in counts if c.distance == 0)
         # 先生が何秒早く読めたか。**turn ごとに**取る（最初の1発話だけでは音源の
         # 出だしの長さに引きずられる）
@@ -284,9 +506,11 @@ class Results:
             # **復元再送（delay_ms=0）は除く**（`first_caption_at` と同じ理由）。
             # 0秒を窓に混ぜると最初の窓の中央値が 0 に落ち、相対閾値
             # （increase > first * 0.5）が常に真になってドリフト判定が壊れる
-            self.lat_samples.append(
-                (time.monotonic() - self.audio_started_at, msg["delay_ms"])
-            )
+            received_elapsed = time.monotonic() - self.audio_started_at
+            # `delay_ms` は発話確定から受信まで。受信が目標時刻後でも、発話が
+            # 観測区間内なら終盤バックログとして最後の窓へ残す。
+            closed_elapsed = max(0.0, received_elapsed - msg["delay_ms"] / 1000)
+            self.lat_samples.append((closed_elapsed, msg["delay_ms"]))
         self.captions.setdefault(key, msg["delay_ms"])
 
 
@@ -301,7 +525,7 @@ def ws_url(port: int) -> str:
 # 実エンジンの重い翻訳推論が一時的にサーバーのイベントループを占有すると
 # ping応答が遅れて誤切断になり得るが、それは実授業の失敗ではない（実遅延は
 # delay_ms=N-01で、クラッシュは proc.poll/RSS で別途検出する）。
-_WS_KW = {"ping_interval": None, "close_timeout": 5}
+_WS_KW: dict[str, Any] = {"ping_interval": None, "close_timeout": 5}
 
 
 def _record_teacher_message(msg: ServerMessage, results: Results) -> None:
@@ -320,6 +544,8 @@ def _record_teacher_message(msg: ServerMessage, results: Results) -> None:
         results.stats_samples.append(
             {
                 "at_s": round(time.monotonic() - (results.audio_started_at or 0), 1),
+                "students": msg.students,
+                "langs": msg.langs,
                 "queue_depth": msg.queue_depth,
                 "audio_queue_seconds": msg.audio_queue_seconds,
                 "median_delay_ms": msg.median_delay_ms,
@@ -356,10 +582,26 @@ async def drain_teacher(ws, results: Results) -> None:
         pass  # 送信側の切断は run_teacher が記録する
 
 
-async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -> None:
-    import websockets
+async def sleep_at_least(seconds: float) -> None:
+    """Wait through early Windows timer wakeups until the deadline is real."""
 
+    deadline = _monotonic() + max(0.0, seconds)
+    while True:
+        remaining = deadline - _monotonic()
+        if remaining <= 0:
+            return
+        await asyncio.sleep(remaining)
+
+
+async def run_teacher(
+    port: int,
+    code: str,
+    pcm: np.ndarray,
+    results: Results,
+    drain_s: float = 0.0,
+) -> None:
     data = pcm.tobytes()
+    results.audio_bytes_planned = len(data)
     reader: asyncio.Task[None] | None = None
     try:
         async with websockets.connect(ws_url(port), max_size=None, **_WS_KW) as ws:
@@ -377,23 +619,113 @@ async def run_teacher(port: int, code: str, pcm: np.ndarray, results: Results) -
             loop = asyncio.get_running_loop()
             start = loop.time()
             results.audio_started_at = time.monotonic()
+            results.measurement_started.set()
             for i in range(0, len(data), CHUNK_BYTES):
-                await ws.send(data[i : i + CHUNK_BYTES])
+                chunk = data[i : i + CHUNK_BYTES]
+                await ws.send(chunk)
+                results.audio_bytes_sent += len(chunk)
                 # 実時間ペース（絶対スケジュールでドリフトを避ける）
                 target = start + (i // CHUNK_BYTES + 1) * 0.1
                 delay = target - loop.time()
                 if delay > 0:
-                    await asyncio.sleep(delay)
+                    await sleep_at_least(delay)
             await ws.send(json.dumps({"type": "control", "action": "end"}))  # 最後の発話を確定
+            results.measurement_seconds = time.monotonic() - results.audio_started_at
+            results.measurement_done.set()
+            # reader と先生WSを維持し、最終ASR/MT後の通算counterを受け取る。
+            await sleep_at_least(drain_s)
     except ProtocolError as exc:
         results.errors.append(f"teacher protocol error: {exc}")
     except Exception as exc:  # 想定外の切断＝サーバー側の異常。試験は続行し記録する
         results.errors.append(f"teacher切断: {type(exc).__name__}")
     finally:
+        if results.audio_started_at is not None and results.measurement_seconds == 0:
+            results.measurement_seconds = time.monotonic() - results.audio_started_at
+        results.measurement_done.set()
+        # Unblock the coordinator even if teacher setup failed before audio.
+        results.measurement_started.set()
         if reader is not None:
             reader.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await reader
+
+
+def _finish_injected_restore(results: Results, sid: str) -> None:
+    """Complete one injection only after every recoverable seq has arrived."""
+    event = results.pending_injections.get(sid)
+    if (
+        event is None
+        or event.get("close_succeeded") is not True
+        or event.get("joined") is not True
+    ):
+        return
+    expected = set(event.get("expected_seqs", []))
+    missing = expected - results.student_seqs.get(sid, set())
+    if missing:
+        return
+    event["restore_complete"] = True
+    event["missing_seqs"] = []
+    injected_at = results.injected_at.pop(sid, None)
+    if injected_at is not None:
+        elapsed = time.monotonic() - injected_at
+        event["restore_seconds"] = round(elapsed, 3)
+        results.restore_times.append(elapsed)
+    results.restored_by_student[sid] = results.restored_by_student.get(sid, 0) + 1
+    results.pending_injections.pop(sid, None)
+
+
+def injection_event_summary(results: Results) -> list[dict]:
+    """Finalize per-injection expected/missing sets for the sealed report."""
+    summaries = []
+    for event in results.injection_events:
+        item = dict(event)
+        expected = set(item.get("expected_seqs", []))
+        missing = sorted(expected - results.student_seqs.get(str(item["student"]), set()))
+        item["missing_seqs"] = missing
+        item["restore_complete"] = (
+            item.get("close_succeeded") is True
+            and item.get("joined") is True
+            and not missing
+            and item.get("restore_complete") is True
+        )
+        summaries.append(item)
+    return summaries
+
+
+def continuous_delivery_summary(results: Results) -> dict[str, dict]:
+    """Prove no old loss was hidden by the final history window.
+
+    A student's own reconnect may legitimately lose seqs older than the server
+    history floor; only those per-event ranges are exempt. Every other published
+    seq must remain in that student's cumulative receive set, including seqs
+    emitted while a different student was being disconnected.
+    """
+    exempt_by_student: dict[str, set[int]] = {
+        sid: set() for sid in results.student_seqs
+    }
+    for event in results.injection_events:
+        sid = str(event.get("student", ""))
+        if event.get("close_succeeded") is True and sid in exempt_by_student:
+            published_head_at_close = int(event.get("published_head_at_close", 0))
+            exempt_by_student[sid].update(
+                seq
+                for seq in event.get("beyond_history_seqs", [])
+                if isinstance(seq, int) and seq > published_head_at_close
+            )
+    summary = {}
+    for sid, received in results.student_seqs.items():
+        exempt = exempt_by_student[sid]
+        expected = results.published_seqs - exempt
+        missing = sorted(expected - received)
+        summary[sid] = {
+            "published": len(results.published_seqs),
+            "received": len(received),
+            "exempt_own_history": sorted(exempt),
+            "expected": len(expected),
+            "missing_seqs": missing,
+            "gaps": len(missing),
+        }
+    return summary
 
 
 async def run_student(port: int, code: str, lang: str, results: Results, sid: str) -> None:
@@ -404,8 +736,6 @@ async def run_student(port: int, code: str, lang: str, results: Results, sid: st
     injected_disconnects: 試験が意図的に切った回数（#35）。**上の2つには混ぜない** —
     混ぜると「注入すればするほど不合格に近づく」という無意味な判定になる。
     """
-    import websockets
-
     results.student_langs[sid] = lang
     results.student_seqs.setdefault(sid, set())
     last_seq = 0
@@ -414,16 +744,16 @@ async def run_student(port: int, code: str, lang: str, results: Results, sid: st
     while not results.stop.is_set():
         try:
             async with websockets.connect(ws_url(port), **_WS_KW) as ws:
-                join = {"type": "join", "role": "student", "code": code, "lang": lang}
+                join: dict[str, Any] = {
+                    "type": "join",
+                    "role": "student",
+                    "code": code,
+                    "lang": lang,
+                }
                 if last_seq:
                     join["last_seq"] = last_seq
                 await ws.send(json.dumps(join))
                 backoff = 1.0  # 接続成功でバックオフ回復
-                need_reconnect = False  # 復元成功
-                results.live_ws[sid] = ws
-                injected_at = results.injected_at.pop(sid, None)
-                if injected_at is not None:  # 注入で切られたぶんの復帰時間（#35）
-                    results.restore_times.append(time.monotonic() - injected_at)
                 async for raw in ws:
                     if results.stop.is_set():
                         return
@@ -432,6 +762,35 @@ async def run_student(port: int, code: str, lang: str, results: Results, sid: st
                         results.record_caption(msg.model_dump())
                         results.student_seqs[sid].add(msg.seq)
                         last_seq = max(last_seq, msg.seq)
+                        _finish_injected_restore(results, sid)
+                    elif isinstance(msg, Joined):
+                        # TCP接続やjoin送信だけでは復帰成功ではない。サーバーが返した
+                        # 復元可能範囲を固定し、その全caption到着までイベントを閉じない。
+                        need_reconnect = False
+                        results.live_ws[sid] = ws
+                        event = results.pending_injections.get(sid)
+                        if event is not None:
+                            history_from = int(msg.history_from)
+                            seq_head = int(msg.seq_head)
+                            event["joined"] = True
+                            event["requested_last_seq"] = last_seq
+                            event["history_from"] = history_from
+                            event["seq_head"] = seq_head
+                            event["expected_seqs"] = list(
+                                range(max(last_seq + 1, history_from), seq_head + 1)
+                            )
+                            # Only captions published *after* the injected close
+                            # may be excused when they have already aged out of
+                            # server history.  A gap that existed before the
+                            # injection must never disappear behind this waiver.
+                            published_head_at_close = int(event["published_head_at_close"])
+                            event["beyond_history_seqs"] = list(
+                                range(
+                                    max(last_seq + 1, published_head_at_close + 1),
+                                    min(history_from, seq_head + 1),
+                                )
+                            )
+                            _finish_injected_restore(results, sid)
                     elif isinstance(msg, JoinRejected):
                         results.errors.append(f"student {lang}: join_rejected {msg.reason}")
                         return
@@ -476,19 +835,64 @@ async def inject_disconnects(results: Results, every_s: float, seed: int = 0) ->
     復元の失敗ではなく**試験の設計ミス**として欠落が出る。
     """
     rng = random.Random(seed)
-    while not results.stop.is_set():
-        await asyncio.sleep(every_s)
-        if results.stop.is_set():
+    while not results.stop.is_set() and not results.measurement_done.is_set():
+        try:
+            await asyncio.wait_for(results.measurement_done.wait(), timeout=every_s)
+        except asyncio.TimeoutError:
+            pass
+        if results.stop.is_set() or results.measurement_done.is_set():
             return
-        live = [(sid, ws) for sid, ws in results.live_ws.items() if ws is not None]
+        live = [
+            (sid, ws)
+            for sid, ws in results.live_ws.items()
+            if ws is not None and sid not in results.pending_injections
+        ]
         if not live:
             continue
         sid, ws = rng.choice(live)
+        received_at_close = results.student_seqs.get(sid, set())
+        event = {
+            "attempt": len(results.injection_events) + 1,
+            "student": sid,
+            "lang": results.student_langs.get(sid),
+            "close_succeeded": False,
+            "joined": False,
+            "restore_complete": False,
+            "requested_last_seq": None,
+            "history_from": None,
+            "seq_head": None,
+            "expected_seqs": [],
+            "beyond_history_seqs": [],
+            "published_head_at_close": max(results.published_seqs, default=0),
+            "published_count_at_close": len(results.published_seqs),
+            "received_head_at_close": max(received_at_close, default=0),
+            "received_count_at_close": len(received_at_close),
+            "attempted_at_s": (
+                round(time.monotonic() - results.audio_started_at, 3)
+                if results.audio_started_at is not None
+                else None
+            ),
+            "missing_seqs": [],
+            "restore_seconds": None,
+        }
+        results.injection_events.append(event)
+        results.pending_injections[sid] = event
         results.injected_pending.add(sid)
         results.injected_at[sid] = time.monotonic()
-        results.injected_disconnects += 1
-        with contextlib.suppress(Exception):
+        try:
             await ws.close(code=1001)  # going away（端末スリープ相当）
+        except Exception as exc:
+            event["close_error"] = f"{type(exc).__name__}: {exc}"
+            results.injection_close_failures += 1
+            results.errors.append(f"student {sid}: 注入close失敗 {type(exc).__name__}")
+            results.pending_injections.pop(sid, None)
+            results.injected_pending.discard(sid)
+            results.injected_at.pop(sid, None)
+        else:
+            event["close_succeeded"] = True
+            results.injected_disconnects += 1
+            results.injected_by_student[sid] = results.injected_by_student.get(sid, 0) + 1
+            _finish_injected_restore(results, sid)
 
 
 def proc_tree(root: psutil.Process) -> list[psutil.Process] | None:
@@ -577,36 +981,87 @@ class TreeCpuSampler:
 
 
 async def sample_rss(proc: subprocess.Popen, results: Results) -> None:
-    root = psutil.Process(proc.pid)
-    seen_high = False
-    cpu_sampler = TreeCpuSampler(root)
-    while not results.stop.is_set():
-        if proc.poll() is not None:  # サーバープロセスが終了＝クラッシュ（N-08）
-            results.crashes += 1
-            results.stop.set()
-            return
-        rss = tree_rss_mb(root)
-        if rss is None:
-            results.crashes += 1
-            results.stop.set()
-            return
-        # 実サーバーは起動後ずっと数百MB以上。高値を見た後に激減＝実体プロセス消失
-        if rss > 500:
-            seen_high = True
-        elif seen_high and rss < 50:
-            results.crashes += 1
-            results.stop.set()
-            return
-        results.rss_mb.append(rss)
-        counts = tree_counts(root)
-        if counts is not None:
-            results.threads.append(counts[0])
-            if counts[1] is not None:
-                results.handles.append(counts[1])
-        cpu = cpu_sampler.sample()
-        if cpu is not None:
-            results.cpu_percent.append(cpu)
-        await asyncio.sleep(RSS_INTERVAL_S)
+    try:
+        root = psutil.Process(proc.pid)
+        seen_high = False
+        cpu_sampler = TreeCpuSampler(root)
+        while not results.stop.is_set():
+            if proc.poll() is not None:  # サーバープロセスが終了＝クラッシュ（N-08）
+                results.crashes += 1
+                results.stop.set()
+                return
+            rss = tree_rss_mb(root)
+            if rss is None:
+                results.crashes += 1
+                results.stop.set()
+                return
+            # 実サーバーは起動後ずっと数百MB以上。高値を見た後に激減＝実体プロセス消失
+            if rss > 500:
+                seen_high = True
+            elif seen_high and rss < 50:
+                results.crashes += 1
+                results.stop.set()
+                return
+            results.rss_mb.append(rss)
+            counts = tree_counts(root)
+            if counts is not None:
+                results.threads.append(counts[0])
+                if counts[1] is not None:
+                    results.handles.append(counts[1])
+            cpu = cpu_sampler.sample()
+            if cpu is not None:
+                results.cpu_percent.append(cpu)
+            if results.audio_started_at is not None:
+                results.resource_samples.append({
+                    "at_s": round(time.monotonic() - results.audio_started_at, 3),
+                    "rss_mb": rss,
+                    "threads": counts[0] if counts is not None else None,
+                    "handles": counts[1] if counts is not None else None,
+                    "cpu_percent": cpu,
+                })
+            await asyncio.sleep(RSS_INTERVAL_S)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        results.errors.append(f"resource sampler失敗: {type(exc).__name__}: {exc}")
+        results.stop.set()
+
+
+def _timing_coverage(samples: list[dict], measurement_s: float) -> dict[str, float | int | None]:
+    """Summarize sample continuity inside the measurement interval.
+
+    Count plus a final timestamp is insufficient: hundreds of early samples and
+    one late sample could hide a long sampler outage.  The maximum gap includes
+    both measurement boundaries, so missing the beginning or end is visible too.
+    """
+    times = sorted(
+        float(sample["at_s"])
+        for sample in samples
+        if isinstance(sample, dict)
+        and isinstance(sample.get("at_s"), (int, float))
+        and not isinstance(sample.get("at_s"), bool)
+        and 0 <= float(sample["at_s"]) <= measurement_s
+    )
+    all_times = sorted(
+        float(sample["at_s"])
+        for sample in samples
+        if isinstance(sample, dict)
+        and isinstance(sample.get("at_s"), (int, float))
+        and not isinstance(sample.get("at_s"), bool)
+        and float(sample["at_s"]) >= 0
+    )
+    boundaries = [0.0, *times, max(0.0, measurement_s)]
+    max_gap = max(
+        (later - earlier for earlier, later in zip(boundaries, boundaries[1:])),
+        default=0.0,
+    )
+    return {
+        "measurement_samples": len(times),
+        "first_at_s": round(times[0], 3) if times else None,
+        "measurement_last_at_s": round(times[-1], 3) if times else None,
+        "last_at_s": round(all_times[-1], 3) if all_times else None,
+        "max_gap_s": round(max_gap, 3) if times else None,
+    }
 
 
 async def _drive(
@@ -626,22 +1081,45 @@ async def _drive(
         for i in range(n_students)
     ]
     sampler = asyncio.create_task(sample_rss(proc, results))
-    injector = (
-        asyncio.create_task(inject_disconnects(results, disconnect_every_s))
-        if disconnect_every_s
-        else None
-    )
-    await asyncio.sleep(1.0)  # 生徒の join を先に成立させる
+    injector: asyncio.Task[None] | None = None
+    expected_langs = dict(Counter(langs[i % len(langs)] for i in range(n_students)))
+    join_deadline = time.monotonic() + 30.0
+    while time.monotonic() < join_deadline:
+        connected = set(results.live_ws)
+        observed_langs = dict(Counter(results.student_langs[sid] for sid in connected))
+        if len(connected) == n_students and observed_langs == expected_langs:
+            break
+        await asyncio.sleep(0.1)
+    else:
+        results.errors.append(
+            f"計測開始前の生徒join不足: expected={n_students}/{expected_langs}, "
+            f"observed={len(results.live_ws)}/{observed_langs}"
+        )
+        results.stop.set()
+        extra = [task for task in (sampler, injector) if task is not None]
+        for task in (*students, *extra):
+            task.cancel()
+        await asyncio.gather(*students, *extra, return_exceptions=True)
+        return results
+    results.measurement_students = len(results.live_ws)
+    results.measurement_langs = observed_langs
     started = time.monotonic()
-    await run_teacher(port, code, pcm, results)
+    teacher = asyncio.create_task(run_teacher(port, code, pcm, results, drain_s))
+    await results.measurement_started.wait()
+    if (
+        disconnect_every_s
+        and results.audio_started_at is not None
+        and not results.measurement_done.is_set()
+    ):
+        injector = asyncio.create_task(inject_disconnects(results, disconnect_every_s))
+    await results.measurement_done.wait()
     if injector is not None:
-        # drain 中は切らない。最後に切ったぶんの復元を drain で完了させるため
-        # （切ったまま試験が終わると「復元されなかった」と読めてしまう）
-        injector.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await injector
+        # The measurement_done event wakes a sleeping injector immediately. If
+        # a close was already in flight, let that bounded close finish so its
+        # event is not left half-recorded; student restoration can use drain.
+        await injector
         injector = None
-    await asyncio.sleep(drain_s)  # 最後のcaptionが届くのを待つ
+    await teacher  # drain完了まで先生readerを維持する
     results.ran_seconds = time.monotonic() - started
     results.stop.set()
     extra = [t for t in (sampler, injector) if t is not None]
@@ -689,8 +1167,6 @@ def write_config(
         base["mt"]["cache_size"] = mt_cache_size
         suffix += f"-cache{mt_cache_size}"
     cfg = dest / f"accept-{engine}{suffix}.yaml"
-    import yaml
-
     cfg.write_text(yaml.safe_dump(base, allow_unicode=True), encoding="utf-8")
     return cfg
 
@@ -734,66 +1210,114 @@ def _terminate_tree(proc: subprocess.Popen) -> None:
             p.kill()
 
 
-def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dict:
-    cfg = write_config(
-        engine,
-        args.port,
-        scratch,
-        getattr(args, "asr", None),
-        getattr(args, "partial", None),
-        getattr(args, "langs", None),
-        getattr(args, "mt_cache_size", None),
-    )
+def run_engine_test(
+    engine: str,
+    args: argparse.Namespace,
+    scratch: Path,
+    cfg: Path | None = None,
+    *,
+    source_manifest: Path,
+) -> dict:
+    if cfg is None:
+        cfg = write_config(
+            engine,
+            args.port,
+            scratch,
+            getattr(args, "asr", None),
+            getattr(args, "partial", None),
+            getattr(args, "langs", None),
+            getattr(args, "mt_cache_size", None),
+        )
+    resolved_config = load_config(cfg)
     log = open(scratch / f"server-{engine}.log", "w", encoding="utf-8")
     print(f"\n=== エンジン {engine}: サーバー起動 ===", flush=True)
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "server.main", "--config", str(cfg)],
-        cwd=str(ROOT),
-        stdout=log,
-        stderr=subprocess.STDOUT,
-    )
-    try:
-        wait_ready(args.port, proc)
-        code = fetch_code(args.port)
-        pcm = build_stream(args.minutes, args.audio, getattr(args, "corpus", "ja"))
-        print(f"    参加コード {code} / 音源 {pcm.size / SAMPLE_RATE:.0f}s / 生徒{args.students}名", flush=True)
-        results = asyncio.run(
-            _drive(
-                args.port,
-                code,
-                pcm,
-                args.students,
-                args.drain_seconds,
-                proc,
-                getattr(args, "langs", None),
-                getattr(args, "disconnect_every_s", None),
-            )
+    with fresh_python_child_environment() as child_environment:
+        child_command = isolated_python_module_command(
+            "server.main",
+            root=ROOT,
+            environment=child_environment,
+            arguments=("--config", str(cfg)),
         )
-    finally:
-        _terminate_tree(proc)
-        log.close()
+        recheck_performance_run_state(source_manifest)
+        proc = subprocess.Popen(
+            child_command,
+            cwd=str(ROOT),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=child_environment,
+        )
+        try:
+            wait_ready(args.port, proc)
+            code = fetch_code(args.port)
+            pcm = build_stream(args.minutes, args.audio, getattr(args, "corpus", "ja"))
+            print(f"    参加コード {code} / 音源 {pcm.size / SAMPLE_RATE:.0f}s / 生徒{args.students}名", flush=True)
+            results = asyncio.run(
+                _drive(
+                    args.port,
+                    code,
+                    pcm,
+                    args.students,
+                    args.drain_seconds,
+                    proc,
+                    getattr(args, "langs", None),
+                    getattr(args, "disconnect_every_s", None),
+                )
+            )
+        finally:
+            _terminate_tree(proc)
+            log.close()
 
-    queued = [s["audio_queue_seconds"] for s in results.stats_samples]
-    depths = [s["queue_depth"] for s in results.stats_samples]
-    mt_depths = [float(s["mt_queue_depth"]) for s in results.stats_samples]
+    measurement_resources = [
+        sample for sample in results.resource_samples
+        if sample["at_s"] is not None
+        and 0 <= float(sample["at_s"]) <= results.measurement_seconds
+    ]
+    measurement_stats = [
+        sample for sample in results.stats_samples
+        if 0 <= float(sample["at_s"]) <= results.measurement_seconds
+    ]
+    rss_values = [float(s["rss_mb"]) for s in measurement_resources if s["rss_mb"] is not None]
+    thread_values = [
+        float(s["threads"]) for s in measurement_resources if s["threads"] is not None
+    ]
+    handle_values = [
+        float(s["handles"]) for s in measurement_resources if s["handles"] is not None
+    ]
+    cpu_values = [
+        float(s["cpu_percent"])
+        for s in measurement_resources
+        if s["cpu_percent"] is not None
+    ]
+    task_values = [float(s["tasks"]) for s in measurement_stats]
+    queued = [float(s["audio_queue_seconds"]) for s in measurement_stats]
+    depths = [int(s["queue_depth"]) for s in measurement_stats]
+    mt_depths = [float(s["mt_queue_depth"]) for s in measurement_stats]
+    process_coverage = _timing_coverage(results.resource_samples, results.measurement_seconds)
+    stats_coverage = _timing_coverage(results.stats_samples, results.measurement_seconds)
+    stats_interval_s = float(resolved_config.monitoring.stats_interval_s)
     dropped = results.dropped_audio()
+    injection_events = injection_event_summary(results)
+    continuous_delivery = continuous_delivery_summary(results)
     # 切断注入下の復元（#35）。注入していない周では student_seqs は埋まるが
     # 欠落は出ない（切れていないので当然）＝判定に影響しない
     restore = restore_gaps(
         results.student_seqs,
         results.student_langs,
         dict.fromkeys(set(results.student_langs.values()), results.published_seqs),
-        history_limit=load_config(ROOT / "config.yaml").history_resend,
+        history_limit=resolved_config.history_resend,
     )
     lat = latency_stats(list(results.captions.values()))
-    mem = memory_trend(results.rss_mb)
+    mem = memory_trend(rss_values)
     # 長時間試験の追加判定（#32）。短い周では窓が1つしか作れず drift は None になり、
     # そのときは判定に効かない（＝スモークを長時間試験の基準で落とさない）
-    drift = latency_drift(results.lat_samples)
+    # 音声送出の目標時間を越えた drain 中の字幕は、最後の推論を待つための
+    # 後処理であって定常運転ではない。少数の終了時字幕を新しい5分窓として
+    # ドリフト判定へ混ぜない。
+    drift = latency_drift(results.lat_samples, observation_s=args.minutes * 60)
     resources = [
-        resource_trend("threads", results.threads),
-        resource_trend("handles", results.handles),
-        resource_trend("tasks", results.tasks),
+        resource_trend("threads", thread_values),
+        resource_trend("handles", handle_values),
+        resource_trend("tasks", task_values),
         # queue growth（チケットが名指しした確認項目）。最大値だけでは
         # 「一度跳ねた」と「増え続けている」が区別できないので、
         # メモリと同じ前半/後半の中央値で見る
@@ -805,7 +1329,7 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         mem,
         crashes=results.crashes,
         reconnect_failures=results.reconnect_failures,
-        ran_seconds=results.ran_seconds,
+        ran_seconds=results.measurement_seconds,
         target_seconds=args.minutes * 60,
         drift=drift,
         resources=resources,
@@ -814,9 +1338,16 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
     )
     return {
         "engine": engine,
+        "asr_engine": resolved_config.asr.engine,
         "minutes": args.minutes,
         "students": args.students,
+        "measurement_students": results.measurement_students,
+        "measurement_langs": results.measurement_langs,
+        "measurement_seconds": round(results.measurement_seconds, 3),
+        "audio_bytes_planned": results.audio_bytes_planned,
+        "audio_bytes_sent": results.audio_bytes_sent,
         "corpus": getattr(args, "corpus", "ja"),
+        "effective_config": cfg.resolve().relative_to(Path(args.out_dir).resolve()).as_posix(),
         "disconnect_every_s": getattr(args, "disconnect_every_s", None),
         "mt_cache_size": getattr(args, "mt_cache_size", None),
         "langs": getattr(args, "langs", None) or ["en", "zh"],
@@ -830,12 +1361,12 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         "cpu_percent": (
             {
                 "cores": psutil.cpu_count(logical=True),
-                "median": round(statistics.median(results.cpu_percent), 1),
-                "p95": round(percentile(results.cpu_percent, 95), 1),
-                "max": round(max(results.cpu_percent), 1),
-                "samples": len(results.cpu_percent),
+                "median": round(statistics.median(cpu_values), 1),
+                "p95": round(percentile(cpu_values, 95), 1),
+                "max": round(max(cpu_values), 1),
+                "samples": len(cpu_values),
             }
-            if results.cpu_percent
+            if cpu_values
             else None
         ),
         "audio_queue_seconds": (
@@ -881,11 +1412,40 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
             else None
         ),
         "resources": [r.__dict__ for r in resources if r is not None],
+        "resource_observation": {
+            "sampler_interval_s": RSS_INTERVAL_S,
+            "stats_interval_s": stats_interval_s,
+            "process_samples": process_coverage["measurement_samples"],
+            "process_first_at_s": process_coverage["first_at_s"],
+            "process_measurement_last_at_s": process_coverage["measurement_last_at_s"],
+            "process_last_at_s": process_coverage["last_at_s"],
+            "process_max_gap_s": process_coverage["max_gap_s"],
+            "rss_samples": len(rss_values),
+            "thread_samples": len(thread_values),
+            "handle_samples": len(handle_values),
+            "stats_samples": stats_coverage["measurement_samples"],
+            "stats_first_at_s": stats_coverage["first_at_s"],
+            "stats_measurement_last_at_s": stats_coverage["measurement_last_at_s"],
+            "stats_last_at_s": stats_coverage["last_at_s"],
+            "stats_max_gap_s": stats_coverage["max_gap_s"],
+        },
         "dropped": {**dropped.__dict__, "notices": results.notices},
         "restore": (
             {
                 **restore.__dict__,
                 "injected_disconnects": results.injected_disconnects,
+                "injection_attempts": len(injection_events),
+                "injection_close_failures": results.injection_close_failures,
+                "injected_by_student": {
+                    sid: results.injected_by_student.get(sid, 0)
+                    for sid in sorted(results.student_seqs)
+                },
+                "restored_by_student": {
+                    sid: results.restored_by_student.get(sid, 0)
+                    for sid in sorted(results.student_seqs)
+                },
+                "injection_events": injection_events,
+                "continuous_delivery_by_student": continuous_delivery,
                 "restore_median_s": (
                     round(statistics.median(results.restore_times), 2)
                     if results.restore_times
@@ -913,7 +1473,9 @@ def run_engine_test(engine: str, args: argparse.Namespace, scratch: Path) -> dic
         "reconnect_failures": results.reconnect_failures,
         "crashes": results.crashes,
         "errors": results.errors,
-        "ran_seconds": round(results.ran_seconds, 1),
+        "ran_seconds": round(results.ran_seconds, 3),
+        "total_elapsed_seconds": round(results.ran_seconds, 3),
+        "final_stats": results.stats_samples[-1] if results.stats_samples else None,
         "verdict": {"passed": verdict.passed, "reasons": verdict.reasons},
     }
 
@@ -1046,15 +1608,18 @@ def build_report(results: list[dict], system: dict) -> str:
         add("| エンジン | 注入した切断 | 復帰 中央値 / 最大 | 配信seq | 復元されなかった | 履歴外（仕様どおり） | 想定外の切断 | 復元失敗 |")
         add("|---------|------------|------------------|--------|----------------|------------------|------------|--------|")
         for r in results:
-            res = r.get("restore")
-            if not res:
+            restore_summary = r.get("restore")
+            if not restore_summary:
                 continue
-            mark = " ⚠️" if res["gaps"] else ""
+            mark = " ⚠️" if restore_summary["gaps"] else ""
             add(
-                f"| {r['engine']} | {res['injected_disconnects']}回 | "
-                f"{res['restore_median_s']}s / {res['restore_max_s']}s | "
-                f"{res['published_seqs']} | {res['gaps']}件{mark} | "
-                f"{res['beyond_history']}件 | {r['disconnects']} | {r['reconnect_failures']} |"
+                f"| {r['engine']} | {restore_summary['injected_disconnects']}回 | "
+                f"{restore_summary['restore_median_s']}s / "
+                f"{restore_summary['restore_max_s']}s | "
+                f"{restore_summary['published_seqs']} | "
+                f"{restore_summary['gaps']}件{mark} | "
+                f"{restore_summary['beyond_history']}件 | "
+                f"{r['disconnects']} | {r['reconnect_failures']} |"
             )
         add("")
         add(f"- 注入間隔 {results[0].get('disconnect_every_s')}秒。ランダムに1名を選び close code 1001")
@@ -1209,6 +1774,8 @@ def main() -> int:
     args.partial = None if args.partial is None else args.partial == "on"
     args.langs = [c.strip() for c in args.langs.split(",")] if args.langs else None
 
+    out_dir = Path(args.out_dir)
+    ensure_new_performance_run(out_dir)
     default_engine = load_config(ROOT / "config.yaml").mt.engine
     if args.engine:
         engines = [args.engine]
@@ -1217,27 +1784,61 @@ def main() -> int:
         other = "nllb" if default_engine == "hy-mt2" else "hy-mt2"
         engines = [default_engine, other]
 
-    scratch = Path(args.out_dir) / "_work"
+    scratch = out_dir / "_work"
     scratch.mkdir(parents=True, exist_ok=True)
+    effective_configs = {
+        engine: write_config(
+            engine,
+            args.port,
+            scratch,
+            args.asr,
+            args.partial,
+            args.langs,
+            args.mt_cache_size,
+        )
+        for engine in engines
+    }
+    _assert_producer_modules_current()
+    source_manifest = begin_performance_run(
+        out_dir,
+        kind="soak",
+        arguments=args,
+        effective_configs=effective_configs.values(),
+        root=ROOT,
+    )
     system = system_info()
 
     results: list[dict] = []
     for engine in engines:
-        r = run_engine_test(engine, args, scratch)
+        r = run_engine_test(
+            engine,
+            args,
+            scratch,
+            effective_configs[engine],
+            source_manifest=source_manifest,
+        )
         results.append(r)
         print(f"    {engine}: {'合格' if r['verdict']['passed'] else '不合格 ' + '; '.join(r['verdict']['reasons'])}", flush=True)
         if r["verdict"]["passed"]:
             break  # 合格したら他エンジンは試さない
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{system['date']}-acceptance"
-    (out_dir / f"{stem}.json").write_text(
+    json_path = out_dir / f"{stem}.json"
+    markdown_path = out_dir / f"{stem}.md"
+    json_path.write_text(
         json.dumps({"system": system, "results": results}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    (out_dir / f"{stem}.md").write_text(build_report(results, system), encoding="utf-8")
-    print(f"\nレポート: {out_dir / (stem + '.md')}")
+    markdown_path.write_text(build_report(results, system), encoding="utf-8")
+    _assert_producer_modules_current()
+    complete_performance_run(
+        source_manifest,
+        primary_report=json_path,
+        artifacts=[json_path, markdown_path],
+        effective_configs=effective_configs.values(),
+        root=ROOT,
+    )
+    print(f"\nレポート: {markdown_path}")
 
     passed = next((r for r in results if r["verdict"]["passed"]), None)
     if passed and not args.no_config_update and passed["engine"] != default_engine:

@@ -26,15 +26,179 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+ROOT = Path(os.path.abspath(Path(__file__).parent.parent))
 
+
+def _scale_real_directory_chain(path: Path) -> bool:
+    absolute = Path(os.path.abspath(path))
+    components = [Path(absolute.parts[0])]
+    for part in absolute.parts[1:]:
+        components.append(components[-1] / part)
+
+    def snapshot() -> tuple[tuple[str, int, int], ...] | None:
+        result: list[tuple[str, int, int]] = []
+        try:
+            for component in components:
+                state = component.lstat()
+                if (
+                    not stat.S_ISDIR(state.st_mode)
+                    or stat.S_ISLNK(state.st_mode)
+                    or bool(
+                        getattr(state, "st_file_attributes", 0)
+                        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+                    )
+                    or bool(
+                        getattr(os.path, "isjunction", lambda _path: False)(
+                            component
+                        )
+                    )
+                ):
+                    return None
+                result.append((str(component), state.st_dev, state.st_ino))
+        except OSError:
+            return None
+        return tuple(result)
+
+    before = snapshot()
+    return before is not None and snapshot() == before
+
+
+def _scale_venv_site_packages() -> Path:
+    venv_root = Path(os.path.abspath(sys.executable)).parent.parent
+    candidates = (
+        venv_root / "Lib" / "site-packages",
+        venv_root
+        / "lib"
+        / f"python{sys.version_info.major}.{sys.version_info.minor}"
+        / "site-packages",
+    )
+    existing = [path for path in candidates if path.is_dir()]
+    if len(existing) != 1 or not (venv_root / "pyvenv.cfg").is_file():
+        raise RuntimeError("scale requires one auditable virtualenv site-packages")
+    site_packages = Path(os.path.abspath(existing[0]))
+    if not _scale_real_directory_chain(site_packages):
+        raise RuntimeError(
+            "scale site-packages and its ancestors must be real directories"
+        )
+    return site_packages
+
+
+def _scale_isolated_base_paths() -> tuple[Path, ...]:
+    base = Path(os.path.abspath(sys.base_prefix))
+    if os.name != "nt":
+        version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+        return (
+            base / "lib" / f"{version.replace('.', '')}.zip",
+            base / "lib" / version,
+            base / "lib" / version / "lib-dynload",
+        )
+    return (
+        base / f"python{sys.version_info.major}{sys.version_info.minor}.zip",
+        base / "DLLs",
+        base / "Lib",
+        base,
+    )
+
+
+def _scale_bootstrap_isolated_process() -> bool:
+    qualified_flags = bool(
+        sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.ignore_environment
+        and sys.flags.safe_path
+        and sys.dont_write_bytecode
+    )
+    if __name__ == "__main__" and not qualified_flags:
+        with tempfile.TemporaryDirectory(
+            prefix="linguabridge-scale-qualified-pycache-"
+        ) as directory:
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if not key.upper().startswith("PYTHON")
+            }
+            command = [
+                sys.executable,
+                "-I",
+                "-S",
+                "-B",
+                "-X",
+                f"pycache_prefix={Path(os.path.abspath(directory))}",
+                str(Path(os.path.abspath(__file__))),
+                *sys.argv[1:],
+            ]
+            raise SystemExit(subprocess.call(command, cwd=str(ROOT), env=environment))
+    if not qualified_flags:
+        return False
+    site_packages = _scale_venv_site_packages()
+    if not _scale_real_directory_chain(ROOT):
+        raise RuntimeError("scale root and its ancestors must be real directories")
+    if (site_packages / "scripts").exists() or (site_packages / "server").exists():
+        raise RuntimeError("site-packages shadows a repository package")
+    base_paths = tuple(str(path) for path in _scale_isolated_base_paths())
+    expected = (*base_paths, str(site_packages), str(ROOT))
+    if tuple(sys.path) == base_paths:
+        sys.path.extend((str(site_packages), str(ROOT)))
+    return tuple(sys.path) == expected
+
+
+_QUALIFIED_BOOTSTRAP = _scale_bootstrap_isolated_process()
+_SCALE_PREIMPORT_MODULE_NAMES = frozenset(sys.modules)
+_SCALE_CRITICAL_PREFIXES = (
+    "scripts.acceptance",
+    "scripts.performance_evidence",
+    "scripts.replay_client",
+    "scripts.text_metrics",
+    "server",
+    "websockets",
+)
+_PRELOADED_SCALE_CRITICAL_MODULES = frozenset(
+    name
+    for name in _SCALE_PREIMPORT_MODULE_NAMES
+    if any(
+        name == prefix or name.startswith(prefix + ".")
+        for prefix in _SCALE_CRITICAL_PREFIXES
+    )
+)
+if __name__ == "__main__" and "scripts" in _SCALE_PREIMPORT_MODULE_NAMES:
+    _PRELOADED_SCALE_CRITICAL_MODULES |= {"scripts"}
+
+import scripts.performance_evidence as performance_evidence_module  # noqa: E402
+
+
+def _safe_scale_cache_prefix(value: object) -> Path | None:
+    return performance_evidence_module._safe_empty_cache_prefix(value)
+
+
+_IMPORT_PYCACHE_DIRECTORY: tempfile.TemporaryDirectory[str] | None = None
+_IMPORT_PYCACHE_ROOT = (
+    _safe_scale_cache_prefix(sys.pycache_prefix)
+    if sys.dont_write_bytecode
+    else None
+)
+if _IMPORT_PYCACHE_ROOT is None:
+    _IMPORT_PYCACHE_DIRECTORY = tempfile.TemporaryDirectory(
+        prefix="linguabridge-scale-import-pycache-"
+    )
+    _IMPORT_PYCACHE_ROOT = _safe_scale_cache_prefix(
+        _IMPORT_PYCACHE_DIRECTORY.name
+    )
+    if _IMPORT_PYCACHE_ROOT is None:
+        raise RuntimeError("scale import pycache prefix is not a fresh real directory")
+    sys.pycache_prefix = str(_IMPORT_PYCACHE_ROOT)
+sys.dont_write_bytecode = True
+
+import scripts.replay_client as replay_client_module  # noqa: E402
+import server.config as server_config_module  # noqa: E402
 from server.config import load_config  # noqa: E402
 from scripts.replay_client import (  # noqa: E402
     SAMPLE_RATE,
@@ -42,11 +206,44 @@ from scripts.replay_client import (  # noqa: E402
     _drive,
     _terminate_tree,
     build_stream,
+    continuous_delivery_summary,
     fetch_code,
     system_info,
     wait_ready,
     write_config,
 )
+from scripts.performance_evidence import (  # noqa: E402
+    begin_performance_run,
+    capture_imported_module_state,
+    complete_performance_run,
+    ensure_new_performance_run,
+    fresh_python_child_environment,
+    isolated_python_module_command,
+    recheck_imported_module_state,
+    recheck_performance_run_state,
+    require_qualified_producer_bootstrap,
+)
+
+_PRODUCER_MODULE_STATE = capture_imported_module_state(
+    sys.modules["scripts"],
+    sys.modules[__name__],
+    replay_client_module,
+    performance_evidence_module,
+    server_config_module,
+)
+
+
+def _assert_producer_modules_current() -> None:
+    """Reject scaling evidence made by stale imported decision code."""
+
+    if not _QUALIFIED_BOOTSTRAP or _PRELOADED_SCALE_CRITICAL_MODULES:
+        raise performance_evidence_module.PerformanceEvidenceError(
+            "scale evidence requires a fresh -I -S interpreter with no "
+            "preloaded runtime modules"
+        )
+    require_qualified_producer_bootstrap()
+    recheck_imported_module_state(_PRODUCER_MODULE_STATE)
+    replay_client_module._assert_producer_modules_current()
 
 BENCH_PORT = 8101  # replay_client(8100) と別。両方を並行して回せるように
 # 点と点の間に置く待ち。同じポートを16回使い回すので、直前のサーバーの
@@ -68,6 +265,8 @@ def run_point(
     port: int,
     scratch: Path,
     drain_s: float,
+    cfg: Path | None = None,
+    source_manifest: Path,
 ) -> dict:
     """1点（言語数 × 生徒数）を測る。サーバーは点ごとに立て直す。
 
@@ -75,29 +274,39 @@ def run_point(
     翻訳キャッシュが前の点の訳文を持ち越すと `mt_calls` が減って
     「生徒が増えたら翻訳が減った」という読めない表になる。
     """
-    cfg = write_config(mt_engine, port, scratch, langs=langs)
+    if cfg is None:
+        cfg = write_config(mt_engine, port, scratch, langs=langs)
     asr_engine = load_config(cfg).asr.engine
     log_path = scratch / f"server-{len(langs)}lang-{students}s-{mt_engine}.log"
     log = open(log_path, "w", encoding="utf-8")
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "server.main", "--config", str(cfg)],
-        cwd=str(ROOT),
-        stdout=log,
-        stderr=subprocess.STDOUT,
-    )
-    try:
-        wait_ready(port, proc)
-        code = fetch_code(port)
-        pcm = build_stream(minutes, None, corpus)
-        print(
-            f"  言語{len(langs)}（{'/'.join(langs)}） x 生徒{students}名 "
-            f"/ MT={mt_engine} / 音源{pcm.size / SAMPLE_RATE:.0f}s",
-            flush=True,
+    with fresh_python_child_environment() as child_environment:
+        child_command = isolated_python_module_command(
+            "server.main",
+            root=ROOT,
+            environment=child_environment,
+            arguments=("--config", str(cfg)),
         )
-        results = asyncio.run(_drive(port, code, pcm, students, drain_s, proc, langs))
-    finally:
-        _terminate_tree(proc)
-        log.close()
+        recheck_performance_run_state(source_manifest)
+        proc = subprocess.Popen(
+            child_command,
+            cwd=str(ROOT),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=child_environment,
+        )
+        try:
+            wait_ready(port, proc)
+            code = fetch_code(port)
+            pcm = build_stream(minutes, None, corpus)
+            print(
+                f"  言語{len(langs)}（{'/'.join(langs)}） x 生徒{students}名 "
+                f"/ MT={mt_engine} / 音源{pcm.size / SAMPLE_RATE:.0f}s",
+                flush=True,
+            )
+            results = asyncio.run(_drive(port, code, pcm, students, drain_s, proc, langs))
+        finally:
+            _terminate_tree(proc)
+            log.close()
 
     return summarize(results, langs=langs, students=students, mt_engine=mt_engine,
                      asr_engine=asr_engine)
@@ -120,6 +329,7 @@ def summarize(
     last = results.stats_samples[-1] if results.stats_samples else {}
     delays = sorted(results.captions.values())
     dropped = results.dropped_audio()
+    continuous_delivery = continuous_delivery_summary(results)
     return {
         "langs": langs,
         "lang_count": len(langs),
@@ -128,6 +338,12 @@ def summarize(
         # 走らないため、MT回数を読むときの分母はこちらであって lang_count ではない
         "active_langs": min(students, len(langs)),
         "students": students,
+        "measurement_students": results.measurement_students,
+        "measurement_langs": results.measurement_langs,
+        "measurement_seconds": round(results.measurement_seconds, 3),
+        "audio_bytes_planned": results.audio_bytes_planned,
+        "audio_bytes_sent": results.audio_bytes_sent,
+        "ran_seconds": round(results.ran_seconds, 3),
         "mt_engine": mt_engine,
         # ASR は上書きしていない＝config.yaml の値がそのまま効く。レポートに
         # 固定文言で書くと config を変えた瞬間に嘘になるので、実際の値を残す
@@ -136,6 +352,8 @@ def summarize(
         "mt_calls": last.get("mt_calls", 0),
         "mt_cache_hits": last.get("mt_cache_hits", 0),
         "captions": len(results.captions),
+        "published_seqs": len(results.published_seqs),
+        "continuous_delivery_by_student": continuous_delivery,
         "median_delay_s": (round(delays[len(delays) // 2] / 1000, 2) if delays else None),
         "max_delay_s": (round(delays[-1] / 1000, 2) if delays else None),
         "tasks": last.get("tasks", 0),
@@ -146,6 +364,19 @@ def summarize(
         "crashes": results.crashes,
         "notices": dict(results.notices),
         "errors": results.errors[:10],
+        "counter_snapshot_at_s": last.get("at_s"),
+        "counter_snapshot": (
+            {
+                key: last.get(key)
+                for key in (
+                    "at_s", "students", "langs", "queue_depth", "audio_queue_seconds",
+                    "mt_queue_depth", "asr_calls", "mt_calls", "audio_frames_rejected",
+                    "asr_dropped_segments",
+                )
+            }
+            if last
+            else None
+        ),
     }
 
 
@@ -159,6 +390,12 @@ def failed_point(langs: list[str], students: int, mt_engine: str, error: str) ->
         "langs": langs,
         "lang_count": len(langs),
         "students": students,
+        "measurement_students": 0,
+        "measurement_langs": {},
+        "measurement_seconds": 0.0,
+        "audio_bytes_planned": 0,
+        "audio_bytes_sent": 0,
+        "ran_seconds": 0.0,
         "mt_engine": mt_engine,
         "asr_engine": None,
         "active_langs": min(students, len(langs)),
@@ -167,6 +404,8 @@ def failed_point(langs: list[str], students: int, mt_engine: str, error: str) ->
         "mt_calls": None,
         "mt_cache_hits": None,
         "captions": 0,
+        "published_seqs": 0,
+        "continuous_delivery_by_student": {},
         "median_delay_s": None,
         "max_delay_s": None,
         "tasks": None,
@@ -177,6 +416,8 @@ def failed_point(langs: list[str], students: int, mt_engine: str, error: str) ->
         "crashes": None,
         "notices": {},
         "errors": [error],
+        "counter_snapshot_at_s": None,
+        "counter_snapshot": None,
     }
 
 
@@ -320,10 +561,27 @@ def main() -> int:
     parser.add_argument("--out-dir", default=str(ROOT / "docs" / "bench"))
     args = parser.parse_args()
 
+    out_dir = Path(args.out_dir)
+    ensure_new_performance_run(out_dir)
     student_counts = [int(s) for s in args.students.split(",")]
     lang_counts = [int(c) for c in args.lang_counts.split(",")]
-    scratch = Path(args.out_dir) / "_work"
+    scratch = out_dir / "_work"
     scratch.mkdir(parents=True, exist_ok=True)
+    effective_configs: dict[int, Path] = {}
+    for count in lang_counts:
+        langs = FIVE_LANGS[:count]
+        mt_engine = args.engine if set(langs) <= set(REAL_LANGS) else "fake"
+        effective_configs[count] = write_config(
+            mt_engine, args.port, scratch, langs=langs
+        )
+    _assert_producer_modules_current()
+    source_manifest = begin_performance_run(
+        out_dir,
+        kind="scale",
+        arguments=args,
+        effective_configs=effective_configs.values(),
+        root=ROOT,
+    )
     system = system_info()
 
     points: list[dict] = []
@@ -343,6 +601,8 @@ def main() -> int:
                         port=args.port,
                         scratch=scratch,
                         drain_s=args.drain_seconds,
+                        cfg=effective_configs[count],
+                        source_manifest=source_manifest,
                     )
                 )
             except Exception as exc:  # 1点の失敗で行列全部を失わない
@@ -361,10 +621,10 @@ def main() -> int:
             )
             time.sleep(SETTLE_S)  # 次の点が同じポートに bind できるまで待つ
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{system['date']}-scaling"
-    (out_dir / f"{stem}.json").write_text(
+    json_path = out_dir / f"{stem}.json"
+    markdown_path = out_dir / f"{stem}.md"
+    json_path.write_text(
         json.dumps(
             {"system": system, "minutes": args.minutes, "corpus": args.corpus, "points": points},
             ensure_ascii=False,
@@ -372,10 +632,18 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    (out_dir / f"{stem}.md").write_text(
+    markdown_path.write_text(
         build_report(points, system, args.minutes, args.corpus), encoding="utf-8"
     )
-    print(f"\nレポート: {out_dir / (stem + '.md')}")
+    _assert_producer_modules_current()
+    complete_performance_run(
+        source_manifest,
+        primary_report=json_path,
+        artifacts=[json_path, markdown_path],
+        effective_configs=effective_configs.values(),
+        root=ROOT,
+    )
+    print(f"\nレポート: {markdown_path}")
     return 0
 
 

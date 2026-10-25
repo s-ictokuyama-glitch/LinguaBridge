@@ -10,8 +10,9 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
-from scripts.build_package import write_distribution_config
+from scripts.build_package import BundlePlan, write_distribution_config
 from server.config import load_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,7 +59,10 @@ def test_one_line_in_data_config_switches_to_nllb(tmp_path, encoding, newline):
     assert len(lines) == 1
     app_config = tmp_path / "app" / "config.yaml"
     app_config.parent.mkdir()
-    write_distribution_config(ROOT / "config.yaml", app_config)
+    config = load_config(ROOT / "config.yaml")
+    config.models.dir = "models/"
+    plan = BundlePlan(config_yaml=yaml.safe_dump(config.model_dump(), allow_unicode=True), models=())
+    write_distribution_config(plan, app_config)
     # メモ帳で保存したとき（BOM 付き・CRLF でも）と同じ形で data に置く
     override = tmp_path / "data" / "config.yaml"
     override.parent.mkdir()
