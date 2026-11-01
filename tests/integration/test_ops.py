@@ -206,13 +206,13 @@ class TestConnectionDiagnostics:
         assert "PRIVATE KEY" not in output
         assert config.read_bytes() == before
 
-    def test_live_http_is_distinct_from_models_and_remote_checks(self, tmp_path, monkeypatch):
+    def test_live_http_is_distinct_from_models_and_remote_checks(self, tmp_path, monkeypatch, capsys):
         import json
         import socket
         import subprocess
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-        from server.diagnostics import diagnose
+        from server.diagnostics import diagnose, print_report
 
         paths = []
 
@@ -224,7 +224,7 @@ class TestConnectionDiagnostics:
                 self.wfile.write({
                     "/healthz": b'{"status":"ok","ready":false}',
                     "/ready": b'{"status":"loading"}',
-                    "/": b"<!doctype html><title>LinguaBridge</title>",
+                    "/": b"<!doctype html><title>Live Translation</title>",
                 }[self.path])
 
             def log_message(self, *args):
@@ -268,6 +268,8 @@ class TestConnectionDiagnostics:
         assert report["firewall"]["status"] == "unknown"
         assert all(item["status"] == "unknown" for item in report["remote"].values())
         assert set(paths) == {"/healthz", "/ready", "/"}
+        print_report(report)
+        assert capsys.readouterr().out.startswith("Live Translation 接続診断（読み取り専用）")
 
     def test_slow_firewall_does_not_discard_listener_results(self, tmp_path, monkeypatch):
         import json
@@ -446,3 +448,49 @@ class TestConnectionDiagnostics:
         assert "https://" not in response.text
         assert "上記HTTPS" not in response.text and "同じHTTPS URL" not in response.text
         assert JOIN_CODE not in response.text
+
+
+class TestWebProductName:
+    @pytest.mark.parametrize(("path", "page_name"), [
+        ("/", "授業字幕"),
+        ("/teacher", "先生ページ"),
+        ("/connection-help", "接続に困ったとき"),
+    ])
+    def test_pages_use_public_product_name(self, path, page_name):
+        import re
+
+        with TestClient(make_app()) as client:
+            response = client.get(path)
+        assert response.status_code == 200
+        assert f"<title>Live Translation - {page_name}</title>" in response.text
+        assert re.search(r"<h1[^>]*>Live Translation(?:[^<]*)</h1>", response.text)
+        assert "LinguaBridge" not in response.text
+
+    def test_diagnostics_recognize_served_pages_and_reject_other_names(self, launcher):
+        import asyncio
+
+        from starlette.responses import HTMLResponse
+
+        from server.diagnostics import probe_http
+        from tests.listeners import run_in_worker
+
+        @launcher.app.get("/old-name")
+        async def old_name():
+            return HTMLResponse("<title>LinguaBridge</title>")
+
+        @launcher.app.get("/other-app")
+        async def other_app():
+            return HTMLResponse("<title>Another application</title>")
+
+        async def scenario():
+            async with launcher.serving() as ports:
+                for path in ("/", "/teacher", "/connection-help"):
+                    result = await asyncio.to_thread(probe_http, "127.0.0.1", ports[0], path)
+                    assert result["status"] == "ok", result
+                for path in ("/old-name", "/other-app"):
+                    result = await asyncio.to_thread(probe_http, "127.0.0.1", ports[0], path)
+                    assert result["http_status"] == 200
+                    assert result["status"] == "failed", result
+                    assert "期待するアプリ応答ではありません" in result["detail"]
+
+        run_in_worker(scenario, timeout=15)

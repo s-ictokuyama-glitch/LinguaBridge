@@ -73,7 +73,7 @@ def probe_http(host: str, port: int, path: str) -> dict:
                 payload = None
             expected = isinstance(payload, dict) and payload.get("status") == "ok"
         else:
-            expected = b"LinguaBridge" in body
+            expected = b"Live Translation" in body
         status = "ok" if response.status == 200 and expected else "failed"
         detail = f"HTTP {response.status}"
         if response.status == 200 and not expected:
@@ -275,7 +275,7 @@ def print_report(report: dict) -> None:
     def show(name: str, result: dict) -> None:
         print(f"  {name}: {labels[result['status']]} - {result['detail']}")
 
-    print(f"LinguaBridge 接続診断（読み取り専用） {report['timestamp']}")
+    print(f"Live Translation 接続診断（読み取り専用） {report['timestamp']}")
     print("診断はOS設定・モデル・参加状態を変更しません。取得済みは接続成功の意味ではありません。")
     show("ネットワーク", report["network"])
     print(f"  IPv4候補: {', '.join(report['network']['candidates']) or '未確認'}")
