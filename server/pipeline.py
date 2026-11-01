@@ -43,6 +43,7 @@ from server.asr_backlog import AsrBacklog, AsrEvent, Dropped, FlushTurn
 from server.config import AppConfig
 from server.caption_history import CaptionHistory, Translation, Utterance
 from server.mt.base import TranslationEngine
+from server.model_files import TranslationModelError
 from server.mt.cache import CacheKey, TranslationCache
 from server.recorder import SessionRecorder
 from server.roster import Client, Roster
@@ -210,6 +211,9 @@ class Pipeline:
         try:
             await loop.run_in_executor(self._asr_executor, self._asr.warmup)
             await loop.run_in_executor(self._mt_executor, self._mt.warmup)
+        except TranslationModelError as exc:
+            logger.error("%s。/ready は 503 のままになります", exc)
+            return
         except Exception:
             # warmup失敗時は ready を立てない（/ready は 503 のまま = 異常を正直に返す）。
             # 実推論側の遅延ロードで復旧する可能性はあるが、健全性としては未ロード扱い

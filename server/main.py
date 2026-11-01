@@ -88,7 +88,7 @@ def _require_language_coverage(config: AppConfig, supported: set[str]) -> None:
     if missing:
         # 対応外言語を設定したまま起動しない（E-14 は join 時にも検証される）
         raise ValueError(
-            f"翻訳エンジン '{config.mt.engine}' が未対応の言語が languages にある: {sorted(missing)}"
+            f"翻訳モデルが未対応の言語が languages にある: {sorted(missing)}"
         )
 
 
@@ -103,22 +103,25 @@ def build_mt_engine(config: AppConfig) -> TranslationEngine:
         _require_language_coverage(config, set(NLLB_LANG_CODES))
         model_dir = config.models.resolve(config.mt.nllb.model_dir)
         tokenizer_dir = config.models.resolve(config.mt.nllb.tokenizer_dir)
-        require_model_files(model_dir, 100_000_000, "NLLBモデル")
-        require_model_files(tokenizer_dir, 100_000, "NLLBトークナイザ")
+        require_model_files(model_dir, 100_000_000, "翻訳モデル",
+                            translation_models_dir=config.models.resolved_dir)
+        require_model_files(tokenizer_dir, 100_000, "翻訳モデル",
+                            translation_models_dir=config.models.resolved_dir)
         return NllbEngine(model_dir, tokenizer_dir, beam_size=config.mt.nllb.beam_size)
     if config.mt.engine == "hy-mt2":
         from server.mt.hymt_engine import HYMT_LANG_LABELS, HyMt2Engine
 
         _require_language_coverage(config, set(HYMT_LANG_LABELS))
         gguf_path = config.models.resolve(config.mt.hy_mt2.gguf_path)
-        require_model_files(gguf_path, 500_000_000, "Hy-MT2のGGUF")
+        require_model_files(gguf_path, 500_000_000, "翻訳モデル",
+                            translation_models_dir=config.models.resolved_dir)
         return HyMt2Engine(
             gguf_path,
             threads=config.mt.hy_mt2.threads,
             temperature=config.mt.hy_mt2.temperature,
             max_tokens_cap=config.mt.hy_mt2.max_tokens_cap,
         )
-    raise NotImplementedError(f"未知の翻訳エンジン: '{config.mt.engine}'")
+    raise ValueError("未知の翻訳エンジンです。設定を確認してください")
 
 
 def origin_allowed(origin: str | None, host: str | None, allowed: list[str]) -> bool:
