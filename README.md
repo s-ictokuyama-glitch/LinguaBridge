@@ -65,7 +65,7 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
 ## 導入（配布パッケージ・このPCで1回だけ）
 
 1. **ダウンロード**: 担当者から案内されたクラウドの共有リンクから、
-   `LinguaBridge-<日時>-<英数字>.zip`（約2.5GB）を1つだけダウンロードします。
+   `LiveTranslation-<日時>-<英数字>.zip`（約2.5GB）を1つだけダウンロードします。
 2. **展開する前に「ブロックの解除」**: ダウンロードした zip を右クリック →「プロパティ」→「全般」タブの
    いちばん下の「セキュリティ」にある **「ブロックの解除」**（「許可する」と表示される場合もあります）に
    チェックを入れて「OK」。**必ず展開の前に**行ってください（展開した後では、中のファイルに印が残ります）。
@@ -260,7 +260,7 @@ VAD pre-roll を適用する。CPUでの認識は ReazonSpeech より遅い。NL
 
 ```powershell
 .venv\Scripts\pip install -r requirements-dev.txt   # DLL 依存の検査に pefile を使う
-.venv\Scripts\python scripts\build_package.py       # → %LOCALAPPDATA%\LinguaBridge\dist\LinguaBridge-<日時>-<コミット>.zip
+.venv\Scripts\python scripts\build_package.py       # → %LOCALAPPDATA%\LinguaBridge\dist\LiveTranslation-<日時>-<コミット>.zip
 ```
 
 従来の非対話 CLI では同梱モデルを先に `download_models.py` で取得しておく。不足時は取得コマンドを示して止まる。
