@@ -59,7 +59,7 @@ def generate(cert_path: Path, key_path: Path, *, ip: str | None = None) -> None:
     from cryptography.x509.oid import NameOID
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "LinguaBridge")])
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Live Translation")])
     now = datetime.datetime.now(datetime.timezone.utc)
     cert = (
         x509.CertificateBuilder()

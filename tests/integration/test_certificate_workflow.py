@@ -59,6 +59,8 @@ def test_reissue_keeps_pair_and_restore_recovers_exact_original(tmp_path, monkey
     assert len(backups) == 1
     assert [(backups[0] / name).read_bytes() for name in ("cert.pem", "key.pem")] == original
     cert = x509.load_pem_x509_certificate((tmp_path / "cert.pem").read_bytes())
+    from cryptography.x509.oid import NameOID
+    assert cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value == "Live Translation"
     assert IP in {str(ip) for ip in cert.extensions.get_extension_for_class(
         x509.SubjectAlternativeName).value.get_values_for_type(x509.IPAddress)}
     assert cli(tmp_path, monkeypatch, "--restore", str(backups[0])) == 0
@@ -99,8 +101,13 @@ def test_bad_certificate_never_reports_remote_ready(tmp_path, monkeypatch, capsy
 
 
 def test_good_certificate_leaves_evidence_but_remote_use_is_unknown(tmp_path, monkeypatch, capsys):
-    write_pair(tmp_path)
+    write_pair(tmp_path, common_name="LinguaBridge")
+    original = [(tmp_path / name).read_bytes() for name in ("cert.pem", "key.pem")]
     output, info = startup(tmp_path, monkeypatch, capsys)
+    assert "Live Translation サーバー起動" in output
+    assert "LinguaBridge サーバー" not in output
+    assert cli(tmp_path, monkeypatch) == 0
+    assert [(tmp_path / name).read_bytes() for name in ("cert.pem", "key.pem")] == original
     assert "SHA256:" in output and "有効期間:" in output and "検証時刻:" in output
     assert "--force" not in output
     assert info["teacher_url"] == f"https://{IP}:8443/teacher"
@@ -304,3 +311,13 @@ def test_reissue_and_restore_take_effect_on_restarted_production_listener(tmp_pa
     assert [path.read_bytes() for path in paths] == original
     ports, report = serve_once(config, monkeypatch)
     assert len(ports) == 1 and report is None  # 復元成功はTLS正常ではない
+
+
+def test_server_help_shows_product_name(monkeypatch, capsys):
+    monkeypatch.setattr("sys.argv", ["server", "--help"])
+    with pytest.raises(SystemExit) as result:
+        main.main()
+    assert result.value.code == 0
+    output = capsys.readouterr().out
+    assert "Live Translation サーバー" in output
+    assert "LinguaBridge" not in output

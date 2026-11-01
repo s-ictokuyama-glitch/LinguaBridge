@@ -1011,7 +1011,7 @@ def build(work_dir: Path, out_dir: Path, plan: BundlePlan) -> Path:
     _step("zip 化")
     out_dir.mkdir(parents=True, exist_ok=True)
     suffix = "-dirty" if dirty else ""
-    dest = out_dir / f"LinguaBridge-{built_at:%Y%m%d-%H%M}-{commit[:7]}{suffix}.zip"
+    dest = out_dir / f"LiveTranslation-{built_at:%Y%m%d-%H%M}-{commit[:7]}{suffix}.zip"
     write_zip(stage, dest)
     return dest
 

@@ -365,7 +365,7 @@ async def _serve(app: FastAPI, *, open_browser: bool) -> None:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="LinguaBridge サーバー")
+    parser = argparse.ArgumentParser(description="Live Translation サーバー")
     parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス")
     parser.add_argument(
         "--open-browser", action="store_true", help="起動後に先生ページを既定ブラウザで開く"
@@ -397,7 +397,7 @@ def main() -> None:
         else f"{publication.teacher_url}（このPCで開く。別端末HTTPSは証明書の修復後に再確認）"
     )
     print("=" * 66)
-    print("LinguaBridge サーバー起動")
+    print("Live Translation サーバー起動")
     print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
     print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
     print(f"  参加コード : {lesson.join_code}")

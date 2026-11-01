@@ -7,10 +7,10 @@ from scripts import make_cert
 
 IP = "192.168.5.25"
 
-def write_pair(directory, *, ip=IP, days=90, starts=-1, names=None):
+def write_pair(directory, *, ip=IP, days=90, starts=-1, names=None, common_name="test"):
     directory.mkdir(parents=True, exist_ok=True)
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
     now = datetime.now(timezone.utc)
     cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
             .public_key(key.public_key()).serial_number(x509.random_serial_number())
