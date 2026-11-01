@@ -19,6 +19,7 @@ from server.main import build_asr_engine, build_mt_engine
 from server.mt.hymt_engine import HYMT_LANG_LABELS, HyMt2Engine, build_prompt
 from server.mt.nllb_engine import NLLB_LANG_CODES, NllbEngine
 from server.model_files import TranslationModelError
+from server.pipeline import MTJob
 
 
 def test_hymt_prompt_contains_lang_label_and_text():
@@ -184,6 +185,52 @@ def test_invalid_translation_format_is_private(tmp_path, monkeypatch):
     assert "配布パッケージを展開し直してください" in str(error.value)
 
 
+@pytest.mark.parametrize(("engine_name", "failure"), [
+    ("hy-mt2", ValueError("Failed to load model from file: Hy-MT2-1.8B.gguf")),
+    ("nllb", RuntimeError("Unsupported model binary version. CTranslate2")),
+    ("nllb", RuntimeError("Unable to open file 'model.bin' in model nllb-ct2")),
+    ("tokenizer", OSError("Can't load tokenizer for 'nllb-tokenizer'")),
+    ("tokenizer", ValueError("Unrecognized model in nllb-tokenizer")),
+])
+def test_known_library_format_errors_are_private(tmp_path, monkeypatch, engine_name, failure):
+    llama = stub_translation_libraries(monkeypatch)
+    path = tmp_path / "Hy-MT2-1.8B.gguf"
+    path.write_bytes(b"stub")
+    if engine_name == "hy-mt2":
+        llama.side_effect = failure
+        engine = HyMt2Engine(path)
+    else:
+        engine = NllbEngine(tmp_path, tmp_path)
+        factory = (sys.modules["ctranslate2"].Translator if engine_name == "nllb"
+                   else sys.modules["transformers"].AutoTokenizer.from_pretrained)
+        factory.side_effect = failure
+    for _ in range(2):
+        with pytest.raises(TranslationModelError) as error:
+            engine.warmup()
+        assert_private_output(str(error.value))
+        assert "形式が不正" in str(error.value)
+        assert "配布パッケージを展開し直してください" in str(error.value)
+
+
+@pytest.mark.parametrize("engine_name", ["hy-mt2", "nllb", "tokenizer"])
+def test_unexpected_library_errors_keep_the_original_exception(tmp_path, monkeypatch, engine_name):
+    llama = stub_translation_libraries(monkeypatch)
+    failure = RuntimeError("unexpected failure") if engine_name == "nllb" else ValueError("unexpected failure")
+    path = tmp_path / "model.gguf"
+    path.write_bytes(b"stub")
+    if engine_name == "hy-mt2":
+        llama.side_effect = failure
+        engine = HyMt2Engine(path)
+    else:
+        engine = NllbEngine(tmp_path, tmp_path)
+        factory = (sys.modules["ctranslate2"].Translator if engine_name == "nllb"
+                   else sys.modules["transformers"].AutoTokenizer.from_pretrained)
+        factory.side_effect = failure
+    with pytest.raises(type(failure)) as error:
+        engine.warmup()
+    assert error.value is failure
+
+
 @pytest.mark.parametrize("incomplete", [False, True])
 def test_asr_model_errors_keep_the_full_path_and_guidance(tmp_path, incomplete):
     config = AppConfig(models=ModelsConfig(dir=str(tmp_path)))
@@ -199,15 +246,22 @@ def test_asr_model_errors_keep_the_full_path_and_guidance(tmp_path, incomplete):
 
 
 @pytest.mark.parametrize("expected", [True, False])
-def test_warmup_only_hides_tracebacks_for_expected_translation_errors(app, mt_engine, caplog, expected):
+@pytest.mark.parametrize("stage", ["warmup", "translation"])
+def test_only_expected_translation_errors_hide_tracebacks(app, mt_engine, caplog, expected, stage):
     error = TranslationModelError("翻訳モデルの形式が不正です") if expected else RuntimeError("unexpected failure")
-    mt_engine.warmup = Mock(side_effect=error)
+    setattr(mt_engine, "warmup" if stage == "warmup" else "translate", Mock(side_effect=error))
 
     async def scenario():
         pipeline = app.state.pipeline
         try:
-            await pipeline._run_warmup()
-            assert pipeline.ready is False
+            if stage == "warmup":
+                await pipeline._run_warmup()
+                assert pipeline.ready is False
+            else:
+                utterance = pipeline.history.append(t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
+                loop = asyncio.get_running_loop()
+                await pipeline._process_mt_job(loop, MTJob(utterance, "en", loop.time()))
+                assert utterance.translations == {}
         finally:
             await pipeline.stop()
 

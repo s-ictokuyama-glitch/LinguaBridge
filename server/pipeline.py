@@ -599,6 +599,9 @@ class Pipeline:
                 )
                 await self._notify_overload("mt_timeout", "翻訳が応答しません。字幕を1件飛ばしました")
                 return
+            except TranslationModelError as exc:
+                logger.error("翻訳に失敗: %s", exc)
+                return
             except Exception:
                 logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
                 return

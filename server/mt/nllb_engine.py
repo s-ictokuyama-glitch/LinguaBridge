@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from server.mt.base import TranslationEngine
-from server.model_files import TRANSLATION_GUIDANCE
+from server.model_files import TRANSLATION_GUIDANCE, TranslationModelError
 
 logger = logging.getLogger("server.mt")
 
@@ -49,10 +49,26 @@ class NllbEngine(TranslationEngine):
         if self._translator is not None:
             return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("翻訳モデルを読み込み中")
-        self._translator = ctranslate2.Translator(str(self._model_dir), device="cpu")
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            str(self._tokenizer_dir), src_lang=SOURCE_LANG
-        )
+        try:
+            translator = ctranslate2.Translator(str(self._model_dir), device="cpu")
+        except RuntimeError as exc:
+            if not str(exc).startswith(("Unsupported model binary version", "Unable to open file")):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                str(self._tokenizer_dir), src_lang=SOURCE_LANG
+            )
+        except (OSError, ValueError) as exc:
+            if not str(exc).startswith(("Can't load tokenizer for", "Unrecognized model in")):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
+        self._translator = translator
+        self._tokenizer = tokenizer
         self.translate("こんにちは。", "en")  # ダミー推論（初回遅延対策）
         logger.info("翻訳モデルの準備完了")
 

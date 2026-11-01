@@ -122,12 +122,19 @@ class HyMt2Engine(TranslationEngine):
             return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
         logger.info("翻訳モデルを読み込み中")
         load_cpu_backends()
-        llm = Llama(
-            model_path=str(self._gguf_path),
-            n_ctx=2048,
-            n_threads=self._threads,
-            verbose=False,
-        )
+        try:
+            llm = Llama(
+                model_path=str(self._gguf_path),
+                n_ctx=2048,
+                n_threads=self._threads,
+                verbose=False,
+            )
+        except ValueError as exc:
+            if not str(exc).startswith("Failed to load model from file:"):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
         # チャットテンプレートがGGUFに無いと llama.cpp が別形式に暗黙フォールバックし
         # 出力が壊れる。公式GGUFには埋め込み済み — 無ければ入手元を疑う
         if "tokenizer.chat_template" not in (llm.metadata or {}):
