@@ -21,7 +21,7 @@
 発話できない場合は、Edgeのファイル音声入力で検証用WAVをマイクの代わりに使える。詳細はSKILL.mdのEvidenceを参照する。
 その場合は物理収音を未検証とし、音源・送出PCM・実モデル・実効設定を証拠へ残す。内部setterから字幕を作らない。
 
-以下の既存QAは、この開発機の未追跡ファイル `scripts/qa_native_browser.py` と `scripts/qa_browser.py` に依存するローカル補助試験。スキル単体には同梱しない。使用前にファイルの存在と依存を確認し、無ければ該当する補助ケースを未検証として記録する。製品CLIの直接操作は継続できる。
+以下の補助試験は、リポジトリで管理する `scripts/qa_native_browser.py` と `scripts/qa_browser.py` を使う。使用前にファイルの存在と依存を確認し、不足があれば該当する補助ケースを未検証として記録する。製品CLIの直接操作は継続できる。
 既存QAの補助コマンドはrepoルートで実行する。`$env:PYTHONIOENCODING='utf-8'` を設定する。
 native QAは実HTTP/WS・Edge、energy VAD、fake ASR/MT、模擬マイクを使う。実モデル品質の合格条件とは区別する。
 `qa_browser.py` はHTTPとWSも置換するためUIの局所検証として使う。
