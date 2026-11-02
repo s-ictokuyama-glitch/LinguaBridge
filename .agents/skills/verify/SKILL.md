@@ -67,7 +67,7 @@ Edge と Playwright を使う。既存 `.qa-tools` にPlaywrightがある。無�
 
 他の機能は対応するマップを読む。座標ではなく `#start-btn`、`#lang-options button[data-code="en"]` など実装内のIDを使う。
 クリックや入力はブラウザー操作で行う。`state` の書き換えやpipelineへの直接注入を実ユーザー経路の証明に使わない。
-開発機に既存 `scripts/qa_native_browser.py` がある場合の限定的な再現ケースもマップに記載している。未追跡の補助QAは同梱しないため、利用条件は機能マップのDriving conventionsを読む。そのfake ASR/MTと模擬音声の結果を実モデルの証明へ昇格させない。
+リポジトリで管理する `scripts/qa_native_browser.py` の限定的な再現ケースもマップに記載している。依存と検証範囲は機能マップのDriving conventionsを読む。そのfake ASR/MTと模擬音声の結果を実モデルの証明へ昇格させない。
 
 ## Evidence
 

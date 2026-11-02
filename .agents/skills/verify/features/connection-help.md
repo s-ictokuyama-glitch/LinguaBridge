@@ -18,7 +18,7 @@ Preconditions:
 
 - 所有runのdoctorが成功している。先生のページ遷移は配信前に行い、終了後は元の `/teacher` へ戻す。
 
-- **入口。** 先生・生徒の各ページで `get_by_role('link', name='接続に困ったとき').click()`。URLが `/connection-help`、見出しが「接続に困ったとき」であることを確認する。
+- **入口。** 先生・生徒の各ページで `get_by_role('link', name='接続に困ったとき').click()`。URLが `/connection-help`、`get_by_role('heading', name='Live Translation - 接続に困ったとき', exact=True)` が表示されることを確認する。
 - **案内。** `page.locator('summary').click()`。本文のloopback `/healthz` リンクのポートを `instance.json.port` と照合する。実NICの案内URL、`start.bat --diagnose`、記録欄を読み、`{{...}}` の未置換が無いことを確認する。開発機では `.venv`、配布パッケージでは同梱Pythonを使う案内になっているか、対象の起動形態で確認する。
 
 ## Gotchas

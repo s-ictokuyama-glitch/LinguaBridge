@@ -8,6 +8,7 @@
 - `display-size` は小・中・大の3段階を切り替える。
 - `display-persist` は再読み込み後にも原文と文字サイズを保持する。
 - `display-language` は参加中の言語を切り替え、案内文も追従する。
+- `display-sheet-close` は閉じるボタン、背景クリック、Escapeでシートを閉じ、設定ボタンへフォーカスを戻す。
 
 ## How to get to it (user POV)
 
@@ -21,6 +22,7 @@ Preconditions:
 
 - **大・原文非表示・保持・言語。** `.venv/Scripts/python.exe .agents/skills/verify/scripts/student_preferences.py --run-dir "$verifyRun"` を実行する。L選択と原文OFF、reloadと再参加、zh変更をtraceと結果で確認する。
 - **全サイズ。** 同じ実サーバーの別セッションで `student.locator('#settings-btn').click()` でシートを開いてから `student.locator('#size-buttons button[data-size="s"]').click()` を実行し、`#caption-screen` の `size-s` を確認する。`m`、`l` にも同じ操作を行う。原文ONは `student.locator('#ja-toggle').check()`。`hide-ja` の解除を確認し、`#settings-close` でシートを閉じる。
+- **シートを閉じる。** 各回 `#settings-btn` で開き、`#settings-close` のclick、`#settings-backdrop` のシート外へのclick、`student.keyboard.press('Escape')` を別々に行う。毎回シートと背景がhiddenになり、`expect(student.locator('#settings-btn')).to_be_focused()` が通ることを確認する。
 - **字幕本文。** 字幕配信後に原文ON/OFFを切り替え、`.card .ja` の実際の可視性を確認する。`#settings-btn` でシートを開いて言語selectを `zh` にし、閉じてから次の字幕が中国語へ切り替わることも確認する。
 
 ## Gotchas
