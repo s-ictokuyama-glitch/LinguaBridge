@@ -62,6 +62,8 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
 サーバーPCに Python などを入れる必要はありません。zip のダウンロードの後は、導入にも授業にも
 インターネット接続は要りません（AI モデルは zip に入っています）。
 
+既存の `C:\LinguaBridge\` などの配置はそのまま使えます。以下の手順の `C:\LiveTranslation\` は、現在の配置先に読み替えてください。
+
 ## 導入（配布パッケージ・このPCで1回だけ）
 
 1. **ダウンロード**: 担当者から案内されたクラウドの共有リンクから、
@@ -69,19 +71,19 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
 2. **展開する前に「ブロックの解除」**: ダウンロードした zip を右クリック →「プロパティ」→「全般」タブの
    いちばん下の「セキュリティ」にある **「ブロックの解除」**（「許可する」と表示される場合もあります）に
    チェックを入れて「OK」。**必ず展開の前に**行ってください（展開した後では、中のファイルに印が残ります）。
-3. **`C:\LinguaBridge\` に展開**: zip を右クリック →「すべて展開」→ 展開先に `C:\LinguaBridge` と入力して「展開」。
-   `C:\LinguaBridge\start.bat` と `C:\LinguaBridge\app\` ができていれば完了です。
+3. **`C:\LiveTranslation\` に展開**: zip を右クリック →「すべて展開」→ 展開先に `C:\LiveTranslation` と入力して「展開」。
+   `C:\LiveTranslation\start.bat` と `C:\LiveTranslation\app\` ができていれば完了です。
    - **ドキュメントやデスクトップには置かないでください。** 多くのPCでこれらは OneDrive と同期しており、
      モデルの読み込みが遅くなったり失敗したりします。OneDrive の中に置くと、起動時に黄色の注意が出ます
-     （起動は続きますが、サーバーを止めてフォルダごと `C:\LinguaBridge\` へ移してください）。
-4. **初回の起動**: `C:\LinguaBridge\start.bat` を**ダブルクリック**します。
+     （起動は続きますが、サーバーを止めてフォルダごと `C:\LiveTranslation\` へ移してください）。
+4. **初回の起動**: `C:\LiveTranslation\start.bat` を**ダブルクリック**します。
    - 管理者の確認（UAC）「このアプリがデバイスに変更を加えることを許可しますか？」が1回出るので **「はい」**。
      これで Visual C++ ランタイムの導入・ファイアウォールの許可・AC 接続時のスリープの無効化・
      このPC用の証明書の作成がまとめて終わり、続けてサーバーが起動します（[毎授業の起動](#2回目以降の起動毎授業)と同じ画面）。
    - 次回からは管理者の確認は出ません。
    - 「いいえ」を押してしまった場合は、省いた項目とやり直し方が表示され、そのままサーバーは起動します。
      `start.bat` をもう一度実行し、今度は「はい」を押してください。
-   - 初回に作られる `C:\LinguaBridge\data\` には、証明書・授業記録・現地で変えた設定が入ります。消さないでください。
+   - 初回に作られる `C:\LiveTranslation\data\` には、証明書・授業記録・現地で変えた設定が入ります。消さないでください。
 
 > **SmartScreen の警告が出たとき**（手順2の「ブロックの解除」を忘れた場合）:
 > 青い画面「Windows によって PC が保護されました」が出たら、**「詳細情報」→「実行」**を押します。
@@ -93,9 +95,9 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
 証明書・授業記録・現地で変えた設定は `data` に残るので、**`app` フォルダを差し替えるだけ**です。
 
 1. サーバーのウィンドウを閉じて止めます。
-2. 新しい zip をダウンロードし、**「ブロックの解除」をしてから**、別の場所（例: `C:\LinguaBridge-new\`）に展開します。
-3. `C:\LinguaBridge\app` を削除し、展開した `C:\LinguaBridge-new\app` を `C:\LinguaBridge\` の中へ移します。
-   **`C:\LinguaBridge\data` は消さずにそのまま**残します。
+2. 新しい zip をダウンロードし、**「ブロックの解除」をしてから**、別の場所（例: `C:\LiveTranslation-new\`）に展開します。
+3. `C:\LiveTranslation\app` を削除し、展開した `C:\LiveTranslation-new\app` を `C:\LiveTranslation\` の中へ移します。
+   **`C:\LiveTranslation\data` は消さずにそのまま**残します。
 4. `start.bat` をダブルクリック。管理者の確認は出ず、前と同じ証明書で起動します
    （生徒端末での警告の承認をやり直す必要はありません）。
 
@@ -110,7 +112,7 @@ NLLB は「こんにちは。」を英語で反復したり、中国語で授業
 検証結果は [NLLB の品質制限](docs/bench/2026-10-24-nllb-quality.md) に記録しています。
 
 1. サーバーのウィンドウを閉じて止めます。
-2. メモ帳で `C:\LinguaBridge\data\config.yaml` を開き（無ければ新しく作り）、次の **1行** を書いて保存します。
+2. メモ帳で `C:\LiveTranslation\data\config.yaml` を開き（無ければ新しく作り）、次の **1行** を書いて保存します。
    新しく作るときは「ファイルの種類」を「すべてのファイル」にして、名前を `config.yaml` にします
    （`config.yaml.txt` にならないように）。
 
@@ -305,7 +307,7 @@ VAD pre-roll を適用する。CPUでの認識は ReazonSpeech より遅い。NL
 - 自己検証 (3) は、同梱の llama.cpp が CPU を判定しない作りなのに `llama_print_system_info()` が `AVX512 = 1` を返したら、
   理由と直し方を示して zip を作らない（ビルド済み wheel を二度と配布しないための関所）。選択したASR/MTを同梱の Python で
   ロード・warmupし、選択MTで1文訳せることを確かめる
-zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LinguaBridge\`）で `start.bat` を実行すると、
+zip は `start.bat` と `app\` を含み、展開先（標準 `C:\LiveTranslation\`）で `start.bat` を実行すると、
 `app\python\python.exe` があるため配布モード（`setup.ps1` を呼ばず、隣の `data\` をデータルート・
 `data\config.yaml` を上書き設定にする）で起動する。同梱の Python が無いリポジトリでは従来どおり `.venv` の開発モード。
 
@@ -320,7 +322,7 @@ AC 接続時のスリープ・休止の無効化。経過は `data\first-run.log
 配布モードの起動時には、さらに次の2つを行う（イシュー #48）。どちらも起動は止めない。
 
 - 配布パッケージのフォルダが OneDrive の配下（環境変数 `OneDrive` / `OneDriveConsumer` / `OneDriveCommercial`）
-  にあれば、`C:\LinguaBridge\` へ移すよう警告する
+  にあれば、`C:\LiveTranslation\` へ移すよう警告する
 - `app` 以下と `start.bat` に残った MOTW（`Zone.Identifier`）を `Unblock-File` で外す。1万ファイル超の走査に
   数秒かかるので、済んだら `app\.motw-cleared`（`version.json` の指紋入り）を書き、同じ版のあいだは走査しない
   （`app` を差し替えるか、上書きコピーで版情報が変わるとやり直す）

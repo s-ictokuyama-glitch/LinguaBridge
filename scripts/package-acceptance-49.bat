@@ -11,7 +11,7 @@ exit /b
 # 目で見ることだけ候補から番号で選ぶ（期待どおりなら Enter だけ）。
 # 記録票はこの bat と同じフォルダに書き出すので、開発機へ持ち帰って docs/ に置く。
 
-$Root = if ($env:LB49_ROOT) { $env:LB49_ROOT } else { 'C:\LinguaBridge' }  # LB49_* は動作確認用
+$Root = if ($env:LB49_ROOT) { $env:LB49_ROOT } else { 'C:\LiveTranslation' }  # LB49_* は動作確認用
 $OutDir = Split-Path -Parent $f
 $Today = Get-Date -Format 'yyyy-MM-dd'
 $bt = [char]96
