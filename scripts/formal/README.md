@@ -4,6 +4,7 @@
 ASR待ち行列の容量・順序・キャンセル後の排出は [asr-backlog 検証](asr_backlog.md) と [スキル](../../.agents/skills/asr-backlog/SKILL.md) を使う。
 接続ごとの送信順序・障害時の1013切断・他接続への影響は [client-delivery 検証](client_delivery.md) と [スキル](../../.agents/skills/client-delivery/SKILL.md) を使う。
 先生交代・切断・自動停止と再開は [teacher-lifecycle 検証](teacher_lifecycle.md) と [スキル](../../.agents/skills/teacher-lifecycle/SKILL.md) を使う。
+認識断片の Turn 組立・確定条件・途中字幕の ID と版番号は [turn-assembly 検証](turn_assembly.md) と [スキル](../../.agents/skills/turn-assembly/SKILL.md) を使う。
 
 `lesson_recording.py` は実際の `Lesson`、`Pipeline`、`SessionRecorder` に入力を与え、JSONL の発話を授業ごとに比較する。
 Python の asyncio とファイル書込を含む実装への忠実さを優先し、別言語への手書きモデル化を避けた。

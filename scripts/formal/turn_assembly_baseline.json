@@ -1,0 +1,267 @@
+{
+  "status": "PASS",
+  "sync_commit": "5e97453303cacd166f7944b5442881ac2f9e362d",
+  "depth": 4,
+  "case": null,
+  "profiles": [
+    "simple",
+    "count",
+    "span",
+    "default"
+  ],
+  "counts": {
+    "sequences": 30941,
+    "scenarios": 123764,
+    "failed": 0
+  },
+  "violations": [],
+  "mutations": [
+    {
+      "name": "drop_part",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "conservation",
+          "trace": [
+            "normal",
+            "normal",
+            "flush"
+          ],
+          "expected": [
+            "【1】教科書【2】教科書",
+            2,
+            true
+          ],
+          "actual": [
+            "【1】教科書",
+            1,
+            false
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reverse_parts",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "conservation",
+          "trace": [
+            "normal",
+            "weak",
+            "flush"
+          ],
+          "expected": [
+            "【1】教科書【2】この部分がですね。",
+            2,
+            true
+          ],
+          "actual": [
+            "【2】この部分がですね。【1】教科書",
+            2,
+            true
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forget_asr_sum",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "metadata",
+          "trace": [
+            "normal",
+            "normal",
+            "flush"
+          ],
+          "expected": [
+            0.0,
+            1.0,
+            21,
+            100.5,
+            1.0
+          ],
+          "actual": [
+            0.0,
+            1.0,
+            14,
+            100.5,
+            1.0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "count_gap_as_audio",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "metadata",
+          "trace": [
+            "normal",
+            "gap",
+            "normal",
+            "flush"
+          ],
+          "expected": [
+            0.0,
+            1.5,
+            21,
+            100.5,
+            1.0
+          ],
+          "actual": [
+            0.0,
+            1.5,
+            21,
+            100.5,
+            1.5
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ignore_count",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "count",
+          "property": "termination",
+          "trace": [
+            "normal",
+            "normal"
+          ],
+          "expected": true,
+          "actual": false
+        }
+      ]
+    },
+    {
+      "name": "ignore_span",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "span",
+          "property": "termination",
+          "trace": [
+            "normal",
+            "normal"
+          ],
+          "expected": true,
+          "actual": false
+        }
+      ]
+    },
+    {
+      "name": "keep_closed_id",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "turn_identity",
+          "trace": [
+            "strong"
+          ],
+          "expected": null,
+          "actual": 1
+        }
+      ]
+    },
+    {
+      "name": "omit_preview_prefix",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "preview_text",
+          "trace": [
+            "normal",
+            "preview"
+          ],
+          "expected": "【1】教科書途中1",
+          "actual": "途中1"
+        }
+      ]
+    },
+    {
+      "name": "freeze_revision",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "preview_revision",
+          "trace": [
+            "preview"
+          ],
+          "expected": 1,
+          "actual": 0
+        }
+      ]
+    },
+    {
+      "name": "discard_pending_id",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "turn_identity",
+          "trace": [
+            "normal",
+            "discard"
+          ],
+          "expected": 1,
+          "actual": null
+        }
+      ]
+    },
+    {
+      "name": "reuse_reset_id",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "turn_identity",
+          "trace": [
+            "reserve",
+            "reset",
+            "reserve"
+          ],
+          "expected": 2,
+          "actual": 1
+        }
+      ]
+    },
+    {
+      "name": "hide_pending",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "profile": "default",
+          "property": "pending_state",
+          "trace": [
+            "normal"
+          ],
+          "expected": true,
+          "actual": false
+        }
+      ]
+    }
+  ]
+}
