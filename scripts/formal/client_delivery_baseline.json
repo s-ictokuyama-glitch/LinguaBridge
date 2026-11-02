@@ -1,0 +1,159 @@
+{
+  "status": "PASS",
+  "sync_commit": "3fca00804afb058ea4ad9836121c721e92d11148",
+  "depth": 4,
+  "case": null,
+  "counts": {
+    "attempted": 5602,
+    "legal": 461,
+    "violations": 0
+  },
+  "witnesses": {
+    "real_timeout": "PASS",
+    "isolation": "PASS"
+  },
+  "violations": [],
+  "mutations": [
+    {
+      "name": "unbounded_queue",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "capacity",
+          "trace": [
+            "capacity=1",
+            "send",
+            "send"
+          ],
+          "expected": false,
+          "actual": true
+        }
+      ]
+    },
+    {
+      "name": "reverse_queue",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "fifo",
+          "trace": [
+            "capacity=2",
+            "send",
+            "send",
+            "dispatch"
+          ],
+          "expected": 1,
+          "actual": 2
+        }
+      ]
+    },
+    {
+      "name": "accept_after_close",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "admission",
+          "trace": [
+            "capacity=1",
+            "close",
+            "send"
+          ],
+          "expected": false,
+          "actual": true
+        }
+      ]
+    },
+    {
+      "name": "forget_retry",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "retry_close",
+          "trace": [
+            "capacity=1",
+            "send",
+            "send"
+          ],
+          "expected": [
+            1013
+          ],
+          "actual": []
+        }
+      ]
+    },
+    {
+      "name": "lose_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "drain",
+          "trace": [
+            "capacity=1",
+            "send",
+            "close"
+          ],
+          "expected": [
+            1
+          ],
+          "actual": []
+        }
+      ]
+    },
+    {
+      "name": "ignore_timeout",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "timeout",
+          "trace": [
+            "real_timeout"
+          ],
+          "expected": false,
+          "actual": true
+        }
+      ]
+    },
+    {
+      "name": "ignore_transport_error",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "admission",
+          "trace": [
+            "capacity=1",
+            "send",
+            "dispatch",
+            "error"
+          ],
+          "expected": false,
+          "actual": true
+        }
+      ]
+    },
+    {
+      "name": "shared_sender",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "isolation",
+          "trace": [
+            "isolation",
+            "broadcast=1"
+          ],
+          "expected": [
+            1
+          ],
+          "actual": []
+        }
+      ]
+    }
+  ]
+}
