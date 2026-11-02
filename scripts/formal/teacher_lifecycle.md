@@ -19,7 +19,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 ```
 
 次回の変更は [teacher-lifecycle スキル](../../.agents/skills/teacher-lifecycle/SKILL.md) に従う。
-現コードでの基準結果は [teacher_lifecycle_baseline.json](teacher_lifecycle_baseline.json) に保存する。
+修正前の基準結果は [teacher_lifecycle_baseline.json](teacher_lifecycle_baseline.json) に保持する。
 
 ## 操作の範囲
 
@@ -46,7 +46,7 @@ Bの参加待ち中は、Bの退出や手動操作を実行しない。`server/m
 不正な操作を含む列はその操作より前で止めるため、候補列数は異なる実行経路の数ではない。
 出力の `legal` は末尾まで実行した列と、合法な接頭部で性質違反を検出した列の数である。
 
-## 現コードの反例
+## 修正前の反例
 
 同期コミット `2a1c1f68ae2c372e03b0bc1a50820cf793f73586` のコードで次の順序を再現する。
 
@@ -68,9 +68,17 @@ Bの参加待ち中は、Bの退出や手動操作を実行しない。`server/m
 uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt python -B scripts/formal/teacher_lifecycle.py --overlap --case join_C,leave_C,release_A
 ```
 
-製品コードは変更せず、反例を保持する。
+この基準結果は Issue #123 修正前の反例を保持する。
 基準結果は4,356候補列のうち673列を合法として数え、17列で同じ `session_state` の違反を検出する。
 逐次探索で違反はなく、競合探索で先生不在の `paused` が `live` になる。
+
+## Issue #123 の修正結果
+
+`Lesson.join` は `Roster.add` の完了後、返された先生がまだ名簿に在籍する場合だけ参加後の処理を行う。
+除去済み先生は自動再開と無音警告の再武装を行わない。
+修正後は全4,356候補列のうち668列が合法で、違反は0件となる。専用再現も `PASS` となる。
+既存7種類の破壊は、いずれも破壊前の `PASS` と破壊後の検出を確認した。
+期待モデル、探索範囲、破壊処理は変更していない。同期コミットと基準結果は修正前の比較元として保持する。
 
 ## 検出器を壊して確認する
 

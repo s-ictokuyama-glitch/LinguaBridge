@@ -184,6 +184,50 @@ async def test_manual_pause_does_not_resume_and_ignores_audio():
 
 
 @run_async
+async def test_replaced_teacher_join_cannot_resume_after_current_teacher_leaves():
+    closing, release = asyncio.Event(), asyncio.Event()
+
+    class GatedCloseSocket(RecordingSocket):
+        async def close(self, code=1000):
+            if code == 4000:
+                closing.set()
+                await release.wait()
+            await super().close(code)
+
+    async with classroom() as lesson:
+        _, student = await join(lesson)
+        await join(lesson, role="teacher", socket=GatedCloseSocket())
+        await lesson.control("start")
+        await wait_for(student, "session", state="live")
+        pending_join = asyncio.create_task(join(lesson, role="teacher"))
+        try:
+            await asyncio.wait_for(closing.wait(), 5)
+            current, _ = await join(lesson, role="teacher")
+            await lesson.leave(current)
+            await wait_for(student, "session", state="paused")
+            release.set()
+            await asyncio.wait_for(pending_join, 5)
+
+            assert lesson.roster.teacher() is None
+            assert lesson.state == "paused"
+            assert lesson.auto_paused
+            assert [m["state"] for m in student.sent if m["type"] == "session"] == ["live", "paused"]
+
+            replacement, socket = await join(lesson, role="teacher")
+            assert (await wait_for(socket, "joined"))["session_state"] == "paused"
+            await wait_for(student, "session", state="live")
+            assert lesson.roster.teacher() is replacement
+            assert lesson.state == "live"
+            assert not lesson.auto_paused
+            assert [m["state"] for m in student.sent if m["type"] == "session"] == ["live", "paused", "live"]
+        finally:
+            release.set()
+            if not pending_join.done():
+                pending_join.cancel()
+            await asyncio.gather(pending_join, return_exceptions=True)
+
+
+@run_async
 async def test_teacher_last_wins_and_old_leave_cannot_pause():
     async with classroom() as lesson:
         teacher, old = await join(lesson, role="teacher")

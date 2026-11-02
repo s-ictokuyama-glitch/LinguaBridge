@@ -23,8 +23,9 @@ Windows の制限環境で asyncio の内部 socketpair 生成が停止する場
 終了コード0と `PASS` は指定範囲内で反例なし、1と `FAIL` は反例ありを表す。
 Traceback、タイムアウト、破壊箇所の不一致は検証器か環境の失敗として調査する。
 
-現在の製品コードには反例があり、全探索は `FAIL` となる。
-[検証範囲と反例](../../../scripts/formal/teacher_lifecycle.md) と [基準結果](../../../scripts/formal/teacher_lifecycle_baseline.json) を比較する。
+現在の製品コードの期待結果は `PASS` である。
+[検証範囲と修正結果](../../../scripts/formal/teacher_lifecycle.md) を確認する。
+[基準結果](../../../scripts/formal/teacher_lifecycle_baseline.json) は Issue #123 修正前の `FAIL` を保持するため、現在の失敗と混同しない。
 破壊7件すべての `healthy: PASS` と `detected: true` を確認する。
 正常な専用ケースを壊してから期待した性質の違反と終了コード1を確認するため、既存の反例だけを破壊検出には数えない。
 
@@ -43,7 +44,7 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 
 ## 実装との同期を確認する
 
-最終同期コミットは `2a1c1f68ae2c372e03b0bc1a50820cf793f73586`。
+修正前の製品コードとの同期コミットは `2a1c1f68ae2c372e03b0bc1a50820cf793f73586`。
 
 | ファイル | 照合する処理 |
 |---|---|
