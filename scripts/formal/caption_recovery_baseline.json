@@ -1,0 +1,243 @@
+{
+  "status": "FAIL",
+  "sync_commit": "f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4",
+  "scope": {
+    "depth": 4,
+    "operations": [
+      "set_en",
+      "set_zh",
+      "live_turn",
+      "disconnect",
+      "rejoin"
+    ],
+    "watermarks": [
+      1,
+      2
+    ],
+    "mt_queue_max": 8,
+    "python": "3.12.10"
+  },
+  "counts": {
+    "schedules": 1562,
+    "admission": 2,
+    "witnesses": 4,
+    "violating_scenarios": 194
+  },
+  "violations": [
+    {
+      "property": "replay_recoverable",
+      "missing": [
+        1
+      ],
+      "expected": {
+        "received": [
+          1
+        ],
+        "or_close_code": 1013
+      },
+      "actual": {
+        "received": [
+          2
+        ],
+        "close_code": null,
+        "client_present_before_cleanup": true
+      },
+      "trace": [
+        "retained_history(1)",
+        "rejoin(last_seq=0,en)",
+        "MT_started(seq=1,en)",
+        "set_zh",
+        "live_turn",
+        "MT_complete_then_drain"
+      ],
+      "watermark": 1,
+      "occurrences": 97
+    },
+    {
+      "property": "replay_recoverable",
+      "missing": [
+        1
+      ],
+      "expected": {
+        "received": [
+          1
+        ],
+        "or_close_code": 1013
+      },
+      "actual": {
+        "received": [
+          2
+        ],
+        "close_code": null,
+        "client_present_before_cleanup": true
+      },
+      "trace": [
+        "retained_history(1)",
+        "rejoin(last_seq=0,en)",
+        "MT_started(seq=1,en)",
+        "set_zh",
+        "live_turn",
+        "MT_complete_then_drain"
+      ],
+      "watermark": 2,
+      "occurrences": 97
+    }
+  ],
+  "witnesses": {
+    "retarget": "PASS",
+    "isolation": "PASS",
+    "language": "PASS",
+    "admission": "PASS"
+  },
+  "mutations": [
+    {
+      "mutation": "drop_retarget",
+      "baseline_status": "PASS",
+      "detected": true,
+      "counterexample": {
+        "property": "replay_recoverable",
+        "missing": [
+          1
+        ],
+        "expected": {
+          "received": [
+            1
+          ],
+          "or_close_code": 1013
+        },
+        "actual": {
+          "received": [],
+          "close_code": null,
+          "client_present_before_cleanup": true
+        },
+        "trace": [
+          "retained_history(1)",
+          "rejoin(last_seq=0,en)",
+          "MT_started(seq=1,en)",
+          "set_zh",
+          "MT_complete_then_drain"
+        ],
+        "watermark": 1,
+        "occurrences": 1
+      }
+    },
+    {
+      "mutation": "broadcast_replay",
+      "baseline_status": "PASS",
+      "detected": true,
+      "counterexample": {
+        "property": "replay_isolation",
+        "expected": [],
+        "actual": [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "turn-1",
+            "text": "[en] turn-1",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        "trace": [
+          "retained_history(1)",
+          "rejoin(last_seq=0,en)",
+          "MT_started(seq=1,en)",
+          "MT_complete_then_drain"
+        ],
+        "watermark": 1,
+        "occurrences": 1
+      }
+    },
+    {
+      "mutation": "send_old_language",
+      "baseline_status": "PASS",
+      "detected": true,
+      "counterexample": {
+        "property": "replay_language",
+        "expected": "zh",
+        "actual": [
+          {
+            "type": "caption",
+            "seq": 1,
+            "ja": "turn-1",
+            "text": "[en] turn-1",
+            "lang": "en",
+            "delay_ms": 0
+          }
+        ],
+        "trace": [
+          "retained_history(1)",
+          "rejoin(last_seq=0,en)",
+          "MT_started(seq=1,en)",
+          "set_zh",
+          "MT_complete_then_drain"
+        ],
+        "watermark": 1,
+        "occurrences": 1
+      }
+    },
+    {
+      "mutation": "skip_admission_retry",
+      "baseline_status": "PASS",
+      "detected": true,
+      "counterexample": {
+        "property": "replay_recoverable",
+        "missing": [
+          2
+        ],
+        "expected": {
+          "received": [
+            1,
+            2
+          ],
+          "or_close_code": 1013
+        },
+        "actual": {
+          "received": [
+            1
+          ],
+          "close_code": null,
+          "client_present_before_cleanup": true
+        },
+        "trace": [
+          "retained_history(2)",
+          "rejoin(last_seq=0,en)",
+          "drain_after_admission"
+        ],
+        "watermark": 1,
+        "occurrences": 1
+      }
+    },
+    {
+      "mutation": "remove_without_retry_close",
+      "baseline_status": "PASS",
+      "detected": true,
+      "counterexample": {
+        "property": "replay_recoverable",
+        "missing": [
+          1,
+          2
+        ],
+        "expected": {
+          "received": [
+            1,
+            2
+          ],
+          "or_close_code": 1013
+        },
+        "actual": {
+          "received": [],
+          "close_code": null,
+          "client_present_before_cleanup": false
+        },
+        "trace": [
+          "retained_history(2)",
+          "rejoin(last_seq=0,en)",
+          "drain_after_admission"
+        ],
+        "watermark": 1,
+        "occurrences": 1
+      }
+    }
+  ]
+}
