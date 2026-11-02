@@ -23,8 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from server.mt.base import TranslationEngine
+from server.model_files import TRANSLATION_GUIDANCE, TranslationModelError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("server.mt")
 
 # config の言語コード → プロンプトに書く言語名（モデルカードは英語名を指定）
 HYMT_LANG_LABELS: dict[str, str] = {
@@ -99,8 +100,7 @@ class HyMt2Engine(TranslationEngine):
     ) -> None:
         if not gguf_path.exists():
             raise FileNotFoundError(
-                f"Hy-MT2のGGUFが見つからない: {gguf_path}\n"
-                "scripts/download_models.py を実行してモデルを取得してください"
+                f"翻訳モデルが見つからない: models\n{TRANSLATION_GUIDANCE}"
             )
         self._gguf_path = gguf_path
         self._threads = threads
@@ -120,24 +120,30 @@ class HyMt2Engine(TranslationEngine):
 
         if self._llm is not None:
             return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
-        logger.info("Hy-MT2モデルをロード中: %s", self._gguf_path.name)
+        logger.info("翻訳モデルを読み込み中")
         load_cpu_backends()
-        llm = Llama(
-            model_path=str(self._gguf_path),
-            n_ctx=2048,
-            n_threads=self._threads,
-            verbose=False,
-        )
+        try:
+            llm = Llama(
+                model_path=str(self._gguf_path),
+                n_ctx=2048,
+                n_threads=self._threads,
+                verbose=False,
+            )
+        except ValueError as exc:
+            if not str(exc).startswith("Failed to load model from file:"):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
         # チャットテンプレートがGGUFに無いと llama.cpp が別形式に暗黙フォールバックし
         # 出力が壊れる。公式GGUFには埋め込み済み — 無ければ入手元を疑う
         if "tokenizer.chat_template" not in (llm.metadata or {}):
-            raise RuntimeError(
-                f"GGUFにチャットテンプレートが無い: {self._gguf_path}\n"
-                "tencent/Hy-MT2-1.8B-GGUF の公式ファイルか確認してください"
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
             )
         self._llm = llm
         self.translate("こんにちは。", "en")  # ダミー推論（初回遅延対策）
-        logger.info("Hy-MT2ウォームアップ完了")
+        logger.info("翻訳モデルの準備完了")
 
     def _count_input_tokens(self, text_ja: str) -> int:
         """原文のトークン数。プロンプトの定型部分は毎回同じなので数えない。"""
@@ -150,7 +156,7 @@ class HyMt2Engine(TranslationEngine):
     def translate(self, text_ja: str, target_lang: str) -> str:
         label = HYMT_LANG_LABELS.get(target_lang)
         if label is None:
-            raise ValueError(f"Hy-MT2エンジン未対応の言語: {target_lang}")
+            raise ValueError(f"翻訳モデルが未対応の言語: {target_lang}")
         if self._llm is None:  # 通常は起動時 warmup 済み。直接利用時の保険
             self.warmup()
         response = self._llm.create_chat_completion(

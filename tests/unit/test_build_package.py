@@ -339,3 +339,30 @@ def test_package_carries_every_script_the_launcher_dot_sources_or_starts():
                      "scripts/os_setup.ps1", "scripts/make_cert.py"):
         assert relative in CODE_FILES
         assert (ROOT / relative).is_file()
+
+
+@pytest.mark.parametrize("dirty,suffix", [(False, ""), (True, "-dirty")])
+def test_build_returns_product_named_zip(tmp_path, monkeypatch, dirty, suffix):
+    import re
+    import zipfile
+    from scripts import build_package as package
+
+    models = tmp_path / "models"
+    models.mkdir()
+    populate(models)
+    selected = plan(models)
+    monkeypatch.setattr(package, "git_commit", lambda: ("123456789abcdef", dirty))
+    monkeypatch.setattr(package, "venv_frozen", lambda: "llama-cpp-python==0.3.33")
+    monkeypatch.setattr(package, "build_llama_cpp_wheel", lambda *args: tmp_path / "llama.whl")
+    monkeypatch.setattr(package, "install_embedded_python", lambda cache, dest: dest / "python.exe")
+    for name in ("install_dependencies", "fetch_vc_redist", "verify_dll_dependencies",
+                 "verify_native_modules", "verify_llama_cpp", "verify_selected_engines",
+                 "verify_server_ready"):
+        monkeypatch.setattr(package, name, lambda *args: None)
+
+    result = package.build(tmp_path / "work", tmp_path / "out", selected)
+
+    assert re.fullmatch(r"LiveTranslation-\d{8}-\d{4}-1234567" + suffix + r"\.zip", result.name)
+    with zipfile.ZipFile(result) as archive:
+        assert "app/config.yaml" in archive.namelist()
+        assert "start.bat" in archive.namelist()

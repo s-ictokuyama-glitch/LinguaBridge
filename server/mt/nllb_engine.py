@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from server.mt.base import TranslationEngine
+from server.model_files import TRANSLATION_GUIDANCE, TranslationModelError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("server.mt")
 
 # config の言語コード → NLLB(FLORES-200) 言語コード
 NLLB_LANG_CODES: dict[str, str] = {
@@ -27,8 +28,7 @@ class NllbEngine(TranslationEngine):
         for path in (model_dir, tokenizer_dir):
             if not path.exists():
                 raise FileNotFoundError(
-                    f"NLLBモデルが見つからない: {path}\n"
-                    "scripts/download_models.py を実行してモデルを取得してください"
+                    f"翻訳モデルが見つからない: models\n{TRANSLATION_GUIDANCE}"
                 )
         self._model_dir = model_dir
         self._tokenizer_dir = tokenizer_dir
@@ -48,18 +48,34 @@ class NllbEngine(TranslationEngine):
 
         if self._translator is not None:
             return  # 冪等: 背後warmupと遅延ロードの二重ロードを防ぐ
-        logger.info("NLLBモデルをロード中: %s", self._model_dir.name)
-        self._translator = ctranslate2.Translator(str(self._model_dir), device="cpu")
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            str(self._tokenizer_dir), src_lang=SOURCE_LANG
-        )
+        logger.info("翻訳モデルを読み込み中")
+        try:
+            translator = ctranslate2.Translator(str(self._model_dir), device="cpu")
+        except RuntimeError as exc:
+            if not str(exc).startswith(("Unsupported model binary version", "Unable to open file")):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                str(self._tokenizer_dir), src_lang=SOURCE_LANG
+            )
+        except (OSError, ValueError) as exc:
+            if not str(exc).startswith(("Can't load tokenizer for", "Unrecognized model in")):
+                raise
+            raise TranslationModelError(
+                f"翻訳モデルの形式が不正です: models\n{TRANSLATION_GUIDANCE}"
+            ) from None
+        self._translator = translator
+        self._tokenizer = tokenizer
         self.translate("こんにちは。", "en")  # ダミー推論（初回遅延対策）
-        logger.info("NLLBウォームアップ完了")
+        logger.info("翻訳モデルの準備完了")
 
     def translate(self, text_ja: str, target_lang: str) -> str:
         code = NLLB_LANG_CODES.get(target_lang)
         if code is None:
-            raise ValueError(f"NLLBエンジン未対応の言語: {target_lang}")
+            raise ValueError(f"翻訳モデルが未対応の言語: {target_lang}")
         if self._translator is None:  # 通常は起動時 warmup 済み。直接利用時の保険
             self.warmup()
         tokens = self._tokenizer.convert_ids_to_tokens(self._tokenizer(text_ja).input_ids)

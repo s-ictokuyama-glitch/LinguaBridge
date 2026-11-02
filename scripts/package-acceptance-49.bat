@@ -11,7 +11,7 @@ exit /b
 # 目で見ることだけ候補から番号で選ぶ（期待どおりなら Enter だけ）。
 # 記録票はこの bat と同じフォルダに書き出すので、開発機へ持ち帰って docs/ に置く。
 
-$Root = if ($env:LB49_ROOT) { $env:LB49_ROOT } else { 'C:\LinguaBridge' }  # LB49_* は動作確認用
+$Root = if ($env:LB49_ROOT) { $env:LB49_ROOT } else { 'C:\LiveTranslation' }  # LB49_* は動作確認用
 $OutDir = Split-Path -Parent $f
 $Today = Get-Date -Format 'yyyy-MM-dd'
 $bt = [char]96
@@ -103,15 +103,15 @@ Wait 'Enter で次へ'
 
 # ── 2 ──────────────────────────────────────────────────────────────────
 Stage 'zip をダウンロードし、展開の前にブロックを解除する'
-Step 'ブラウザで共有リンクを開き、LinguaBridge-<日時>-<英数字>.zip をダウンロードします。'
+Step 'ブラウザで共有リンクを開き、LiveTranslation-<日時>-<英数字>.zip をダウンロードします。'
 Wait 'ダウンロードが終わったら Enter'
 $downloads = if ($env:LB49_DOWNLOADS) { $env:LB49_DOWNLOADS } else {
     try { (New-Object -ComObject Shell.Application).NameSpace('shell:Downloads').Self.Path } catch { "$env:USERPROFILE\Downloads" }
 }
-$zip = Get-ChildItem -LiteralPath $downloads -Filter 'LinguaBridge-*.zip' -ErrorAction SilentlyContinue |
+$zip = Get-ChildItem -LiteralPath $downloads -Filter 'LiveTranslation-*.zip' -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 while (-not $zip) {
-    Warn "ダウンロード フォルダ（$downloads）に LinguaBridge-*.zip が見つかりません。"
+    Warn "ダウンロード フォルダ（$downloads）に LiveTranslation-*.zip が見つかりません。"
     $path = (Read-Host '  zip をこの画面にドラッグ＆ドロップして Enter').Trim('"', ' ')
     if ($path -and (Test-Path -LiteralPath $path)) { $zip = Get-Item -LiteralPath $path }
 }
@@ -155,7 +155,7 @@ while ($true) {
         Ok "$Root\start.bat と app\ を確認しました。"
         break
     }
-    $nested = Get-ChildItem -LiteralPath $Root -Directory -Filter 'LinguaBridge-*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $nested = Get-ChildItem -LiteralPath $Root -Directory -Filter 'LiveTranslation-*' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($nested) { Warn "$($nested.FullName) のように一段深く展開されています。" }
     else { Warn "$Root\start.bat または $Root\app\python\python.exe が見つかりません。" }
     $r = Pick 'どうしますか？' @('展開し直して調べ直す', 'このまま記録する（失敗）')

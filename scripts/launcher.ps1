@@ -139,10 +139,10 @@ function Write-LocationWarning([Parameter(Mandatory)][string]$PackageRoot) {
         $onedrive = [IO.Path]::GetFullPath($onedrive).TrimEnd('\') + '\'
         if (-not $package.StartsWith($onedrive, [StringComparison]::OrdinalIgnoreCase)) { continue }
         Write-Host "============================================================" -ForegroundColor Yellow
-        Write-Host "  [注意] LinguaBridge が OneDrive の同期フォルダの中に置かれています。" -ForegroundColor Yellow
+        Write-Host "  [注意] Live Translation が OneDrive の同期フォルダの中に置かれています。" -ForegroundColor Yellow
         Write-Host "    今の場所: $($package.TrimEnd('\'))" -ForegroundColor Yellow
         Write-Host "  同期の影響でモデルの読み込みが遅くなったり失敗したりすることがあります。" -ForegroundColor Yellow
-        Write-Host "  サーバーを止めてから、フォルダごと C:\LinguaBridge\ に移してください" -ForegroundColor Yellow
+        Write-Host "  サーバーを止めてから、フォルダごと C:\LiveTranslation\ に移してください" -ForegroundColor Yellow
         Write-Host "  （ドキュメントやデスクトップには置かないでください）。このまま起動は続けます。" -ForegroundColor Yellow
         Write-Host "============================================================" -ForegroundColor Yellow
         return $true

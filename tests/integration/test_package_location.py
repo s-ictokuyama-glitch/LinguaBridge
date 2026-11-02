@@ -61,7 +61,8 @@ def test_package_under_onedrive_is_warned(tmp_path, variable):
     assert warned
     assert str(package) in output
     assert "OneDrive" in output
-    assert "C:\\LinguaBridge\\" in output
+    assert "C:\\LiveTranslation\\" in output
+    assert "Live Translation が OneDrive" in output
 
 
 def test_onedrive_match_ignores_case_and_trailing_separator(tmp_path):

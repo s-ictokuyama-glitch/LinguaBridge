@@ -107,7 +107,7 @@ class TestFailClosedOnMissingModels:
             asr=AsrConfig(engine="fake"),
             mt=MtConfig(engine="hy-mt2"),
         )
-        with pytest.raises(FileNotFoundError, match="download_models"):
+        with pytest.raises(FileNotFoundError, match="配布パッケージを展開し直し"):
             create_app(config, Publication(config.server))
 
     def test_truncated_model_is_rejected_not_loaded(self, tmp_path):
@@ -125,7 +125,7 @@ class TestFailClosedOnMissingModels:
 
     def test_unknown_engine_name_is_an_error_not_a_silent_fallback(self):
         config = AppConfig(mt=MtConfig(engine="some-cloud-api"))
-        with pytest.raises(NotImplementedError, match="some-cloud-api"):
+        with pytest.raises(ValueError, match="未知の翻訳エンジン"):
             build_mt_engine(config)
 
 
