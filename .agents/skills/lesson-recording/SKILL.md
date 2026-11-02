@@ -27,29 +27,29 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 
 `trace` をコードの呼び出し順に追い、`expected` と実際の JSONL の `actual` を比べる。
 既存の反例と抽象化の境界は [検証範囲と結果](../../../scripts/formal/README.md) を読む。
-現在のコードには未完了 ASR を伴う反例がある。既知という理由で終了コードを成功に変えない。
-命題を弱めたり、検出した製品コードをこのスキルの作成作業として修正したりしない。
+未完了 ASR と保存待機の期限を交錯させ、処理中の再開拒否、追加操作なしの元授業への最終保存を確認する。
+期待する所属と件数を維持する。反例が出たら、製品不具合と検証器の誤りを区別する。
 入力が製品で成立することと、await の境界を確認できたら不具合として報告する。
 注入した失敗や想定した原子性がコードと合わなければ、検証器の誤りとして修正して再実行する。
 
 ## 変更との同期を確認する
 
-最終同期コミットは `30c3d455829c7ebb6615383c634d89fe41d87759`。
+最終同期コミットは `745f36e4e90af0e14fcaccfa2ee71ad64a7d04e2`。
 この値は製品コードを最後に照合したコミットであり、スキルを追加したコミットとは異なる。
 
 | ファイル | 照合する処理 |
 |---|---|
 | `server/lesson.py` | `Lesson.control`、`_transition`、`set_recording` |
-| `server/pipeline.py` | `on_lesson_state`、`finalize_recording`、`_publish_turn`、`_process_segment`、`_asr_worker`、`feed_audio`、`flush_audio`、`drain` |
+| `server/pipeline.py` | `on_lesson_state`、`finalize_recording`、`_finalize_lesson`、`_finish_recording`、`_recording_finished`、`_publish_turn`、`_process_segment`、`_asr_worker`、`stop`、`feed_audio`、`flush_audio`、`drain` |
 | `server/recorder.py` | `SessionRecorder.add`、`write`、`_write_markdown` |
 | `server/asr_backlog.py` | `AsrBacklog.next`、`join`、`is_idle` |
 | `server/turn/assembler.py` | simple 戦略の `add_segment` と `flush` |
 | `server/config.py` | VAD、Turn、記録、ASR の制限時間 |
 | `server/asr/fake_engine.py` | 入力振幅と認識文の対応 |
 
-`git diff 30c3d455829c7ebb6615383c634d89fe41d87759 -- server/lesson.py server/pipeline.py server/recorder.py server/asr_backlog.py server/turn/assembler.py server/config.py server/asr/fake_engine.py` を確認する。
+`git diff 745f36e4e90af0e14fcaccfa2ee71ad64a7d04e2 -- server/lesson.py server/pipeline.py server/recorder.py server/asr_backlog.py server/turn/assembler.py server/config.py server/asr/fake_engine.py` を確認する。
 対象処理が変わったら、操作集合、障害注入、時間予算、期待する所属を実装に照らして更新する。
-`--mutation-check` は一時コピーの製品コードから記録切替と保存待ちをそれぞれ削除し、検出を確認する。
+`--mutation-check` は一時コピーで記録切替と再開前の保存待ちを削除し、暫定保存を誤って封印する破壊も加えて検出を確認する。
 実行元の製品コードは変更しない。破壊用の置換箇所が見つからなければ、新しい実装に合わせて見直す。
 製品コードとの一致を確認して全探索と破壊検出を実行した後だけ、同期コミットを進める。
 未確認の変更から復旧する場合は `/maintain-formal-verification-skill` を使う。
@@ -60,6 +60,8 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 この検証は Python の実装を直接実行する。独立した TLA+ モデルは使用しない。
 通常操作は初期 start と確定発話1件、6操作の長さ0〜4の全列、末尾 end を対象とする。
 非同期部分は未完了 ASR 1件と end、restart、次の確定発話の4順序を start と pause の両再開で調べる。
-ASR 上限は90秒とし、30秒の drain 超過を即時例外で最大2回注入する。実時間の経過は検証しない。
+ASR 上限は90秒とし、保存完了を待つ30秒の `wait_for` 超過を即時例外で最大2回注入する。バックグラウンドの排出は継続し、拒否された再開は完了後に再試行する。実時間の経過は検証しない。
 保存失敗は write 前と最初の Markdown 書込前の OSError を対象とする。
-発話順、seq、時刻、翻訳、Markdown の内容、実モデル、通信、クラッシュ、同時 control は対象外。
+暫定保存は遅着結果を補うため更新し、最終保存されたファイルだけ不変性を確認する。
+発話順、seq、時刻、翻訳、Markdown の内容、実モデル、通信、クラッシュ、同時 control はこの有界探索の対象外。
+通常の pytest は別途、morph、複数 ASR、遅延翻訳、同じ保存完了を待つ再開呼出し、記録OFF時の停止を確認する。
