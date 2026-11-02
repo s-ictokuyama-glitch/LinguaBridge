@@ -9,7 +9,7 @@ from server.asr.base import ASRResult
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, PartialConfig, RecordingConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
-from server.pipeline import Pipeline
+from server.pipeline import Pipeline, RecordingPendingError
 from server.roster import Roster
 from tests.helpers import RecordingSocket, silence_pcm, speech_pcm
 
@@ -111,7 +111,7 @@ def test_drain_times_out_with_unprocessed_audio():
     asyncio.run(scenario())
 
 
-def test_finalize_recording_uses_drain_and_writes_partial_on_timeout(tmp_path, monkeypatch):
+def test_finalize_recording_keeps_draining_after_provisional_save(tmp_path, monkeypatch):
     async def scenario():
         pipeline = make_pipeline(out_dir=tmp_path)
         await pipeline.roster.add(RecordingSocket(), "student", "en")
@@ -119,11 +119,35 @@ def test_finalize_recording_uses_drain_and_writes_partial_on_timeout(tmp_path, m
         await pipeline.start()
         try:
             await pipeline.feed_audio(np.concatenate([speech_pcm(2000, 0.4), silence_pcm(1.2)]).tobytes())
+            await pipeline.on_lesson_state("ended")
             await pipeline.drain(timeout=1)
-            drain = AsyncMock(side_effect=TimeoutError)
+            release = asyncio.Event()
+
+            async def pending_drain(**kwargs):
+                await release.wait()
+
+            drain = AsyncMock(side_effect=pending_drain)
             monkeypatch.setattr(pipeline, "drain", drain)
+            wait_for = asyncio.wait_for
+
+            async def short_wait(awaitable, timeout):
+                if timeout == 30 and not release.is_set():
+                    await asyncio.sleep(0)
+                    awaitable.cancel()
+                    raise TimeoutError
+                return await wait_for(awaitable, timeout=timeout)
+
+            monkeypatch.setattr(asyncio, "wait_for", short_wait)
+            with pytest.raises(RecordingPendingError) as pending:
+                await pipeline.finalize_recording()
+            drain.assert_awaited_once_with(timeout=None)
+            assert pipeline.recording_pending
+            directory = pending.value.provisional_directory
+            assert (directory / "transcript.jsonl").exists()
+            release.set()
             output = await pipeline.finalize_recording()
-            drain.assert_awaited_once_with(timeout=30)
+            assert output == directory
+            assert not pipeline.recording_pending
             entries = [json.loads(line) for line in (output / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
             assert len(entries) == 1
             assert entries[0]["ja"] == FakeASREngine.PHRASES[2000]

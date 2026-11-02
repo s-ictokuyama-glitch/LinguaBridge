@@ -391,9 +391,10 @@ async def test_pause_resume_keeps_one_recording(tmp_path):
 
 
 @pytest.mark.parametrize("restart_action", ["start", "pause"])
+@pytest.mark.parametrize("failure_type", [OSError, TimeoutError])
 @run_async
 async def test_restart_retries_failed_save_before_accepting_audio(
-    tmp_path, monkeypatch, restart_action
+    tmp_path, monkeypatch, restart_action, failure_type
 ):
     from server.recorder import SessionRecorder
 
@@ -402,7 +403,7 @@ async def test_restart_retries_failed_save_before_accepting_audio(
         await speak(lesson, 1000)
         with monkeypatch.context() as patch:
             def fail_write(self):
-                raise OSError("disk unavailable")
+                raise failure_type("disk unavailable")
             patch.setattr(SessionRecorder, "write", fail_write)
             with pytest.raises(OSError, match="disk unavailable"):
                 await lesson.control("end")

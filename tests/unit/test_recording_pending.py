@@ -57,7 +57,12 @@ async def classroom(tmp_path, monkeypatch, strategy="simple", recording=True):
     wait_for = asyncio.wait_for
 
     async def short_recording_wait(awaitable, timeout):
-        return await wait_for(awaitable, timeout=0.01 if timeout == 30 else timeout)
+        if timeout == 30:
+            await asyncio.sleep(0)
+            if asr.pending or mt.pending:
+                awaitable.cancel()
+                raise TimeoutError
+        return await wait_for(awaitable, timeout=timeout)
 
     monkeypatch.setattr(asyncio, "wait_for", short_recording_wait)
     try:
@@ -77,9 +82,8 @@ async def finish(asr, mt, pipeline):
     asr.complete()
     await settle(lambda: bool(mt.pending))
     mt.complete()
-    await settle(lambda: pipeline._asr_backlog.is_idle and pipeline._mt_queue.empty())
-    for _ in range(20):
-        await asyncio.sleep(0)
+    await pipeline.drain(timeout=1)
+    await settle(lambda: not pipeline.recording_pending)
 
 
 def recordings(tmp_path):
@@ -136,8 +140,8 @@ def test_late_translation_rewrites_provisional_files_without_another_control(tmp
             directory, entries = next(iter(recordings(tmp_path).items()))
             assert entries[0]["translations"] == {}
             mt.complete()
-            for _ in range(30):
-                await asyncio.sleep(0)
+            await lesson.pipeline.drain(timeout=1)
+            await settle(lambda: not lesson.pipeline.recording_pending)
             entries = recordings(tmp_path)[directory]
             assert set(entries[0]["translations"]) == {"en"}
             assert entries[0]["translations"]["en"]["text"] == f"[en] {FakeASREngine.PHRASES[1000]}"
@@ -181,6 +185,7 @@ def test_failed_background_save_notifies_and_retries_same_directory(tmp_path, mo
                     raise OSError("disk unavailable")
                 patch.setattr(SessionRecorder, "_write_markdown", fail_markdown)
                 await finish(asr, mt, lesson.pipeline)
+                await settle(lambda: any(message.get("code") == "recording_save_failed" for message in teacher.sent))
                 assert any(message.get("code") == "recording_save_failed" for message in teacher.sent)
                 with pytest.raises(OSError, match="disk unavailable"):
                     await lesson.control("start")
@@ -201,4 +206,67 @@ def test_stop_cancels_pending_recording_finalizer(tmp_path, monkeypatch):
             await lesson.pipeline.stop()
             assert not lesson.pipeline.recording_pending
             assert all(task.done() for task in tasks)
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("strategy", ["simple", "morph"])
+def test_two_pending_asr_segments_finish_before_final_save(tmp_path, monkeypatch, strategy):
+    async def scenario():
+        async with classroom(tmp_path, monkeypatch, strategy) as (lesson, _, asr, mt):
+            await speak(lesson, 1000)
+            await lesson.pipeline.feed_audio(speech_pcm(2000, 0.4).tobytes())
+            await lesson.control("end")
+            assert recordings(tmp_path) == {}
+            asr.complete()
+            await settle(lambda: bool(asr.pending) and bool(mt.pending))
+            mt.complete()
+            assert lesson.pipeline.recording_pending
+            assert recordings(tmp_path) == {}
+            await finish(asr, mt, lesson.pipeline)
+            entries = next(iter(recordings(tmp_path).values()))
+            assert [entry["ja"] for entry in entries] == [
+                FakeASREngine.PHRASES[1000], FakeASREngine.PHRASES[2000]
+            ]
+            assert all(entry["translations"]["en"]["text"] for entry in entries)
+    asyncio.run(scenario())
+
+
+def test_restart_callers_share_finalization_without_replacing_new_recording(tmp_path, monkeypatch):
+    async def scenario():
+        wait_for = asyncio.wait_for
+        async with classroom(tmp_path, monkeypatch) as (lesson, _, asr, mt):
+            await lesson.pipeline.feed_audio(speech_pcm(1000, 0.4).tobytes())
+            await lesson.control("end")
+            finalize = lesson.pipeline._finalize_lesson
+            calls = 0
+            release_second = asyncio.Event()
+
+            async def staggered_finalize():
+                nonlocal calls
+                calls += 1
+                second = calls == 2
+                result = await finalize()
+                if second:
+                    await release_second.wait()
+                return result
+
+            with monkeypatch.context() as patch:
+                patch.setattr(asyncio, "wait_for", wait_for)
+                patch.setattr(lesson.pipeline, "_finalize_lesson", staggered_finalize)
+                first = asyncio.create_task(lesson.control("start"))
+                second = asyncio.create_task(lesson.control("start"))
+                try:
+                    await settle(lambda: calls == 2)
+                    await finish(asr, mt, lesson.pipeline)
+                    await first
+                    await speak(lesson, 2000)
+                    await finish(asr, mt, lesson.pipeline)
+                    release_second.set()
+                    await second
+                finally:
+                    release_second.set()
+                    await asyncio.gather(first, second, return_exceptions=True)
+            await lesson.control("end")
+            assert sorted([entry["seq"] for entry in entries]
+                          for entries in recordings(tmp_path).values()) == [[1], [2]]
     asyncio.run(scenario())

@@ -12,7 +12,7 @@ from typing import Literal
 
 from server import ws_protocol as proto
 from server.config import AppConfig
-from server.pipeline import Pipeline
+from server.pipeline import Pipeline, RecordingPendingError
 from server.rate_limit import JoinRateLimiter
 from server.roster import Client, ClientSocket
 
@@ -47,12 +47,18 @@ class Lesson:
         states: dict[str, proto.SessionState] = {
             "start": "live", "pause": "paused", "end": "ended"
         }
-        await self._transition(states[action])
-        if action == "end":
-            saved = await self.pipeline.finalize_recording()
-            if saved is not None:
-                logger.info("授業記録を保存しました: %s", saved)
-            return saved
+        try:
+            await self._transition(states[action])
+            if action == "end":
+                saved = await self.pipeline.finalize_recording()
+                if saved is not None:
+                    logger.info("授業記録を保存しました: %s", saved)
+                return saved
+        except RecordingPendingError:
+            self.roster.send_teacher(proto.ErrorMsg(
+                code="recording_pending",
+                message="前の授業の音声・翻訳を処理中です。保存完了後に再開できます。しばらく待ってから再度操作してください。",
+            ).model_dump())
         return None
 
     async def leave(self, client: Client) -> None:

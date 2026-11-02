@@ -270,16 +270,22 @@ async def save_case(restart, failure, parent):
 def mutation_check(parent):
     mutations = {
         "remove_recorder_rotation": (
-            "            self._recorder = SessionRecorder(\n                self._recording_out_dir, self._recording_languages\n            )",
-            "            pass",
+            "                self._recorder = SessionRecorder(\n                    self._recording_out_dir, self._recording_languages\n                )",
+            "                pass",
             "commands",
             "recording_ownership",
         ),
         "skip_save_before_rotation": (
-            "        if previous == \"ended\" and state != \"ended\":\n            await self.finalize_recording()",
-            "        if previous == \"ended\" and state != \"ended\":\n            pass",
+            "            recorder = self._recorder\n            await self._finalize_lesson()",
+            "            recorder = self._recorder\n            pass",
             "save",
             "unsaved recording accepted",
+        ),
+        "seal_provisional_recording": (
+            "            directory = self._recorder.write(final=False)",
+            "            directory = self._recorder.write()",
+            "pending",
+            "recording_ownership",
         ),
     }
     results = []
@@ -334,7 +340,7 @@ async def explore(parent):
 
 
 def main():
-    logging.disable(logging.WARNING)
+    logging.disable(logging.CRITICAL)
     with tempfile.TemporaryDirectory(prefix="linguabridge-recording-") as directory:
         report = asyncio.run(explore(Path(directory)))
         if args.mutation_check:

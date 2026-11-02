@@ -54,6 +54,12 @@ from server.turn.assembler import Turn, TurnPart
 logger = logging.getLogger(__name__)
 
 
+class RecordingPendingError(TimeoutError):
+    def __init__(self, provisional_directory: Path | None) -> None:
+        super().__init__("前の授業の音声・翻訳を処理中です")
+        self.provisional_directory = provisional_directory
+
+
 @dataclass
 class MTJob:
     utterance: Utterance
@@ -192,6 +198,7 @@ class Pipeline:
         self._recorder = SessionRecorder(
             self._recording_out_dir, self._recording_languages
         )
+        self._recording_task: asyncio.Task[Path | None] | None = None
         self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
         self._mic_silent_warned = False
 
@@ -234,12 +241,19 @@ class Pipeline:
             )
         if self._warmup_task is not None:
             self._warmup_task.cancel()
+        if self._recording_task is not None:
+            self._recording_task.cancel()
         for task in self._tasks:
             task.cancel()
-        pending = [*self._tasks, *([self._warmup_task] if self._warmup_task else [])]
+        pending: list[asyncio.Task[Path | None]] = [
+            *self._tasks, *([self._warmup_task] if self._warmup_task else [])
+        ]
+        if self._recording_task is not None:
+            pending.append(self._recording_task)
         await asyncio.gather(*pending, return_exceptions=True)
         self._tasks = []
         self._warmup_task = None
+        self._recording_task = None
         await self.roster.aclose()
         # cancel_futures: 未着手の推論は捨てる（whisper-flow W-3 の見直し）。
         # 実行中のスレッドは止められないので wait=False のままにする。待つと
@@ -294,7 +308,7 @@ class Pipeline:
     def mt_queue_depth(self) -> int:
         return self._mt_queue.qsize()
 
-    async def drain(self, timeout: float = 30) -> None:
+    async def drain(self, timeout: float | None = 30) -> None:
         """ASR、MT の順に排出する。timeout は各段の待機秒数。"""
         await asyncio.wait_for(self._asr_backlog.join(), timeout=timeout)
         await asyncio.wait_for(self._mt_queue.join(), timeout=timeout)
@@ -691,10 +705,13 @@ class Pipeline:
     async def on_lesson_state(self, state: proto.SessionState) -> None:
         previous = self._state
         if previous == "ended" and state != "ended":
-            await self.finalize_recording()
-            self._recorder = SessionRecorder(
-                self._recording_out_dir, self._recording_languages
-            )
+            recorder = self._recorder
+            await self._finalize_lesson()
+            if self._recorder is recorder:
+                self._recorder = SessionRecorder(
+                    self._recording_out_dir, self._recording_languages
+                )
+                self._recording_task = None
         self._state = state
         await self._broadcast_speaking(self._speaking_signal.on_lesson_state(state))
         if previous == "live" and state != "live":
@@ -719,18 +736,49 @@ class Pipeline:
     def set_recording(self, on: bool) -> None:
         self._recording = on
 
-    async def finalize_recording(self) -> Path | None:
-        """記録があれば全キューを排出して訳文を確定させ、ファイルへ書き出す。
+    @property
+    def recording_pending(self) -> bool:
+        return self._recording_task is not None and not self._recording_task.done()
 
-        セッション終了時に呼ぶ。書き出したフォルダ、記録なしなら None を返す。
-        """
-        if not self._recording and not self._recorder.has_entries:
-            return None
-        try:
-            await self.drain(timeout=30)
-        except asyncio.TimeoutError:
-            logger.warning("記録の書き出し前のキュー排出がタイムアウト。現時点の内容で書き出します")
+    async def _finish_recording(self) -> Path | None:
+        await self.drain(timeout=None)
         return self._recorder.write()
+
+    def _recording_finished(self, task: asyncio.Task[Path | None]) -> None:
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.error("授業記録の確定保存に失敗しました", exc_info=error)
+            self.roster.send_teacher(proto.ErrorMsg(
+                code="recording_save_failed",
+                message="授業記録を保存できませんでした。保存先を確認してから再度操作してください。",
+            ).model_dump())
+
+    async def finalize_recording(self) -> Path | None:
+        """記録が必要な授業の全キュー排出と確定保存を最大30秒待つ。
+
+        待機期限後も処理は継続する。確定保存までは次の授業へ移れない。
+        """
+        if not self._recording and not self._recorder.has_entries and self._recording_task is None:
+            return None
+        return await self._finalize_lesson()
+
+    async def _finalize_lesson(self) -> Path | None:
+        task = self._recording_task
+        if task is not None and task.done() and not task.cancelled() and task.exception() is None:
+            return None
+        if task is None or task.done():
+            task = asyncio.create_task(self._finish_recording(), name="recording-finalizer")
+            task.add_done_callback(self._recording_finished)
+            self._recording_task = task
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), timeout=30)
+        except asyncio.TimeoutError:
+            if task.done():
+                return task.result()
+            directory = self._recorder.write(final=False)
+            raise RecordingPendingError(directory) from None
 
     # ---- モニタリング（#15） ----
 

@@ -24,6 +24,7 @@ JoinRejectReason = Literal["bad_code", "bad_lang", "rate_limited", "full"]
 ErrorCode = Literal[
     "bad_lang", "too_large", "bad_message", "not_joined", "mic_silent",
     "audio_dropped", "asr_timeout", "mt_backlog", "mt_timeout",
+    "recording_pending", "recording_save_failed",
 ]
 
 
