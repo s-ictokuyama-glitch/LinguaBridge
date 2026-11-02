@@ -1,0 +1,99 @@
+# 先生交代と授業状態の有界検証
+
+先生の切断で自動停止した授業は、在籍する先生の参加でだけ再開する。
+古い参加処理の完了で再開すると、先生不在でも生徒へ配信中と表示される。
+この検証は、既存の記録・字幕復元・ASR待ち・接続送信の検証が対象外とする、先生の後勝ちと自動停止の整合性を扱う。
+音声分割や発話組立も候補だが、先生交代は全生徒の授業状態へ影響し、旧接続の切断待ちをまたぐ操作が既存の逐次テストでは未検証だったため優先した。
+
+## 実コードと比較する
+
+`teacher_lifecycle.py` は実際の `Lesson`、`Roster`、`Pipeline`、`ClientSender` を実行する。
+独立した期待状態は現在の先生、授業状態、自動停止の理由だけを持つ。
+現在の実装の `auto_paused` 判定をそのまま期待値にはせず、参加処理が戻った先生の在籍を要求する。
+
+既存の Python・固定版依存だけで再実行でき、asyncio の await 境界を手書きの別言語モデルへ移し替えずに済むため、有限操作列の全列挙を選んだ。
+SMT や無制限の形式証明ではなく、指定した入力と切断待ちの範囲の有界検証である。
+
+```powershell
+uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt python -B scripts/formal/teacher_lifecycle.py --mutation-check --json .audit/teacher-lifecycle-result.json
+```
+
+次回の変更は [teacher-lifecycle スキル](../../.agents/skills/teacher-lifecycle/SKILL.md) に従う。
+現コードでの基準結果は [teacher_lifecycle_baseline.json](teacher_lifecycle_baseline.json) に保存する。
+
+## 操作の範囲
+
+逐次探索は `join_A`、`join_B`、`leave_A`、`leave_B`、`start`、`pause`、`end` の長さ0〜4の全2,801列を候補とする。
+参加は新しいソケットを作り、その文字の直近の接続を退出に使用する。
+交代済み接続の遅着した退出と、重複した退出も許す。
+先生が不在の手動操作と、未参加の接続の退出は探索から除く。
+
+競合探索は次の固定接頭部を実行する。
+
+1. 先生Aが参加し、授業を開始する。
+2. 先生Bが参加を始める。
+3. `Roster.add` がBを登録してAを名簿から外す。
+4. Aの送信キューを正常に排出した後、Aの `socket.close(4000)` を完了待ちにする。
+
+この後に `join_C`、`leave_C`、`start`、`pause`、`end`、`release_A` の長さ0〜4の全1,555列を候補とする。
+Cの参加とAの切断解放はそれぞれ最大1回とする。
+手動操作は名簿に在籍し、参加処理の完了した先生からだけ実行する。
+Bの参加待ち中は、Bの退出や手動操作を実行しない。`server/main.py` の受信ループは join が戻るまで次のメッセージへ進まないためである。
+各合法列の末尾では残っている切断待ちを解放し、Bの参加完了後にも期待状態を確認する。
+
+各操作の完了時に先生の同一性と一意性、授業状態、自動停止の理由、Pipelineの状態を比較する。
+違反が出た列では最初の性質違反で止め、性質ごとに探索範囲内の最短反例を残す。
+不正な操作を含む列はその操作より前で止めるため、候補列数は異なる実行経路の数ではない。
+出力の `legal` は末尾まで実行した列と、合法な接頭部で性質違反を検出した列の数である。
+
+## 現コードの反例
+
+同期コミット `2a1c1f68ae2c372e03b0bc1a50820cf793f73586` のコードで次の順序を再現する。
+
+1. 先生Aで授業を開始する。
+2. 先生Bを名簿へ登録し、Aの切断完了を待つ。
+3. 先生Cが参加を完了し、Bは名簿から外れて4000で切断される。
+4. Cが退出し、先生不在なので授業は自動で `paused` になる。
+5. Aの切断待ちを解放すると、Bの古い `Lesson.join` が戻る。
+6. Bは既に名簿にいないが、`auto_paused` を見て授業を `live` に戻す。
+
+期待値は `paused`、実際は `live` となる。
+`Roster.add` は名簿更新後の旧接続の切断で制御を譲るが、`Lesson.join` は戻った接続がまだ先生か照合せずに自動再開する。
+ゲートは偽ソケットの実際の `close` にだけ置き、Lesson や Roster の内部へ架空の割込み点を加えない。
+切断の保留時間は設定の3,600秒以内であり、実際のタイマー経過は網羅しない。
+
+最小の専用再現は次のコマンドで実行する。
+
+```powershell
+uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt python -B scripts/formal/teacher_lifecycle.py --overlap --case join_C,leave_C,release_A
+```
+
+製品コードは変更せず、反例を保持する。
+基準結果は4,356候補列のうち673列を合法として数え、17列で同じ `session_state` の違反を検出する。
+逐次探索で違反はなく、競合探索で先生不在の `paused` が `live` になる。
+
+## 検出器を壊して確認する
+
+`--mutation-check` は製品の一時コピーへ7種類の破壊を別々に加える。
+各ケースは破壊前に `PASS` を確認し、破壊後に期待した性質の違反と終了コード1を要求する。
+
+| 破壊 | 期待する検出 |
+|---|---|
+| 旧先生を交代時に除去しない | `teacher_owner` |
+| 古い先生の退出で現先生を停止する | `session_state` |
+| 自動停止の理由を忘れる | `pause_reason` |
+| 手動停止も先生参加で再開する | `session_state` |
+| 終了後の退出で一時停止へ戻す | `session_state` |
+| 自動停止後に先生が戻っても再開しない | `session_state` |
+| Pipelineの状態だけ更新しない | `pipeline_state` |
+
+この確認は既知の競合の失敗を流用しない。元の `server/` は変更しない。
+
+## 保証の限界
+
+無音、記録OFF、正常送信の設定で先生だけの状態遷移を実行する。
+ASRワーカーは空の `FlushTurn` を排出するだけで、推論は実行しない。MTワーカーや監視タスクは起動しない。
+空の授業の終了後再開は実際の Pipeline の保存処理を通すが、未完了の保存や推論は作らない。
+保持する切断は1件までで、3人の先生を超える並行参加や全スケジューラーの網羅は意味しない。
+通信、切断失敗、キャンセル、同一ソケットでの役割変更、生徒、認証、音声入力、翻訳、保存失敗、任意の並行controlは対象外。
+送信の容量・順序は [client-delivery](client_delivery.md)、字幕復元は [caption-recovery](caption_recovery.md)、記録の所属は [lesson-recording](README.md) を使う。
