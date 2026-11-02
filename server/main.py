@@ -173,6 +173,7 @@ def create_app(
         yield
         # 終了操作(end)なしで停止した場合の保険（既に書き出し済みなら no-op）
         with contextlib.suppress(Exception):
+            await pipeline.on_lesson_state("ended")
             await pipeline.finalize_recording()
         await pipeline.stop()
 

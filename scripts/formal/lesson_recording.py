@@ -83,9 +83,10 @@ class Classroom:
     async def control(self, action):
         self.trace.append(action)
         await self.lesson.control(action)
-        if self.state == "ended" and action != "end":
+        next_state = self.lesson.state
+        if self.state == "ended" and next_state != "ended":
             self.generation += 1
-        self.state = {"start": "live", "pause": "paused", "end": "ended"}[action]
+        self.state = next_state
         self.assert_immutable()
 
     async def speak(self):
@@ -110,7 +111,8 @@ class Classroom:
         for path, contents in self.saved_bytes.items():
             if current.get(path) != contents:
                 raise AssertionError(f"saved recording changed at {self.trace}: {path.name}")
-        self.saved_bytes = current
+        if not getattr(self.pipeline, "recording_pending", False):
+            self.saved_bytes = current
 
     def result(self):
         actual = sorted(
@@ -167,20 +169,23 @@ async def pending_case(schedule, restart, parent):
         pipeline._asr_executor.shutdown()
         pipeline._asr_executor = executor
         pipeline._limits.asr_timeout_s = 90
-        drain = pipeline.drain
+        wait_for = asyncio.wait_for
         timeouts = 0
 
-        async def controlled_drain(timeout=30):
+        async def controlled_wait(awaitable, timeout):
             nonlocal timeouts
-            if executor.pending:
+            if timeout == 30 and executor.pending:
                 timeouts += 1
                 if timeouts * timeout >= pipeline._limits.asr_timeout_s:
                     raise RuntimeError("injected drain waits exceed the ASR deadline")
                 room.trace.append("drain_timeout_with_ASR_pending")
+                if isinstance(awaitable, asyncio.Future):
+                    awaitable.cancel()
+                else:
+                    awaitable.close()
                 raise TimeoutError
-            await drain(timeout=1)
+            return await wait_for(awaitable, timeout=timeout)
 
-        pipeline.drain = controlled_drain
         try:
             await room.control("start")
             await room.speak()
@@ -189,19 +194,43 @@ async def pending_case(schedule, restart, parent):
             pcm = np.concatenate((np.full(6400, 1000, dtype=np.int16), np.zeros(19200, dtype=np.int16)))
             await pipeline.feed_audio(pcm.tobytes())
             await settle(lambda: len(executor.pending) == 1, pipeline)
-            for event in schedule:
-                if event == "asr_done":
-                    room.trace.append(event)
-                    executor.complete()
-                    await settle(lambda: pipeline._asr_backlog.is_idle, pipeline)
-                elif event == "restart":
-                    await room.control(restart)
-                    if restart == "pause":
-                        await room.control("start")
-                elif event == "next_turn":
-                    await room.speak()
-                else:
-                    await room.control(event)
+            retry_restart = False
+            retry_turn = False
+            with patch.object(asyncio, "wait_for", controlled_wait):
+                for event in schedule:
+                    if event == "asr_done":
+                        room.trace.append(event)
+                        executor.complete()
+                        await settle(
+                            lambda: pipeline._asr_backlog.is_idle and not getattr(pipeline, "recording_pending", False),
+                            pipeline,
+                        )
+                        if retry_restart:
+                            room.trace.append("retry_restart_after_save")
+                            await room.control(restart)
+                            if restart == "pause":
+                                await room.control("start")
+                            if retry_turn:
+                                await room.speak()
+                    elif event == "restart":
+                        await room.control(restart)
+                        if executor.pending:
+                            if room.lesson.state != "ended":
+                                return Violation(
+                                    "pending_restart_accepted", room.trace.copy(), [["ended"]], [[room.lesson.state]]
+                                ), timeouts
+                            room.trace.append("restart_refused_while_ASR_pending")
+                            retry_restart = True
+                        elif restart == "pause":
+                            await room.control("start")
+                    elif event == "next_turn":
+                        if room.state == "ended":
+                            room.trace.append("next_turn_deferred_until_restart")
+                            retry_turn = True
+                        else:
+                            await room.speak()
+                    else:
+                        await room.control(event)
             await room.control("end")
             return room.result(), timeouts
         finally:
@@ -241,16 +270,22 @@ async def save_case(restart, failure, parent):
 def mutation_check(parent):
     mutations = {
         "remove_recorder_rotation": (
-            "            self._recorder = SessionRecorder(\n                self._recording_out_dir, self._recording_languages\n            )",
-            "            pass",
+            "                self._recorder = SessionRecorder(\n                    self._recording_out_dir, self._recording_languages\n                )",
+            "                pass",
             "commands",
             "recording_ownership",
         ),
         "skip_save_before_rotation": (
-            "        if previous == \"ended\" and state != \"ended\":\n            await self.finalize_recording()",
-            "        if previous == \"ended\" and state != \"ended\":\n            pass",
+            "            recorder = self._recorder\n            await self._finalize_lesson()",
+            "            recorder = self._recorder\n            pass",
             "save",
             "unsaved recording accepted",
+        ),
+        "seal_provisional_recording": (
+            "            directory = self._recorder.write(final=False)",
+            "            directory = self._recorder.write()",
+            "pending",
+            "recording_ownership",
         ),
     }
     results = []
@@ -305,7 +340,7 @@ async def explore(parent):
 
 
 def main():
-    logging.disable(logging.WARNING)
+    logging.disable(logging.CRITICAL)
     with tempfile.TemporaryDirectory(prefix="linguabridge-recording-") as directory:
         report = asyncio.run(explore(Path(directory)))
         if args.mutation_check:

@@ -61,11 +61,12 @@ class SessionRecorder:
             },
         }
 
-    def write(self) -> Path | None:
+    def write(self, *, final: bool = True) -> Path | None:
         """蓄積した発話を書き出す。空なら None（何も書かない）。
 
         フォルダ名は最初の記録発話の時刻（＝実際に授業内容が始まった時刻・ローカル）。
         サーバー起動時刻ではなく授業時刻になり、エントリの created_at とも一致する。
+        final=False は暫定保存。同じ保存先へ遅着の発話・訳文を追記できる。
         """
         if self._written or not self._utterances:
             return None
@@ -103,7 +104,7 @@ class SessionRecorder:
                     u.translations[lang].text if lang in u.translations else None
                 ),
             )
-        self._written = True
+        self._written = final
         return session_dir
 
     def _write_markdown(self, path: Path, title: str, getter) -> None:

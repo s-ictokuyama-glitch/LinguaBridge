@@ -90,6 +90,26 @@ def test_write_is_idempotent(tmp_path):
     assert rec.write() is None  # 二度目は書かない
 
 
+def test_provisional_write_keeps_late_entries_and_translations_in_same_directory(tmp_path):
+    rec = SessionRecorder(tmp_path, ["en"])
+    first = make_utterance(1, "先に確定。", {})
+    rec.add(first)
+    directory = rec.write(final=False)
+    assert directory is not None
+    assert not (directory / "transcript.en.md").exists()
+    first.translations["en"] = Translation(lang="en", text="First.", engine="fake", mt_ms=5)
+    rec.add(make_utterance(2, "遅れて確定。", {"en": "Late."}))
+    assert rec.write() == directory
+    entries = [json.loads(line) for line in (directory / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [entry["ja"] for entry in entries] == ["先に確定。", "遅れて確定。"]
+    assert [entry["translations"]["en"]["text"] for entry in entries] == ["First.", "Late."]
+    assert list(tmp_path.iterdir()) == [directory]
+    before = recording_files(directory)
+    assert rec.write() is None
+    assert rec.write(final=False) is None
+    assert recording_files(directory) == before
+
+
 def test_uncapped_beyond_history_limit(tmp_path):
     # session.history は50件で丸められるが、recorderは全件保持する
     rec = SessionRecorder(tmp_path, ["en"])
