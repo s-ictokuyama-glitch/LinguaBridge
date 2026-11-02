@@ -1,0 +1,114 @@
+{
+  "status": "PASS",
+  "sync_commit": "de64334ed3071c53a1a71f3d7509da9557ffdecf",
+  "depth": 4,
+  "case": null,
+  "counts": {
+    "attempted": 22621,
+    "legal": 4981,
+    "violations": 0
+  },
+  "violations": [],
+  "mutations": [
+    {
+      "name": "ignore_active",
+      "detected": true,
+      "healthy": "PASS",
+      "violations": [
+        {
+          "property": "capacity",
+          "trace": [
+            "seg2",
+            "take",
+            "seg2"
+          ],
+          "expected": "dropped",
+          "actual": "accepted"
+        }
+      ]
+    },
+    {
+      "name": "reverse_queue",
+      "detected": true,
+      "healthy": "PASS",
+      "violations": [
+        {
+          "property": "fifo",
+          "trace": [
+            "boundary",
+            "flush",
+            "take"
+          ],
+          "expected": true,
+          "actual": false
+        }
+      ]
+    },
+    {
+      "name": "leak_active",
+      "detected": true,
+      "healthy": "PASS",
+      "violations": [
+        {
+          "property": "accounting",
+          "trace": [
+            "seg1",
+            "take",
+            "cancel"
+          ],
+          "expected": [
+            0,
+            0.0,
+            0.0,
+            true,
+            0,
+            0.0,
+            0
+          ],
+          "actual": [
+            0,
+            0.0,
+            0.5,
+            true,
+            0,
+            0.0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forget_done",
+      "detected": true,
+      "healthy": "PASS",
+      "violations": [
+        {
+          "property": "completion",
+          "trace": [
+            "seg1",
+            "take",
+            "cancel"
+          ],
+          "expected": true,
+          "actual": false
+        }
+      ]
+    },
+    {
+      "name": "busy_interim",
+      "detected": true,
+      "healthy": "PASS",
+      "violations": [
+        {
+          "property": "interim_admission",
+          "trace": [
+            "boundary",
+            "interim"
+          ],
+          "expected": "skipped",
+          "actual": "accepted"
+        }
+      ]
+    }
+  ]
+}
