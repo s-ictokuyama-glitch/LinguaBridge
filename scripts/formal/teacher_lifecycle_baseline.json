@@ -1,0 +1,163 @@
+{
+  "status": "FAIL",
+  "sync_commit": "2a1c1f68ae2c372e03b0bc1a50820cf793f73586",
+  "depth": 4,
+  "case": null,
+  "counts": {
+    "attempted": 4356,
+    "legal": 673,
+    "violating_scenarios": 17
+  },
+  "violations": [
+    {
+      "property": "session_state",
+      "trace": [
+        "join_A",
+        "start",
+        "begin_join_B_at_close_A",
+        "join_C",
+        "leave_C",
+        "release_A_at_tail"
+      ],
+      "expected": "paused",
+      "actual": "live",
+      "suite": "overlap"
+    }
+  ],
+  "mutations": [
+    {
+      "name": "keep_old_teacher",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "teacher_owner",
+          "trace": [
+            "join_A",
+            "start",
+            "join_B"
+          ],
+          "expected": [
+            "B"
+          ],
+          "actual": [
+            "A",
+            "B"
+          ],
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "stale_leave_pauses",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "session_state",
+          "trace": [
+            "join_A",
+            "start",
+            "join_B",
+            "leave_A"
+          ],
+          "expected": "live",
+          "actual": "paused",
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "forget_auto_pause",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "pause_reason",
+          "trace": [
+            "join_A",
+            "start",
+            "leave_A"
+          ],
+          "expected": true,
+          "actual": false,
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "resume_manual_pause",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "session_state",
+          "trace": [
+            "join_A",
+            "start",
+            "pause",
+            "join_B"
+          ],
+          "expected": "paused",
+          "actual": "live",
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "pause_after_end",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "session_state",
+          "trace": [
+            "join_A",
+            "start",
+            "end",
+            "leave_A"
+          ],
+          "expected": "ended",
+          "actual": "paused",
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "forget_auto_resume",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "session_state",
+          "trace": [
+            "join_A",
+            "start",
+            "leave_A",
+            "join_B"
+          ],
+          "expected": "live",
+          "actual": "paused",
+          "suite": "serial"
+        }
+      ]
+    },
+    {
+      "name": "pipeline_ignores_state",
+      "healthy": "PASS",
+      "detected": true,
+      "violations": [
+        {
+          "property": "pipeline_state",
+          "trace": [
+            "join_A",
+            "start"
+          ],
+          "expected": "live",
+          "actual": "idle",
+          "suite": "serial"
+        }
+      ]
+    }
+  ]
+}
