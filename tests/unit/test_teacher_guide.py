@@ -43,7 +43,7 @@ def test_guide_covers_every_distribution_step():
 
     # 展開の前に「ブロックの解除」をする（手順の順番も確かめる）
     assert install.index("ダウンロード") < install.index("ブロックの解除") < install.index("すべて展開")
-    assert "C:\\LinguaBridge\\" in install
+    assert "C:\\LiveTranslation\\" in install
     assert "ドキュメントやデスクトップには置かない" in install
     assert "「はい」" in install
     assert "SmartScreen" in install and "「詳細情報」→「実行」" in install
