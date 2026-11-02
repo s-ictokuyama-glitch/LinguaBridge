@@ -1,0 +1,226 @@
+{
+  "counts": {
+    "commands": 1555,
+    "pending": 8,
+    "injected_drain_timeouts": 10,
+    "save": 4
+  },
+  "violations": [
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "asr_done",
+        "start",
+        "confirmed_turn",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ]
+    },
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "asr_done",
+        "pause",
+        "start",
+        "confirmed_turn",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ]
+    },
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "start",
+        "drain_timeout_with_ASR_pending",
+        "asr_done",
+        "confirmed_turn",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2",
+          "おはようございます。"
+        ]
+      ]
+    },
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "pause",
+        "drain_timeout_with_ASR_pending",
+        "start",
+        "asr_done",
+        "confirmed_turn",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2",
+          "おはようございます。"
+        ]
+      ]
+    },
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "start",
+        "drain_timeout_with_ASR_pending",
+        "confirmed_turn",
+        "asr_done",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2",
+          "おはようございます。"
+        ]
+      ]
+    },
+    {
+      "property": "recording_ownership",
+      "trace": [
+        "start",
+        "confirmed_turn",
+        "admit_old_audio",
+        "end",
+        "drain_timeout_with_ASR_pending",
+        "pause",
+        "drain_timeout_with_ASR_pending",
+        "start",
+        "confirmed_turn",
+        "asr_done",
+        "end"
+      ],
+      "expected": [
+        [
+          "lesson0-turn1",
+          "おはようございます。"
+        ],
+        [
+          "lesson1-turn2"
+        ]
+      ],
+      "actual": [
+        [
+          "lesson0-turn1"
+        ],
+        [
+          "lesson1-turn2",
+          "おはようございます。"
+        ]
+      ]
+    }
+  ],
+  "mutations": [
+    {
+      "mutation": "remove_recorder_rotation",
+      "detected": true
+    },
+    {
+      "mutation": "skip_save_before_rotation",
+      "detected": true
+    }
+  ],
+  "scope": {
+    "depth": 4,
+    "source_root": ".",
+    "python": "3.12.10",
+    "pending_asr_timeout_s": 90,
+    "drain_timeout_s": 30
+  },
+  "status": "FAIL",
+  "sync_commit": "30c3d455829c7ebb6615383c634d89fe41d87759"
+}
