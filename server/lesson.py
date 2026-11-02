@@ -112,7 +112,7 @@ class Lesson:
         )
         if msg.role == "student" and msg.last_seq is not None:
             await self.pipeline.replay_history(client, msg.last_seq)
-        if msg.role == "teacher":
+        if msg.role == "teacher" and self.roster.contains(client):
             self.pipeline.on_teacher_joined()
             if self.auto_paused:
                 self.auto_paused = False
