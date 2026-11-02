@@ -1,6 +1,7 @@
 # 授業記録の有界検証
 
 字幕の再接続復元は別の [caption-recovery 検証](caption_recovery.md) と [スキル](../../.agents/skills/caption-recovery/SKILL.md) を使う。
+ASR待ち行列の容量・順序・キャンセル後の排出は [asr-backlog 検証](asr_backlog.md) と [スキル](../../.agents/skills/asr-backlog/SKILL.md) を使う。
 
 `lesson_recording.py` は実際の `Lesson`、`Pipeline`、`SessionRecorder` に入力を与え、JSONL の発話を授業ごとに比較する。
 Python の asyncio とファイル書込を含む実装への忠実さを優先し、別言語への手書きモデル化を避けた。
