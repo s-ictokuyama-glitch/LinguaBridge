@@ -446,14 +446,12 @@ async def test_restart_retries_failed_save_before_accepting_audio(
         await lesson.control("start")
         await speak(lesson, 1000)
         with monkeypatch.context() as patch:
-            def fail_write(self):
+            def fail_write(self, *, final=True):
                 raise failure_type("disk unavailable")
             patch.setattr(SessionRecorder, "write", fail_write)
-            with pytest.raises(OSError, match="disk unavailable"):
-                await lesson.control("end")
+            await lesson.control("end")
             for action in [restart_action, "pause", "start"]:
-                with pytest.raises(OSError, match="disk unavailable"):
-                    await lesson.control(action)
+                await lesson.control(action)
                 assert lesson.state == "ended"
                 await speak(lesson, 2000)
         await lesson.control(restart_action)

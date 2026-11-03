@@ -132,12 +132,12 @@ async def scenario(operations, watermark, *, admission=False):
                     await join()
             gate.release()
             trace.append("MT_complete_then_drain")
-            await asyncio.wait_for(pipeline._mt_queue.join(), timeout=2)
+            await pipeline.drain(timeout=2)
         else:
             gate.released = True
             worker = asyncio.create_task(pipeline._mt_worker())
             trace.append("drain_after_admission")
-            await asyncio.wait_for(pipeline._mt_queue.join(), timeout=2)
+            await pipeline.drain(timeout=2)
 
         active = client is not None and roster.contains(client)
         await roster.aclose()
@@ -201,6 +201,8 @@ async def check(args):
         if args.case is not None and args.case != name:
             continue
         operations = ("set_zh",) if name in ("retarget", "language") else ()
+        if name == "retarget":
+            operations += ("live_turn",)
         violations = await scenario(operations, 1, admission=name == "admission")
         witnesses[name] = "FAIL" if violations else "PASS"
         record(violations)
@@ -223,9 +225,9 @@ def mutation_check(args):
         ("send_old_language", "language", "replay_language",
          'selected = client.lang', 'selected = job.lang'),
         ("duplicate_caption", "isolation", "replay_duplicate",
-         'self.roster.send(client, captions[selected])',
+         'if self.roster.send(client, captions[selected]):',
          'self.roster.send(client, captions[selected])\n'
-         '                    self.roster.send(client, captions[selected])'),
+         '                    if self.roster.send(client, captions[selected]):'),
         ("skip_admission_retry", "admission", "replay_recoverable",
          'await self.roster.retry(client)', 'pass'),
         ("remove_without_retry_close", "admission", "replay_recoverable",

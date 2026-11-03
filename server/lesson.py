@@ -64,6 +64,7 @@ class Lesson:
         return None
 
     async def leave(self, client: Client) -> None:
+        self.pipeline.cancel_history_refresh(client)
         await self.roster.remove(client)
         if client.role == "teacher" and self.roster.teacher() is None and self.state == "live":
             self.auto_paused = True
@@ -103,6 +104,8 @@ class Lesson:
             else:
                 await self.send_now(socket, payload)
             return current
+        if current is not None:
+            self.pipeline.cancel_history_refresh(current)
         client = await self.roster.add(
             socket, msg.role, msg.lang, current=current,
             initial=proto.Joined(
@@ -125,7 +128,10 @@ class Lesson:
         if not self.roster.contains(client) or client.role != "student":
             return
         if lang in self._config.language_codes:
-            client.lang = lang
+            if client.lang != lang:
+                client.lang = lang
+                client.caption_languages.clear()
+                self.pipeline.refresh_history(client)
         else:
             self.roster.send(client, proto.ErrorMsg(
                 code="bad_lang", message=f"未対応の言語: {lang}"
