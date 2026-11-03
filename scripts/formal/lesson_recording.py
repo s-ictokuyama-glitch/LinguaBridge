@@ -272,8 +272,10 @@ def mutation_check(parent):
             "recording_ownership",
         ),
         "skip_save_before_rotation": (
-            "                recorder = self._recorder\n                await self._finalize_lesson()",
-            "                recorder = self._recorder\n                pass",
+            '            if self.state == "ended" and action != "end":\n'
+            "                await self._finalize_lesson()",
+            '            if self.state == "ended" and action != "end":\n'
+            "                pass",
             "save",
             "unsaved recording accepted",
         ),

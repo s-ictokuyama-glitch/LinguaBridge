@@ -47,6 +47,7 @@ class Lesson:
         self._recorder = self._new_recorder()
         self._recording_task: asyncio.Task[Path | None] | None = None
         self._shutdown_task: asyncio.Task[None] | None = None
+        self._control_version = 0
         pipeline.on_utterance = self._record_utterance
 
     def _new_recorder(self) -> SessionRecorder:
@@ -70,15 +71,16 @@ class Lesson:
     async def control(self, action: Literal["start", "pause", "end"]) -> Path | None:
         if self._shutdown_task is not None:
             return None
+        self._control_version += 1
+        version = self._control_version
         self.auto_paused = False
         states: dict[str, proto.SessionState] = {
             "start": "live", "pause": "paused", "end": "ended"
         }
         try:
             if self.state == "ended" and action != "end":
-                recorder = self._recorder
                 await self._finalize_lesson()
-                if self._shutdown_task is not None or self._recorder is not recorder:
+                if self._shutdown_task is not None or version != self._control_version:
                     return None
                 self._recorder = self._new_recorder()
                 self._recording_task = None
@@ -120,7 +122,6 @@ class Lesson:
             logger.error("授業記録の確定処理に失敗しました", exc_info=error)
 
     async def _finalize_lesson(self) -> Path | None:
-        """期限後は暫定保存を残し、確定保存はバックグラウンドで続ける。"""
         task = self._recording_task
         if task is not None and task.done() and not task.cancelled() and task.exception() is None:
             return None

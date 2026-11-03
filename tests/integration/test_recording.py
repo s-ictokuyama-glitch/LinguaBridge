@@ -258,7 +258,8 @@ def test_failed_background_save_retries_in_the_provisional_directory(tmp_path):
             assert transcript(provisional)[0]["translations"]["en"]["text"] == f"[en] {PHRASE_1000}"
 
 
-def test_two_teachers_waiting_to_restart_share_one_lesson_rotation(tmp_path):
+@pytest.mark.parametrize("action", ["start", "pause"])
+def test_two_teachers_waiting_to_restart_share_one_lesson_rotation(tmp_path, action):
     asr = GatedASR(3000)
     app = make_app(tmp_path, default_on=True, asr=asr, recording_wait_s=1)
     starts = queue.SimpleQueue()
@@ -266,8 +267,10 @@ def test_two_teachers_waiting_to_restart_share_one_lesson_rotation(tmp_path):
     async def observed_app(scope, receive, send):
         async def observe_start():
             frame = await receive()
-            if frame.get("text") and json.loads(frame["text"]) == {"type": "control", "action": "start"}:
-                asyncio.get_running_loop().call_soon(starts.put, None)
+            if frame.get("text"):
+                message = json.loads(frame["text"])
+                if message.get("type") == "control" and message.get("action") in ("start", "pause"):
+                    asyncio.get_running_loop().call_soon(starts.put, None)
             return frame
         await app(scope, observe_start, send)
 
@@ -287,12 +290,20 @@ def test_two_teachers_waiting_to_restart_share_one_lesson_rotation(tmp_path):
                 starts.get(timeout=2)
                 with client.websocket_connect("/ws") as teacher:
                     assert join_teacher(teacher).session_state == "ended"
-                    teacher.send_json({"type": "control", "action": "start"})
+                    teacher.send_json({"type": "control", "action": action})
                     starts.get(timeout=2)
                     asr.gate.release.set()
 
                     frames = []
-                    wait_for(student, SessionStateMsg, state="live", received=frames)
+                    set_recording(teacher, True)
+                    wait_for(student, RecordingState, on=True, received=frames)
+                    assert [msg.state for msg in frames
+                            if isinstance(msg, SessionStateMsg) and msg.state != "ended"] == [
+                        "live" if action == "start" else "paused"
+                    ]
+                    if action == "pause":
+                        start_session(teacher)
+                        wait_for(student, SessionStateMsg, state="live", received=frames)
                     send_utterance(teacher, 2000)
                     wait_for(student, Caption, seq=2, received=frames)
                     live_count = sum(isinstance(msg, SessionStateMsg) and msg.state == "live"
