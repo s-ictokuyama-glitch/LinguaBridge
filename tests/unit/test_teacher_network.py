@@ -1,4 +1,4 @@
-"""先生画面のAPI応答→QR表示→接続先消失時の消去をDOM境界で確認する。"""
+"""先生画面の参加と案内をDOM境界で確認する。"""
 
 from tests.teacher_page import run_teacher_script
 
@@ -42,6 +42,44 @@ def test_local_teacher_code_is_masked_and_can_be_revealed():
   await sandbox.refreshJoinInfo();
   assert.equal(panel.hidden, true);
   assert.equal(display.textContent, "••••••");
+''')
+
+
+def test_other_device_can_retry_teacher_join_without_losing_student_qr():
+    run_teacher_script([
+        {"status": 200, "body": {"code": "4831", "join_url": "http://lan.test/?code=4831"}},
+    ], r'''
+  await sandbox.init();
+  const form = elements.get("teacher-join-form");
+  const input = elements.get("teacher-code");
+  const error = elements.get("teacher-join-error");
+  assert.equal(form.hidden, false);
+  assert.equal(elements.get("local-teacher-code-panel").hidden, true);
+  assert.equal(sockets.length, 0);
+  for (const [code, reason, message] of [
+    ["000000", "bad_code", /先生コードが違います/],
+    ["000001", "rate_limited", /一時的に制限/],
+  ]) {
+    input.value = code;
+    form.dispatchEvent(new Event("submit", {cancelable: true}));
+    const socket = sockets.at(-1);
+    socket.dispatchEvent(new Event("open"));
+    assert.deepEqual(sent.at(-1), {type: "join", role: "teacher", code});
+    socket.emit({type: "join_rejected", reason});
+    assert.equal(form.hidden, false);
+    assert.equal(input.disabled, false);
+    assert.equal(error.hidden, false);
+    assert.match(error.textContent, message);
+  }
+  input.value = "064831";
+  form.dispatchEvent(new Event("submit", {cancelable: true}));
+  const socket = sockets.at(-1);
+  socket.dispatchEvent(new Event("open"));
+  assert.deepEqual(sent.at(-1), {type: "join", role: "teacher", code: "064831"});
+  socket.emit({type: "joined", session_state: "idle"});
+  assert.equal(form.hidden, true);
+  assert.equal(elements.get("qr").textContent, "http://lan.test/?code=4831");
+  assert.equal(elements.get("join-code").textContent, "4831");
 ''')
 
 
