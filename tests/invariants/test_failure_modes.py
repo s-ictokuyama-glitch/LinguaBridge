@@ -330,7 +330,7 @@ class TestSlowStudent:
         クラス全員の字幕が遅れる。
 
         #25 で配信が生徒ごとの送信キュー経由（非同期）になったため、
-        `broadcast_caption` の直後ではなく「RESPONSIVE_S 以内に速い生徒へ届き、
+        字幕を投入した直後ではなく「RESPONSIVE_S 以内に速い生徒へ届き、
         その時点で遅い生徒はまだ送信中」であることを主張する。隔離の主張としては
         こちらの方が強い（速い側が届いた・遅い側に引きずられていない、の両方を見る）。
         """
@@ -344,10 +344,14 @@ class TestSlowStudent:
             pipeline = _make_pipeline(
                 FakeASREngine(), FakeTranslationEngine(["en"]), roster
             )
-            caption = proto.Caption(seq=1, ja="こんにちは", text="hi", lang="en", delay_ms=0)
+            utterance = pipeline.captions.history.append(
+                t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1,
+            )
+            pipeline.captions.start()
             try:
                 await asyncio.wait_for(
-                    pipeline.broadcast_caption(caption), timeout=RESPONSIVE_S
+                    pipeline.captions.publish(utterance, closed_at=asyncio.get_running_loop().time()),
+                    timeout=RESPONSIVE_S
                 )
                 await _wait_until(lambda: bool(fast.sent), RESPONSIVE_S)
                 assert fast.sent, "遅い生徒より後ろの生徒に字幕が届いていない"

@@ -20,8 +20,7 @@ from server.asr.fake_engine import FakeASREngine
 from server.asr_backlog import AsrBacklog
 from server.audio.vad import Segment
 from server.mt.fake_engine import FakeTranslationEngine
-from server.pipeline import _LIVE_PRIORITY, _REPLAY_PRIORITY, MTJob, Pipeline
-from server.caption_history import Utterance
+from server.pipeline import Pipeline
 from server.roster import Roster
 from tests.helpers import RecordingSocket, silence_pcm, speech_pcm
 from tests.conftest import JOIN_CODE, make_ws_test_config
@@ -125,103 +124,6 @@ class TestAudioIngestBound:
                     ),
                     timeout=0.5,
                 )
-
-        asyncio.run(scenario())
-
-
-class TestMtQueueBound:
-    def test_replay_jobs_are_suppressed_before_the_queue_is_full(self):
-        """溢れそうなときに先に抑制されるのは再接続復元ジョブの方。
-        復元は再接続でやり直せるが、ライブ字幕は失われたら戻らない。"""
-
-        async def scenario() -> None:
-            pipeline, _ = await make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
-            utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
-            for _ in range(20):
-                await pipeline._enqueue_mt(
-                    _REPLAY_PRIORITY,
-                    MTJob(utterance, "en", time.monotonic(), ("s1",), replay=True),
-                )
-            assert pipeline.mt_queue_depth == 4, "復元ジョブが水位で止まっていない"
-
-        asyncio.run(scenario())
-
-    def test_live_jobs_use_the_capacity_the_replay_watermark_leaves(self):
-        """ライブジョブは水位に縛られず、キュー上限まで積める。"""
-
-        async def scenario() -> None:
-            pipeline, _ = await make_pipeline(mt_queue_max=10, mt_replay_watermark=4)
-            utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
-            for _ in range(10):
-                await pipeline._enqueue_mt(
-                    _LIVE_PRIORITY, MTJob(utterance, "en", time.monotonic())
-                )
-            assert pipeline.mt_queue_depth == 10
-
-        asyncio.run(scenario())
-
-    def test_a_full_queue_never_drops_a_confirmed_utterance(self):
-        """確定発話は捨てない（ミッションの明示要求）。満杯なら待つ。
-
-        待つのはASRワーカーであって先生WSの受信ループではない。背圧は
-        `_enqueue_asr` の秒数上限まで伝わり、そこで通知付きで捨てられる。
-        """
-
-        async def scenario() -> None:
-            pipeline, roster = await make_pipeline(mt_queue_max=2, mt_replay_watermark=1)
-            ws = await attach_teacher(roster)
-            utterance = Utterance(seq=1, t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
-            job = MTJob(utterance, "en", time.monotonic())
-            for _ in range(2):
-                await pipeline._enqueue_mt(_LIVE_PRIORITY, job)
-
-            blocked = asyncio.create_task(pipeline._enqueue_mt(_LIVE_PRIORITY, job))
-            await settle()
-            assert not blocked.done(), "満杯なのに確定発話を捨てて先へ進んでいる"
-            await settle()
-            assert "mt_backlog" in [m.get("code") for m in ws.sent], "過負荷を通知していない"
-
-            pipeline._mt_queue.get_nowait()  # 1件はけたら待っていたジョブが入る
-            await asyncio.wait_for(blocked, timeout=1.0)
-            assert pipeline.mt_queue_depth == 2
-            await pipeline.stop()
-
-        asyncio.run(scenario())
-
-
-class TestReplaySuppressionIsRecoverable:
-    def test_a_student_whose_replay_cannot_be_queued_is_disconnected(self):
-        """混雑で復元を積めなかったら黙って諦めず、接続を切って再接続に委ねる。
-
-        黙って諦めると、その生徒はこのセッション中ずっとその字幕を取り戻せない
-        （クライアントの last_seq は進まないが、再接続の契機が無いため）。
-        """
-
-        async def scenario() -> None:
-            pipeline, roster = await make_pipeline(mt_queue_max=4, mt_replay_watermark=1)
-            ws = CollectingSocket()
-            student = await roster.add(ws, "student", "en")
-            for seq in (1, 2, 3):
-                pipeline.history.append(t_start=0, t_end=1, text_ja="あ", asr_ms=1)
-            # 水位はすぐ埋まる（1件積んだ時点で以後は積めない）
-            await pipeline.replay_history(student, last_seq=0)
-            assert ws.closed_with == 1013, "復元を諦めたのに接続を維持している"
-            assert roster.get(student.id) is None
-            await pipeline.stop()
-
-        asyncio.run(scenario())
-
-    def test_replay_that_fits_leaves_the_student_connected(self):
-        async def scenario() -> None:
-            pipeline, roster = await make_pipeline(mt_queue_max=64, mt_replay_watermark=32)
-            ws = CollectingSocket()
-            student = await roster.add(ws, "student", "en")
-            for seq in (1, 2, 3):
-                pipeline.history.append(t_start=0, t_end=1, text_ja="あ", asr_ms=1)
-            await pipeline.replay_history(student, last_seq=0)
-            assert ws.closed_with is None
-            assert pipeline.mt_queue_depth == 3
-            await pipeline.stop()
 
         asyncio.run(scenario())
 

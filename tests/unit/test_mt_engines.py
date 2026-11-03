@@ -19,7 +19,7 @@ from server.main import build_asr_engine, build_mt_engine
 from server.mt.hymt_engine import HYMT_LANG_LABELS, HyMt2Engine, build_prompt
 from server.mt.nllb_engine import NLLB_LANG_CODES, NllbEngine
 from server.model_files import TranslationModelError
-from server.pipeline import MTJob
+from tests.helpers import RecordingSocket
 
 
 def test_hymt_prompt_contains_lang_label_and_text():
@@ -258,9 +258,12 @@ def test_only_expected_translation_errors_hide_tracebacks(app, mt_engine, caplog
                 await pipeline._run_warmup()
                 assert pipeline.ready is False
             else:
-                utterance = pipeline.history.append(t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
+                utterance = pipeline.captions.history.append(t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
                 loop = asyncio.get_running_loop()
-                await pipeline._process_mt_job(MTJob(utterance, "en", loop.time()))
+                await pipeline.roster.add(RecordingSocket(), "student", "en")
+                pipeline.captions.start()
+                await pipeline.captions.publish(utterance, closed_at=loop.time())
+                await pipeline.captions.drain(timeout=1)
                 assert utterance.translations == {}
         finally:
             await pipeline.stop()

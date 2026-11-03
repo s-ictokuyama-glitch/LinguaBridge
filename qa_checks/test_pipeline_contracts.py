@@ -77,10 +77,10 @@ def test_asr05_filtered_result_never_enters_confirmed_path(bad, tmp_path):
             for _ in range(2):
                 await pipeline._enqueue_asr(segment_of(1))
             await asyncio.wait_for(pipeline._asr_queue.join(), 2)
-            await asyncio.wait_for(pipeline._mt_queue.join(), 2)
+            await pipeline.captions.drain(timeout=2)
             await asyncio.wait_for(student.caption.wait(), 2)
-            assert pipeline.history.seq_head == 1
-            assert [(u.seq, u.text_ja) for u in pipeline.history.since(0)] == [(1, NORMAL)]
+            assert pipeline.captions.history.seq_head == 1
+            assert [(u.seq, u.text_ja) for u in pipeline.captions.history.since(0)] == [(1, NORMAL)]
             assert mt.calls == [(NORMAL, "en")]
             assert [(m["seq"], m["ja"]) for m in teacher.frames if m["type"] == "asr_final"] == [(1, NORMAL)]
             assert [(m["seq"], m["ja"]) for m in student.frames if m["type"] == "caption"] == [(1, NORMAL)]

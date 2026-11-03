@@ -1,6 +1,6 @@
 ---
 name: caption-recovery
-description: 再接続字幕の復元漏れ・誤配信を実コードの有界探索で確認する。Use when changing Pipeline.replay_history, _deliver_replay, _process_mt_job, _enqueue_mt, Lesson.join, set_lang, Roster routing, or replay backpressure and reconnect behavior.
+description: 再接続字幕の復元漏れ・誤配信を実コードの有界探索で確認する。Use when changing CaptionDelivery.replay_history, set_language, publish, _process_mt_job, _enqueue_mt, Lesson.join, set_lang, Roster routing, or replay backpressure and reconnect behavior.
 ---
 
 # 再接続字幕を回収可能に保つ
@@ -47,7 +47,7 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/pipeline.py` | `MTJob`、`_publish_turn`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`replay_history` |
+| `server/caption_delivery.py` | `confirm`、`publish`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`replay_history`、`set_language` |
 | `server/lesson.py` | `join`、`set_lang` |
 | `server/roster.py` | `add`、`remove`、`retry`、`contains`、`send`、`send_language`、`active_langs` |
 | `server/delivery.py` | `ClientSender.send`、`_run`、`aclose` |
@@ -56,7 +56,7 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 | `server/mt/fake_engine.py` | 決定的な訳文と正常完了 |
 
 ```powershell
-git diff f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4 -- server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py
+git diff f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4 -- server/caption_delivery.py server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py
 ```
 
 対象処理が変わったら、MTの待機境界、復元対象、切断条件、操作集合を照合して検証器を更新する。

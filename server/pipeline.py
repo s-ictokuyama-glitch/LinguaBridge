@@ -17,13 +17,11 @@ ASR・MTは各1スレッドの ThreadPoolExecutor で直列実行する
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 import statistics
 import time
 from collections import Counter, deque
 from collections.abc import Callable
-from dataclasses import dataclass
 from functools import partial
 
 from server import ws_protocol as proto
@@ -40,38 +38,18 @@ from server.audio.vad import (
 )
 from server.asr_backlog import AsrBacklog, AsrEvent, Dropped, FlushTurn
 from server.config import AppConfig
-from server.caption_history import CaptionHistory, Translation, Utterance
+from server.caption_delivery import CaptionDelivery
+from server.caption_history import Utterance
 from server.inference import InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut
 from server.mt.base import TranslationEngine
 from server.model_files import TranslationModelError
-from server.mt.cache import CacheKey, TranslationCache
-from server.roster import Client, Roster
+from server.roster import Roster
 from server.speaking import SpeakingSignal
 from server.turn import TurnAssembler, build_boundary_classifier
 from server.turn.assembler import Turn, TurnPart
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class MTJob:
-    utterance: Utterance
-    lang: str
-    closed_at: float  # 発話確定時刻（monotonic）。delay_ms の起点
-    recipient_ids: tuple[str, ...] = ()
-    replay: bool = False
-
-
-@dataclass
-class HistoryRefresh:
-    lang: str
-    utterances: deque[Utterance]
-
-
-# MTキューの優先度: ライブ字幕（N-01の遅延基準の対象）が
-# 再接続復元ジョブ（最大K=50件）に停滞させられないようにする
-_LIVE_PRIORITY = 0
-_REPLAY_PRIORITY = 1
 
 # 遅延中央値の算出に使う直近captionの件数（stats用）
 _DELAY_SAMPLE_SIZE = 20
@@ -85,10 +63,6 @@ def _median_ms(samples: deque[int]) -> int:
 # 同じ過負荷通知を先生へ送る最短間隔（秒）。溢れている間は毎件発生しうるので、
 # 通知そのものが新しい過負荷にならないようにする
 _NOTICE_COOLDOWN_S = 10.0
-
-# 先生の話す言語。現状は日本語固定だが、キャッシュキーには明示的に含める（#26 B-4）
-_SOURCE_LANG = "ja"
-
 
 def _live_task_count() -> int:
     """生存 asyncio タスク数（#32 のタスクリーク検出）。
@@ -115,17 +89,9 @@ class Pipeline:
         mt_runner: InferenceRunner | None = None,
     ) -> None:
         self.roster = roster
-        self.history = CaptionHistory(config.history_resend)
         self._accepting_audio = False
         self.on_utterance: Callable[[Utterance], None] | None = None
         self._asr = asr_engine
-        self._mt = mt_engine
-        self._mt_engine_name = config.mt.engine
-        # 発話をまたぐ翻訳キャッシュ（#26 B-4）。「はい」「もう一度言います」のような
-        # 繰り返しで Hy-MT2 を叩かない。**有界**（config で 0 にすると無効）
-        self._mt_cache = TranslationCache(config.mt.cache_size)
-        # モデル版はキーの一部。設定を変えたあとに古い設定の訳が返るのを防ぐ
-        self._mt_model_version = mt_engine.model_version
         frame_vad = build_frame_vad(config.vad)
         # partial 字幕（#29）。無効なら interim_silence_ms=None を渡すので、
         # VoiceSegmenter は InterimSegment を1つも出さない ＝ #29 以前と同一の挙動
@@ -152,7 +118,6 @@ class Pipeline:
         # 通算回数には使えない（中央値と回数は別物）
         self.asr_calls = 0  # 確定 Segment の ASR 推論回数（partial は含めない）
         self.asr_partial_calls = 0  # interim（partial）の ASR 推論回数
-        self.mt_calls = 0  # **実際に推論した**翻訳の回数（キャッシュヒットは含めない）
         # 上限超過で受け取らなかった音声フレーム数（`limits.max_audio_bytes`）。
         # 破棄地点はここと `_enqueue_asr` の2つで、意味が違う:
         # ここは**不正な入力**（100msフレームのはずが巨大）、あちらは**容量**。
@@ -172,19 +137,11 @@ class Pipeline:
             config.limits.asr_queue_seconds, self._segmenter.sample_rate,
             config.partial.min_interim_audio_s,
         )
-        # (優先度, 連番, ジョブ)。連番は同一優先度内のFIFOを保証する
-        self._mt_queue: asyncio.PriorityQueue[tuple[int, int, MTJob]] = asyncio.PriorityQueue(
-            maxsize=config.limits.mt_queue_max
-        )
-        self._mt_counter = itertools.count()
-        self._mt_work = asyncio.Event()
-        self._mt_idle = asyncio.Event()
-        self._mt_idle.set()
-        self._history_refreshes: dict[str, HistoryRefresh] = {}
-        self._caption_receipt_limit = 2 * config.history_resend
         self._notice_at: dict[str, float] = {}  # 過負荷通知のクールダウン（code -> 最終送信時刻）
         self._asr_runner = asr_runner if asr_runner is not None else InferenceRunner(name="asr")
-        self._mt_runner = mt_runner if mt_runner is not None else InferenceRunner(name="mt")
+        self.captions = CaptionDelivery(
+            roster, config, mt_engine, self._notify_overload, runner=mt_runner,
+        )
         self._tasks: list[asyncio.Task[None]] = []
         self._warmup_task: asyncio.Task[None] | None = None
         self.ready = False  # モデルの事前ロード完了（/ready が 200 を返す条件）
@@ -193,12 +150,10 @@ class Pipeline:
         self._silence_warning_s = config.monitoring.silence_warning_s
         self._overload_queue_depth = config.monitoring.overload_queue_depth
         self._overload_audio_s = config.monitoring.overload_audio_seconds
-        self._delay_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         # 遅延の内訳（#30）。`_delay_samples`（closed_at から生徒に届くまでの総遅延）を
         # 段ごとに割るための材料。どちらも「1件あたりの推論にかかった時間」であって
         # 待ち時間は含まない（待ちは秒数・件数の側で表す）
         self._asr_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
-        self._mt_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
         self._mic_silent_warned = False
 
@@ -206,19 +161,19 @@ class Pipeline:
         # ワーカーは即座に起動し、サーバーをすぐ応答可能にする（/ready 503 の窓を作る）。
         # モデルの warmup は背後で走らせ、完了で ready を立てる（/ready は #16 で 503→200）。
         # ワーカーは同一の単一スレッドExecutorを使うため warmup と実推論は直列化される。
+        self.captions.start()
         self._tasks = [
             asyncio.create_task(self._asr_worker(), name="asr-worker"),
-            asyncio.create_task(self._mt_worker(), name="mt-worker"),
             asyncio.create_task(self._stats_worker(), name="stats-worker"),
         ]
         self._warmup_task = asyncio.create_task(self._run_warmup(), name="warmup")
 
     async def _run_warmup(self) -> None:
-        for runner, warmup in (
-            (self._asr_runner, self._asr.warmup),
-            (self._mt_runner, self._mt.warmup),
+        for warmup in (
+            partial(self._asr_runner.run, self._asr.warmup, timeout=None),
+            self.captions.warmup,
         ):
-            outcome = await runner.run(warmup, timeout=None)
+            outcome = await warmup()
             if isinstance(outcome, InferenceSucceeded):
                 continue
             if isinstance(outcome, InferenceFailed):
@@ -250,17 +205,16 @@ class Pipeline:
         pending: list[asyncio.Task[None]] = [
             *self._tasks, *([self._warmup_task] if self._warmup_task else [])
         ]
+        await self.captions.stop()
         await asyncio.gather(*pending, return_exceptions=True)
         self._tasks = []
         self._warmup_task = None
-        self._history_refreshes.clear()
         await self.roster.aclose()
         self._asr_runner.stop()
-        self._mt_runner.stop()
 
     @property
     def queue_depth(self) -> int:
-        return self.asr_queue_depth + self.mt_queue_depth
+        return self.asr_queue_depth + self.captions.queue_depth
 
     @property
     def audio_queue_seconds(self) -> float:
@@ -301,14 +255,10 @@ class Pipeline:
     def asr_queue_depth(self) -> int:
         return self._asr_backlog.depth
 
-    @property
-    def mt_queue_depth(self) -> int:
-        return self._mt_queue.qsize()
-
     async def drain(self, timeout: float | None = 30) -> None:
         """ASR、MT の順に排出する。timeout は各段の待機秒数。"""
         await asyncio.wait_for(self._asr_backlog.join(), timeout=timeout)
-        await asyncio.wait_for(self._mt_idle.wait(), timeout=timeout)
+        await self.captions.drain(timeout)
 
     async def _enqueue_asr(self, event: AsrEvent) -> None:
         outcome = self._asr_backlog.offer(event)
@@ -479,13 +429,7 @@ class Pipeline:
         """
         if not turn.text.strip():
             return  # 空文字だけの Turn は字幕にしない
-        utterance = self.history.append(
-            t_start=turn.t_start,
-            t_end=turn.t_end,
-            text_ja=turn.text,
-            asr_ms=turn.asr_ms,
-            segments=turn.parts,
-        )
+        utterance = self.captions.confirm(turn)
         if self.on_utterance is not None:
             self.on_utterance(utterance)
         await self.send_to_teacher(
@@ -497,251 +441,7 @@ class Pipeline:
                 turn_id=turn.turn_id,
             )
         )
-        recipients: dict[str, list[str]] = {}
-        for client in self.roster.students():
-            if client.lang is not None:
-                recipients.setdefault(client.lang, []).append(client.id)
-        for lang, ids in sorted(recipients.items()):
-            await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, closed_at, tuple(ids)))
-
-    async def _enqueue_mt(self, priority: int, job: MTJob) -> bool:
-        """翻訳ジョブを積む（#25 A-1: 無制限キューの有界化）。積めたら True。
-
-        **確定発話は捨てない**（ミッションの明示要求）ので、溢れそうなときに
-        先に抑制するのは再接続復元ジョブの方にする。復元は生徒が再接続すれば
-        `last_seq` からやり直せるが、ライブ字幕は失われたら戻らない。
-
-        ライブジョブが満杯に当たったときだけ待つ。待つのはASRワーカーであって
-        先生WSの受信ループではなく、背圧は `_enqueue_asr` の秒数上限まで伝わって
-        そこで（通知付きで）捨てられる。
-        """
-        if priority == _REPLAY_PRIORITY:
-            if self._mt_queue.qsize() >= self._limits.mt_replay_watermark:
-                logger.info("翻訳キューが混雑しているため再接続復元ジョブを見送りました")
-                return False
-            self._mt_queue.put_nowait((priority, next(self._mt_counter), job))
-        else:
-            entry = (priority, next(self._mt_counter), job)
-            try:
-                self._mt_queue.put_nowait(entry)
-            except asyncio.QueueFull:
-                await self._notify_overload(
-                    "mt_backlog",
-                    "翻訳が追いつかず字幕が遅れています。少し間を置いて話してください",
-                )
-                await self._mt_queue.put(entry)
-        if self._mt_queue.qsize() >= self._limits.mt_replay_watermark:
-            self._history_refreshes.clear()
-        self._mt_idle.clear()
-        self._mt_work.set()
-        return True
-
-    async def _mt_worker(self) -> None:
-        while True:
-            await self._mt_work.wait()
-            if self._mt_queue.empty():
-                if self._history_refreshes:
-                    await self._refresh_one_caption()
-                    await asyncio.sleep(0)
-                else:
-                    self._mt_work.clear()
-                    self._mt_idle.set()
-                continue
-            _, _, job = self._mt_queue.get_nowait()
-            try:
-                await self._process_mt_job(job)
-            finally:
-                self._mt_queue.task_done()
-
-    def _cache_key(self, text_ja: str, lang: str) -> CacheKey:
-        return CacheKey(
-            source_text=text_ja,
-            source_lang=_SOURCE_LANG,
-            target_lang=lang,
-            engine=self._mt_engine_name,
-            model_version=self._mt_model_version,
-        )
-
-    def _translation_from_cache(self, utterance: Utterance, lang: str) -> Translation | None:
-        """発話をまたぐキャッシュを引く（#26 B-4）。
-
-        **推論スレッドへ渡す前**に引くのが要点。エンジン側をラップして
-        キャッシュすると、ヒットしても単一スレッドExecutorで実行中の推論
-        （1件 570〜850ms）の後ろに並んでしまい、「Hy-MT2 の前に置く」意味が消える。
-        """
-        cached = self._mt_cache.get(self._cache_key(utterance.text_ja, lang))
-        if cached is None:
-            return None
-        # mt_ms=0 は「推論していない」の意味。遅延の内訳（#30）でヒットが
-        # 推論時間として数えられないようにする
-        translation = Translation(
-            lang=lang, text=cached, engine=self._mt_engine_name, mt_ms=0
-        )
-        utterance.translations[lang] = translation
-        return translation
-
-    async def _translate(self, utterance: Utterance, lang: str) -> Translation | None:
-        translation = utterance.translations.get(lang)
-        if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
-            translation = self._translation_from_cache(utterance, lang)
-        if translation is None:
-            # 呼んだ時点で数える（#32）。キャッシュヒットも復元済みの再送もここへ
-            # 来ないので、これが「Hy-MT2 を叩いた回数」そのものになる
-            self.mt_calls += 1
-            outcome = await self._mt_runner.run(
-                partial(self._mt.translate, utterance.text_ja, lang),
-                timeout=self._limits.mt_timeout_s,
-            )
-            if isinstance(outcome, InferenceTimedOut):
-                logger.error(
-                    "翻訳が %.0f 秒で返らないため諦めます; lang=%s seq=%s",
-                    self._limits.mt_timeout_s,
-                    lang,
-                    utterance.seq,
-                )
-                await self._notify_overload("mt_timeout", "翻訳が応答しません。字幕を1件飛ばしました")
-                return None
-            if isinstance(outcome, InferenceFailed):
-                if isinstance(outcome.error, TranslationModelError):
-                    logger.error("翻訳に失敗: %s", outcome.error)
-                else:
-                    logger.error("MT failed; lang=%s seq=%s", lang, utterance.seq, exc_info=outcome.error)
-                return None
-            text = outcome.value
-            mt_ms = outcome.elapsed_ms
-            # 遅延の内訳（#30）。**実際に推論したときだけ**数える。キャッシュヒットを
-            # 母数に入れると（実測ヒット率 27.8%）中央値が 0 へ引っ張られ、
-            # 「翻訳は速い」と誤読させる。節約ぶんは mt_cache_hit_rate が別に表す。
-            # 再接続復元ジョブの推論は数える（`_delay_samples` と違い実CPU費用そのもの）
-            self._mt_ms_samples.append(mt_ms)
-            translation = Translation(
-                lang=lang,
-                text=text,
-                engine=self._mt_engine_name,
-                mt_ms=mt_ms,
-            )
-            self._mt_cache.put(self._cache_key(utterance.text_ja, lang), text)
-            utterance.translations[lang] = translation
-        return translation
-
-    async def _process_mt_job(self, job: MTJob) -> None:
-        pending = list(job.recipient_ids)
-        lang = job.lang
-        attempted: set[str] = set()
-        while True:
-            attempted.add(lang)
-            translation = await self._translate(job.utterance, lang)
-            delay_ms = 0 if job.replay else max(0, int((time.monotonic() - job.closed_at) * 1000))
-            if translation is not None and lang == job.lang and not job.replay:
-                self._delay_samples.append(delay_ms)
-
-            remaining: list[str] = []
-            next_lang = None
-            captions: dict[str, dict] = {}
-            for client_id in pending:
-                client = self.roster.get(client_id)
-                if client is None or client.lang is None:
-                    continue
-                selected = client.lang
-                translated = job.utterance.translations.get(selected)
-                if translated is not None:
-                    if selected not in captions:
-                        captions[selected] = proto.Caption(
-                            seq=job.utterance.seq,
-                            ja=job.utterance.text_ja,
-                            text=translated.text,
-                            lang=selected,
-                            delay_ms=delay_ms,
-                        ).model_dump()
-                    if self.roster.send(client, captions[selected]):
-                        self._remember_caption(client, job.utterance.seq, selected)
-                elif selected not in attempted:
-                    remaining.append(client_id)
-                    if next_lang is None:
-                        next_lang = selected
-            if next_lang is None:
-                return
-            lang = next_lang
-            pending = remaining
-
-    def _remember_caption(self, client: Client, seq: int, lang: str) -> None:
-        if len(client.caption_languages) >= self._caption_receipt_limit:
-            client.caption_languages = {
-                seq: lang for seq, lang in client.caption_languages.items()
-                if seq >= self.history.history_from
-            }
-        if seq >= self.history.history_from:
-            client.caption_languages[seq] = lang
-
-    def refresh_history(self, client: Client) -> None:
-        self._history_refreshes.pop(client.id, None)
-        if client.lang is None or self._mt_queue.qsize() >= self._limits.mt_replay_watermark:
-            return
-        utterances = deque(self.history.since(0))
-        if utterances:
-            self._history_refreshes[client.id] = HistoryRefresh(client.lang, utterances)
-            self._mt_idle.clear()
-            self._mt_work.set()
-
-    def cancel_history_refresh(self, client: Client) -> None:
-        self._history_refreshes.pop(client.id, None)
-
-    async def _refresh_one_caption(self) -> None:
-        client_id = next(iter(self._history_refreshes))
-        refresh = self._history_refreshes[client_id]
-        client = self.roster.get(client_id)
-        if client is None:
-            del self._history_refreshes[client_id]
-            return
-
-        utterance = refresh.utterances.popleft()
-        if client.caption_languages.get(utterance.seq) != refresh.lang:
-            translation = await self._translate(utterance, refresh.lang)
-            if self._history_refreshes.get(client_id) is not refresh:
-                return
-            if translation is not None and self.roster.contains(client):
-                caption = proto.Caption(
-                    seq=utterance.seq,
-                    ja=utterance.text_ja,
-                    text=translation.text,
-                    lang=refresh.lang,
-                    delay_ms=0,
-                )
-                if not self.roster.send(client, caption.model_dump(), drop_if_full=True):
-                    del self._history_refreshes[client_id]
-                    return
-                self._remember_caption(client, utterance.seq, refresh.lang)
-        if not refresh.utterances:
-            del self._history_refreshes[client_id]
-
-    async def replay_history(self, client: Client, last_seq: int) -> None:
-        """再接続した生徒への差分復元（F-11）。
-
-        訳文の有無を問わず全件をターゲット配信ジョブとして seq 順に積む
-        （訳文済みはワーカーがエンジンを呼ばずキャッシュ配信）。低優先度なので
-        ライブ字幕を停滞させない。ライブ配信との交錯による表示順・重複は
-        クライアント側（seq順挿入・重複排除・連続確定watermark）が吸収する。
-        """
-        if client.lang is None:
-            return
-        for utterance in self.history.since(last_seq):
-            queued = await self._enqueue_mt(
-                _REPLAY_PRIORITY,
-                MTJob(utterance, client.lang, time.monotonic(), (client.id,), replay=True),
-            )
-            if not queued:
-                # 混雑で復元を積めなかった。ここで黙って諦めると、この生徒は
-                # このセッション中ずっとその字幕を取り戻せない（クライアントの
-                # last_seq は進まないが、再接続の契機が無い）。接続を切って
-                # 自動再接続に載せ、空いてから同じ last_seq でやり直させる
-                logger.info("復元を積めなかったため生徒を切断し、再接続でのやり直しに委ねます")
-                await self.roster.retry(client)
-                return
-
-    # ---- 配信 ----
-
-    async def broadcast_caption(self, caption: proto.Caption) -> None:
-        self.roster.send_language(caption.lang, caption.model_dump())
+        await self.captions.publish(utterance, closed_at=closed_at)
 
     async def send_to_teacher(
         self, message: proto.AsrFinal | proto.ErrorMsg | proto.Stats | proto.TurnPartial
@@ -754,9 +454,8 @@ class Pipeline:
         self._mic_silent_warned = False
         self._live_since = time.monotonic() if accepting else None
         if not accepting:
-            self._delay_samples.clear()
+            self.captions.reset_latency()
             self._asr_ms_samples.clear()
-            self._mt_ms_samples.clear()
 
     async def _broadcast_all(self, payload: dict) -> None:
         self.roster.broadcast(payload)
@@ -778,33 +477,34 @@ class Pipeline:
 
     def stats_snapshot(self) -> proto.Stats:
         students = self.roster.students()
-        cache = self._mt_cache.stats()
+        captions = self.captions.metrics()
+        cache = captions.cache
         return proto.Stats(
             students=len(students),
             langs=dict(Counter(c.lang for c in students if c.lang)),
             queue_depth=self.queue_depth,
-            median_delay_ms=_median_ms(self._delay_samples),
+            median_delay_ms=captions.median_delay_ms,
             # 過負荷判定はASR側を秒数へ移した（#25 A-5）。1発話は 0.3〜30秒と幅があるので
             # 件数では「どれだけ遅れているか」を表現できない。翻訳側は1件あたりの
             # 処理時間が揃っているので件数のままでよい
             overloaded=(
                 self.audio_queue_seconds >= self._overload_audio_s
-                or self._mt_queue.qsize() >= self._overload_queue_depth
+                or self.captions.queue_depth >= self._overload_queue_depth
             ),
             audio_queue_seconds=round(self.audio_queue_seconds, 2),
             # 内訳（#30）。合計は上の audio_queue_seconds のまま変えていない
             asr_wait_seconds=round(self.asr_wait_seconds, 2),
             asr_active_seconds=round(self.asr_active_seconds, 2),
             median_asr_ms=_median_ms(self._asr_ms_samples),
-            mt_queue_depth=self._mt_queue.qsize(),
-            median_mt_ms=_median_ms(self._mt_ms_samples),
+            mt_queue_depth=self.captions.queue_depth,
+            median_mt_ms=captions.median_mt_ms,
             mt_cache_hit_rate=round(cache.hit_rate, 3),
             mt_cache_hits=cache.hits,
             mt_cache_size=cache.size,
             # 通算の推論回数と破棄（#32）。スケーリング試験はこの差分だけを見る
             asr_calls=self.asr_calls,
             asr_partial_calls=self.asr_partial_calls,
-            mt_calls=self.mt_calls,
+            mt_calls=captions.calls,
             audio_frames_rejected=self.audio_frames_rejected,
             asr_dropped_segments=self.asr_dropped_segments,
             asr_dropped_seconds=round(self.asr_dropped_seconds, 2),

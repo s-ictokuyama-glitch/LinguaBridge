@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 from concurrent.futures import Executor, Future
-import contextlib
 import itertools
 import json
 import logging
@@ -86,13 +85,13 @@ async def scenario(operations, watermark, *, admission=False):
     socket = None
     owed = []
     serial = 0
-    worker = None
 
     async def publish():
         nonlocal serial
         serial += 1
         turn = Turn(f"turn-{serial}", 0, 1, 0, time.monotonic(), 1, "strong_end")
-        await pipeline._publish_turn(turn, closed_at=turn.closed_at)
+        utterance = pipeline.captions.confirm(turn)
+        await pipeline.captions.publish(utterance, closed_at=turn.closed_at)
 
     async def join():
         nonlocal client, socket, owed
@@ -115,7 +114,7 @@ async def scenario(operations, watermark, *, admission=False):
         trace.extend([f"retained_history({serial})", "rejoin(last_seq=0,en)"])
         await join()
         if not admission:
-            worker = asyncio.create_task(pipeline._mt_worker())
+            pipeline.captions.start()
             await asyncio.wait_for(gate.started.wait(), timeout=2)
             trace.append("MT_started(seq=1,en)")
             for operation in operations:
@@ -136,7 +135,7 @@ async def scenario(operations, watermark, *, admission=False):
             await pipeline.drain(timeout=2)
         else:
             gate.released = True
-            worker = asyncio.create_task(pipeline._mt_worker())
+            pipeline.captions.start()
             trace.append("drain_after_admission")
             await pipeline.drain(timeout=2)
 
@@ -168,10 +167,6 @@ async def scenario(operations, watermark, *, admission=False):
             violation.update({"trace": trace, "watermark": watermark})
         return violations
     finally:
-        if worker is not None:
-            worker.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await worker
         await pipeline.stop()
 
 
@@ -239,7 +234,7 @@ def mutation_check(args):
             source = Path(directory)
             shutil.copytree(args.source_root / "server", source / "server",
                             ignore=shutil.ignore_patterns("__pycache__"))
-            path = source / "server" / "pipeline.py"
+            path = source / "server" / "caption_delivery.py"
             original = path.read_text(encoding="utf-8")
             if original.count(old) != 1:
                 raise RuntimeError(f"mutation anchor changed: {name}")

@@ -16,7 +16,7 @@ from server.main import create_app
 from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.caption_history import Utterance
-from server.pipeline import MTJob, Pipeline, _LIVE_PRIORITY
+from server.pipeline import Pipeline
 from server.publication import Publication
 from server.lesson import Lesson
 from server.roster import Roster
@@ -158,7 +158,7 @@ def test_mt_timeout_releases_worker_loop_and_followup_can_complete() -> None:
         lesson = Lesson(pipeline, config, join_code=JOIN_CODE)
         await lesson.control("start")
         await pipeline.start()
-        mt_worker = next(task for task in pipeline._tasks if task.get_name() == "mt-worker")
+        mt_worker = next(task for task in asyncio.all_tasks() if task.get_name() == "mt-worker")
         try:
             for chunk in utterance_bytes(1000):
                 await pipeline.feed_audio(chunk)
@@ -171,7 +171,7 @@ def test_mt_timeout_releases_worker_loop_and_followup_can_complete() -> None:
                 await pipeline.feed_audio(chunk)
 
             # executorは1本目の翻訳を実行中だが、async workerは次ジョブへ進める。
-            await _wait_until(lambda: pipeline.mt_calls == 2)
+            await _wait_until(lambda: pipeline.stats_snapshot().mt_calls == 2)
             assert mt.release_first.is_set() is False
             assert mt_worker.done() is False
 
@@ -216,7 +216,10 @@ def test_lifespan_shutdown_closes_workers_and_senders_with_pending_mt() -> None:
             await lesson.roster.add(_RecordingSocket(), "student", "en")
             await lesson.control("start")
 
-            worker_tasks = tuple(pipeline._tasks)
+            worker_tasks = tuple(
+                task for task in asyncio.all_tasks()
+                if task.get_name() in {"asr-worker", "mt-worker", "stats-worker"}
+            )
             sender_tasks = tuple(
                 task for task in asyncio.all_tasks() if task.get_name().startswith("sender-")
             )
@@ -235,10 +238,7 @@ def test_lifespan_shutdown_closes_workers_and_senders_with_pending_mt() -> None:
                 text_ja="終了を待つ翻訳",
                 asr_ms=1,
             )
-            await pipeline._enqueue_mt(
-                _LIVE_PRIORITY,
-                MTJob(utterance, "en", time.monotonic()),
-            )
+            await pipeline.captions.publish(utterance, closed_at=time.monotonic())
             await _wait_until(mt.first_started.is_set)
             mt_worker = next(task for task in worker_tasks if task.get_name() == "mt-worker")
             assert mt_worker.done() is False
