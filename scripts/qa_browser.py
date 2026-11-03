@@ -738,6 +738,8 @@ def test_new_session(page):
     join(page)
     caption(page, 1, text="Old lesson")
     caption(page, 2)
+    emit(page, {"type": "join_rejected", "reason": "full"})
+    expect(page.locator("#cards .card")).to_have_count(2)
     emit(page, {"type": "join_rejected", "reason": "bad_code"})
     page.evaluate("qa.code='1234'")
     page.locator("#code-input").fill("1234")

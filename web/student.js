@@ -268,14 +268,14 @@ function handleMessage(msg) {
         state.ws.close();
         break;
       }
+      if (msg.reason === "bad_code") {
+        state.captionRecovery = new CaptionRecovery();
+        el.cards.replaceChildren();
+        setFollowing(true);
+      }
       if (state.joined) {
         // 再接続中にコードが無効化された（サーバー再起動等）: 参加画面へ戻す
         state.joined = false;
-        if (msg.reason === "bad_code") {
-          state.captionRecovery = new CaptionRecovery();
-          el.cards.replaceChildren();
-          setFollowing(true);
-        }
         el.settingsSheet.hidden = true;
         el.settingsBackdrop.hidden = true;
         el.captionScreen.hidden = true;
