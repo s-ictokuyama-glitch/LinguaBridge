@@ -11,9 +11,11 @@ from pathlib import Path
 from typing import Literal
 
 from server import ws_protocol as proto
+from server.caption_history import Utterance
 from server.config import AppConfig
-from server.pipeline import Pipeline, RecordingPendingError, RecordingSaveError
+from server.pipeline import Pipeline
 from server.rate_limit import JoinRateLimiter
+from server.recorder import SessionRecorder
 from server.roster import Client, ClientSocket
 
 
@@ -24,10 +26,15 @@ def generate_join_code() -> str:
     return f"{secrets.randbelow(10000):04d}"
 
 
+class RecordingSaveError(Exception):
+    pass
+
+
 class Lesson:
     def __init__(self, pipeline: Pipeline, config: AppConfig, *, join_code: str,
                  limiter: JoinRateLimiter | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 recording_wait_s: float = 30) -> None:
         self.pipeline = pipeline
         self.roster = pipeline.roster
         self.join_code = join_code
@@ -36,43 +43,129 @@ class Lesson:
         self.state: proto.SessionState = "idle"
         self.auto_paused = False
         self.recording = config.recording.default_on
+        self._recording_wait_s = recording_wait_s
+        self._recorder = self._new_recorder()
+        self._recording_task: asyncio.Task[Path | None] | None = None
+        self._shutdown_task: asyncio.Task[None] | None = None
+        pipeline.on_utterance = self._record_utterance
+
+    def _new_recorder(self) -> SessionRecorder:
+        return SessionRecorder(self._config.recording.resolved_out_dir,
+                               self._config.language_codes)
+
+    def _record_utterance(self, utterance: Utterance) -> None:
+        if self.recording:
+            self._recorder.add(utterance)
+
+    def _needs_recording_save(self) -> bool:
+        return self.recording or self._recorder.has_entries or self._recording_task is not None
 
     async def _transition(self, state: proto.SessionState) -> None:
-        await self.pipeline.on_lesson_state(state)
+        await self.pipeline.set_accepting_audio(state == "live")
+        if self.state == "live" and state != "live":
+            await self.pipeline.flush_audio()
         self.state = state
         self.roster.broadcast(proto.SessionStateMsg(state=state).model_dump())
 
     async def control(self, action: Literal["start", "pause", "end"]) -> Path | None:
+        if self._shutdown_task is not None:
+            return None
         self.auto_paused = False
         states: dict[str, proto.SessionState] = {
             "start": "live", "pause": "paused", "end": "ended"
         }
         try:
+            if self.state == "ended" and action != "end":
+                recorder = self._recorder
+                await self._finalize_lesson()
+                if self._shutdown_task is not None or self._recorder is not recorder:
+                    return None
+                self._recorder = self._new_recorder()
+                self._recording_task = None
             await self._transition(states[action])
-            if action == "end":
-                saved = await self.pipeline.finalize_recording()
-                if saved is not None:
-                    logger.info("授業記録を保存しました: %s", saved)
-                return saved
-        except RecordingPendingError:
+            if action == "end" and self._needs_recording_save():
+                return await self._finalize_lesson()
+        except TimeoutError:
             self.roster.send_teacher(proto.ErrorMsg(
                 code="recording_pending",
                 message="前の授業の音声・翻訳を処理中です。保存完了後に再開できます。しばらく待ってから再度操作してください。",
             ).model_dump())
         except RecordingSaveError:
-            return None
+            pass
         return None
+
+    def _write_recording(self, *, final: bool) -> Path | None:
+        try:
+            return self._recorder.write(final=final)
+        except OSError as error:
+            logger.exception("授業記録の保存に失敗しました")
+            self.roster.send_teacher(proto.ErrorMsg(
+                code="recording_save_failed",
+                message="授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
+            ).model_dump())
+            raise RecordingSaveError("授業記録の保存に失敗しました") from error
+
+    async def _finish_recording(self) -> Path | None:
+        await self.pipeline.drain(timeout=None)
+        saved = self._write_recording(final=True)
+        if saved is not None:
+            logger.info("授業記録を保存しました: %s", saved)
+        return saved
+
+    def _recording_finished(self, task: asyncio.Task[Path | None]) -> None:
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None and not isinstance(error, RecordingSaveError):
+            logger.error("授業記録の確定処理に失敗しました", exc_info=error)
+
+    async def _finalize_lesson(self) -> Path | None:
+        """期限後は暫定保存を残し、確定保存はバックグラウンドで続ける。"""
+        task = self._recording_task
+        if task is not None and task.done() and not task.cancelled() and task.exception() is None:
+            return None
+        if task is None or task.done():
+            task = asyncio.create_task(self._finish_recording(), name="recording-finalizer")
+            task.add_done_callback(self._recording_finished)
+            self._recording_task = task
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), timeout=self._recording_wait_s)
+        except TimeoutError:
+            if task.done():
+                return task.result()
+            self._write_recording(final=False)
+            raise
+
+    async def shutdown(self) -> None:
+        if self._shutdown_task is None:
+            self._shutdown_task = asyncio.create_task(self._shutdown(), name="lesson-shutdown")
+        await asyncio.shield(self._shutdown_task)
+
+    async def _shutdown(self) -> None:
+        try:
+            if self.state != "ended":
+                await self._transition("ended")
+            if self._needs_recording_save():
+                with contextlib.suppress(TimeoutError, RecordingSaveError):
+                    await self._finalize_lesson()
+        finally:
+            if self._recording_task is not None:
+                self._recording_task.cancel()
+                await asyncio.gather(self._recording_task, return_exceptions=True)
+            await self.roster.aclose()
 
     async def leave(self, client: Client) -> None:
         self.pipeline.cancel_history_refresh(client)
         await self.roster.remove(client)
-        if client.role == "teacher" and self.roster.teacher() is None and self.state == "live":
+        if (self._shutdown_task is None and client.role == "teacher"
+                and self.roster.teacher() is None and self.state == "live"):
             self.auto_paused = True
             await self._transition("paused")
 
     def set_recording(self, on: bool) -> None:
+        if self._shutdown_task is not None:
+            return
         self.recording = on
-        self.pipeline.set_recording(on)
         self.roster.broadcast(proto.RecordingState(on=on).model_dump())
 
     async def send_now(self, socket: ClientSocket, payload: dict) -> None:
@@ -82,6 +175,8 @@ class Lesson:
 
     async def join(self, socket: ClientSocket, current: Client | None,
                    msg: proto.JoinMessage, client_ip: str) -> Client | None:
+        if self._shutdown_task is not None:
+            return current
         reason: proto.JoinRejectReason | None = None
         if self._limiter.is_blocked(client_ip):
             reason = "rate_limited"
@@ -117,7 +212,8 @@ class Lesson:
         )
         if msg.role == "student" and msg.last_seq is not None:
             await self.pipeline.replay_history(client, msg.last_seq)
-        if msg.role == "teacher" and self.roster.contains(client):
+        if (self._shutdown_task is None and msg.role == "teacher"
+                and self.roster.contains(client)):
             self.pipeline.on_teacher_joined()
             if self.auto_paused:
                 self.auto_paused = False
@@ -125,7 +221,8 @@ class Lesson:
         return client
 
     async def set_lang(self, client: Client, lang: str) -> None:
-        if not self.roster.contains(client) or client.role != "student":
+        if (self._shutdown_task is not None or not self.roster.contains(client)
+                or client.role != "student"):
             return
         if lang in self._config.language_codes:
             if client.lang != lang:

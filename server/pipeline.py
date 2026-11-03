@@ -17,15 +17,14 @@ ASR・MTは各1スレッドの ThreadPoolExecutor で直列実行する
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import itertools
 import logging
 import statistics
 import time
 from collections import Counter, deque
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from pathlib import Path
 
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
@@ -45,23 +44,12 @@ from server.caption_history import CaptionHistory, Translation, Utterance
 from server.mt.base import TranslationEngine
 from server.model_files import TranslationModelError
 from server.mt.cache import CacheKey, TranslationCache
-from server.recorder import SessionRecorder
 from server.roster import Client, Roster
 from server.speaking import SpeakingSignal
 from server.turn import TurnAssembler, build_boundary_classifier
 from server.turn.assembler import Turn, TurnPart
 
 logger = logging.getLogger(__name__)
-
-
-class RecordingPendingError(TimeoutError):
-    def __init__(self, provisional_directory: Path | None) -> None:
-        super().__init__("前の授業の音声・翻訳を処理中です")
-        self.provisional_directory = provisional_directory
-
-
-class RecordingSaveError(Exception):
-    pass
 
 
 @dataclass
@@ -124,8 +112,8 @@ class Pipeline:
     ) -> None:
         self.roster = roster
         self.history = CaptionHistory(config.history_resend)
-        self._state: proto.SessionState = "idle"
-        self._recording = config.recording.default_on
+        self._accepting_audio = False
+        self.on_utterance: Callable[[Utterance], None] | None = None
         self._asr = asr_engine
         self._mt = mt_engine
         self._mt_engine_name = config.mt.engine
@@ -207,13 +195,6 @@ class Pipeline:
         # 待ち時間は含まない（待ちは秒数・件数の側で表す）
         self._asr_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         self._mt_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
-        # 記録（#18）: 記録ON中に確定した発話を蓄積し、終了時に書き出す
-        self._recording_out_dir = config.recording.resolved_out_dir
-        self._recording_languages = config.language_codes
-        self._recorder = SessionRecorder(
-            self._recording_out_dir, self._recording_languages
-        )
-        self._recording_task: asyncio.Task[Path | None] | None = None
         self._live_since: float | None = None  # 無音計測の基準（live遷移でリセット）
         self._mic_silent_warned = False
 
@@ -256,19 +237,14 @@ class Pipeline:
             )
         if self._warmup_task is not None:
             self._warmup_task.cancel()
-        if self._recording_task is not None:
-            self._recording_task.cancel()
         for task in self._tasks:
             task.cancel()
-        pending: list[asyncio.Task[Path | None]] = [
+        pending: list[asyncio.Task[None]] = [
             *self._tasks, *([self._warmup_task] if self._warmup_task else [])
         ]
-        if self._recording_task is not None:
-            pending.append(self._recording_task)
         await asyncio.gather(*pending, return_exceptions=True)
         self._tasks = []
         self._warmup_task = None
-        self._recording_task = None
         self._history_refreshes.clear()
         await self.roster.aclose()
         # cancel_futures: 未着手の推論は捨てる（whisper-flow W-3 の見直し）。
@@ -351,7 +327,7 @@ class Pipeline:
     # ---- 音声入力（先生WSハンドラから呼ばれる） ----
 
     async def feed_audio(self, data: bytes) -> None:
-        if self._state != "live":
+        if not self._accepting_audio:
             return  # 一時停止・終了中の音声は破棄
         events = self._segmenter.feed(pcm16_from_bytes(data))
         for i, event in enumerate(events):
@@ -522,8 +498,8 @@ class Pipeline:
             asr_ms=turn.asr_ms,
             segments=turn.parts,
         )
-        if self._recording:  # 記録ON中の発話のみ蓄積（F-10）
-            self._recorder.add(utterance)
+        if self.on_utterance is not None:
+            self.on_utterance(utterance)
         await self.send_to_teacher(
             proto.AsrFinal(
                 seq=utterance.seq,
@@ -794,23 +770,12 @@ class Pipeline:
     ) -> None:
         self.roster.send_teacher(message.model_dump())
 
-    async def on_lesson_state(self, state: proto.SessionState) -> None:
-        previous = self._state
-        if previous == "ended" and state != "ended":
-            recorder = self._recorder
-            await self._finalize_lesson()
-            if self._recorder is recorder:
-                self._recorder = SessionRecorder(
-                    self._recording_out_dir, self._recording_languages
-                )
-                self._recording_task = None
-        self._state = state
-        await self._broadcast_speaking(self._speaking_signal.on_lesson_state(state))
-        if previous == "live" and state != "live":
-            await self.flush_audio()
+    async def set_accepting_audio(self, accepting: bool) -> None:
+        self._accepting_audio = accepting
+        await self._broadcast_speaking(self._speaking_signal.set_accepting_audio(accepting))
         self._mic_silent_warned = False
-        self._live_since = time.monotonic() if state == "live" else None
-        if state != "live":
+        self._live_since = time.monotonic() if accepting else None
+        if not accepting:
             self._delay_samples.clear()
             self._asr_ms_samples.clear()
             self._mt_ms_samples.clear()
@@ -822,62 +787,6 @@ class Pipeline:
         """新しい先生が接続したとき、進行中の無音警告を再武装する。
         live のまま先生が入れ替わった場合でも、新しい先生が継続中の無音を見られる（E-01）。"""
         self._mic_silent_warned = False
-
-    # ---- 記録（#18） ----
-
-    def set_recording(self, on: bool) -> None:
-        self._recording = on
-
-    @property
-    def recording_pending(self) -> bool:
-        return self._recording_task is not None and not self._recording_task.done()
-
-    async def _finish_recording(self) -> Path | None:
-        await self.drain(timeout=None)
-        return self._write_recording(final=True)
-
-    def _write_recording(self, *, final: bool) -> Path | None:
-        try:
-            return self._recorder.write(final=final)
-        except OSError as error:
-            logger.exception("授業記録の保存に失敗しました")
-            self.roster.send_teacher(proto.ErrorMsg(
-                code="recording_save_failed",
-                message="授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
-            ).model_dump())
-            raise RecordingSaveError("授業記録の保存に失敗しました") from error
-
-    def _recording_finished(self, task: asyncio.Task[Path | None]) -> None:
-        if task.cancelled():
-            return
-        error = task.exception()
-        if error is not None and not isinstance(error, RecordingSaveError):
-            logger.error("授業記録の確定処理に失敗しました", exc_info=error)
-
-    async def finalize_recording(self) -> Path | None:
-        """記録が必要な授業の全キュー排出と確定保存を最大30秒待つ。
-
-        待機期限後も処理は継続する。確定保存までは次の授業へ移れない。
-        """
-        if not self._recording and not self._recorder.has_entries and self._recording_task is None:
-            return None
-        return await self._finalize_lesson()
-
-    async def _finalize_lesson(self) -> Path | None:
-        task = self._recording_task
-        if task is not None and task.done() and not task.cancelled() and task.exception() is None:
-            return None
-        if task is None or task.done():
-            task = asyncio.create_task(self._finish_recording(), name="recording-finalizer")
-            task.add_done_callback(self._recording_finished)
-            self._recording_task = task
-        try:
-            return await asyncio.wait_for(asyncio.shield(task), timeout=30)
-        except asyncio.TimeoutError:
-            if task.done():
-                return task.result()
-            directory = self._write_recording(final=False)
-            raise RecordingPendingError(directory) from None
 
     # ---- モニタリング（#15） ----
 
@@ -929,7 +838,7 @@ class Pipeline:
     async def _check_mic_silence(self) -> None:
         """配信中に一定時間音声が検出されないとき、先生へ一度だけ警告する（E-01）。
         音声が再開したら再武装する。マイク断（フレーム自体が来ない）も検出できる。"""
-        if self._state != "live" or self._live_since is None:
+        if not self._accepting_audio or self._live_since is None:
             return
         last_activity = max(self._live_since, self._segmenter.last_speech_at or 0.0)
         silent_for = time.monotonic() - last_activity

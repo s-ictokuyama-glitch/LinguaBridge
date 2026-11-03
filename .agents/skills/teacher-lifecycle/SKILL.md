@@ -26,13 +26,13 @@ Traceback、タイムアウト、破壊箇所の不一致は検証器か環境�
 現在の製品コードの期待結果は `PASS` である。
 [検証範囲と修正結果](../../../scripts/formal/teacher_lifecycle.md) を確認する。
 [基準結果](../../../scripts/formal/teacher_lifecycle_baseline.json) は Issue #123 修正前の `FAIL` を保持するため、現在の失敗と混同しない。
-破壊7件すべての `healthy: PASS` と `detected: true` を確認する。
+破壊6件すべての `healthy: PASS` と `detected: true` を確認する。
 正常な専用ケースを壊してから期待した性質の違反と終了コード1を確認するため、既存の反例だけを破壊検出には数えない。
 
 ## 反例を判断する
 
 `trace` の操作をコードと照合し、`expected` と `actual` を比較する。
-`teacher_owner` は名簿に在籍する先生の同一性と一意性、`session_state` は授業状態、`pause_reason` は自動停止の理由、`pipeline_state` は Pipeline と授業状態の一致を示す。
+`teacher_owner` は名簿に在籍する先生の同一性と一意性、`session_state` は授業状態、`pause_reason` は自動停止の理由を示す。
 各性質について探索範囲内で見つかった最短の反例を残す。全スケジューラーに対する最短性は意味しない。
 
 `begin_join_B_at_close_A` は `Roster.add` が先生Bを登録し、Aを除去してから A の `socket.close(4000)` を待つ時点である。
@@ -48,10 +48,10 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/lesson.py` | `join`、`leave`、`control`、`_transition`、`auto_paused` |
+| `server/lesson.py` | `join`、`leave`、`control`、`_transition`、`auto_paused`、無音・記録OFF時の終了と再開 |
 | `server/roster.py` | `add`、`remove`、`_detach`、`_close`、`teacher`、`contains` |
 | `server/delivery.py` | `ClientSender.aclose` からソケット切断までの待機境界 |
-| `server/pipeline.py` | `on_lesson_state`、`on_teacher_joined`、`_asr_worker`、`drain`、無音・記録OFF時の終了と再開 |
+| `server/pipeline.py` | `set_accepting_audio`、`on_teacher_joined`、`_asr_worker`、`drain` |
 | `server/main.py` | `ws_endpoint` の join 完了前は次の受信へ進まない制約と先生操作の認可。実行対象外 |
 | `server/config.py`、`server/ws_protocol.py` | 使用設定と参加メッセージの定義 |
 
@@ -60,7 +60,7 @@ git diff 2a1c1f68ae2c372e03b0bc1a50820cf793f73586 -- server/lesson.py server/ros
 ```
 
 待機境界、先生の登録と除去の順序、自動停止の理由、手動操作の認可を照合する。
-`--mutation-check` は `server/` の一時コピーを7通り壊して検出する。置換箇所が変わったら、新実装の同じ性質を壊す操作へ更新する。
+`--mutation-check` は `server/` の一時コピーを6通り壊して検出する。置換箇所が変わったら、新実装の同じ性質を壊す操作へ更新する。
 製品との一致、全探索、破壊検出を確認した後だけ、この同期コミットと検証器の `SYNC_COMMIT` を同じ値へ進める。
 未確認の変更から復旧する場合は `/maintain-formal-verification-skill` を使う。
 

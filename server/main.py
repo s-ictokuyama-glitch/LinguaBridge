@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import re
 from contextlib import asynccontextmanager
@@ -155,6 +154,7 @@ def create_app(
     join_code: str | None = None,
     join_limiter: JoinRateLimiter | None = None,
     diagnostics_command: str | None = None,
+    recording_wait_s: float = 30,
 ) -> FastAPI:
     roster = Roster(config.limits)
     pipeline = Pipeline(
@@ -165,17 +165,18 @@ def create_app(
     )
 
     lesson = Lesson(pipeline, config, join_code=join_code or generate_join_code(),
-                    limiter=join_limiter)
+                    limiter=join_limiter, recording_wait_s=recording_wait_s)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await pipeline.start()
-        yield
-        # 終了操作(end)なしで停止した場合の保険（既に書き出し済みなら no-op）
-        with contextlib.suppress(Exception):
-            await pipeline.on_lesson_state("ended")
-            await pipeline.finalize_recording()
-        await pipeline.stop()
+        try:
+            yield
+        finally:
+            try:
+                await lesson.shutdown()
+            finally:
+                await pipeline.stop()
 
     app = FastAPI(lifespan=lifespan)
     app.state.lesson = lesson
@@ -357,6 +358,7 @@ async def _serve(app: FastAPI, *, open_browser: bool) -> None:
                                   tls=TLSFiles(publication.cert_path, publication.key_path)))
     async with start_listeners(
         app, specs,
+        before_shutdown=app.state.lesson.shutdown,
         on_ready=(lambda: _open_teacher_page_when_ready(app.state.pipeline, publication.teacher_url))
         if open_browser else None,
     ) as running:

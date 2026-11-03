@@ -10,7 +10,6 @@ from server.asr.base import ASRResult
 from server.asr.fake_engine import FakeASREngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
-from server.recorder import SessionRecorder
 from server.lesson import Lesson
 from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
@@ -25,6 +24,7 @@ def interim():
 
 async def build(tmp_path, asr):
     config = make_ws_test_config()
+    config.recording.out_dir = str(tmp_path)
     config.partial.enabled = True
     roster = Roster(config.limits)
     teacher, student = Socket(), Socket()
@@ -35,7 +35,6 @@ async def build(tmp_path, asr):
     lesson = Lesson(pipeline, config, join_code=JOIN_CODE)
     lesson.set_recording(True)
     await lesson.control("start")
-    pipeline._recorder = SessionRecorder(tmp_path, ["en"])
     return pipeline, lesson, teacher, student, mt
 
 
@@ -56,12 +55,12 @@ def test_mon03_partial_never_enters_recording_or_confirmed_state(tmp_path):
             await asyncio.wait_for(pipeline._asr_queue.join(), 2)
             await wait_for(lambda: any(f["type"] == "turn.partial" for f in teacher.frames))
             assert pipeline.history.seq_head == 0 and pipeline.history.since(0) == []
-            assert mt.calls == [] and not pipeline._recorder.has_entries
+            assert mt.calls == [] and not lesson._recorder.has_entries
             assert all(f["type"] not in {"caption", "turn.partial"} for f in student.frames)
             await pipeline._enqueue_asr(segment_of(1))
             await asyncio.wait_for(pipeline._asr_queue.join(), 2)
             await asyncio.wait_for(student.caption.wait(), 2)
-            directory = await pipeline.finalize_recording()
+            directory = await lesson.control("end")
             entries = [json.loads(line) for line in (directory / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
             assert [(e["seq"], e["ja"]) for e in entries] == [(1, NORMAL)]
             assert [(u.seq, u.text_ja) for u in pipeline.history.since(0)] == [(1, NORMAL)]
@@ -128,7 +127,7 @@ def test_mon03_stale_turn_is_dropped_and_next_partial_can_run(tmp_path):
             await wait_for(lambda: any(f["type"] == "turn.partial" for f in teacher.frames))
             assert [f["turn_id"] for f in teacher.frames if f["type"] == "turn.partial"] == [new_turn]
             assert pipeline.history.seq_head == 0 and pipeline.history.since(0) == []
-            assert mt.calls == [] and not pipeline._recorder.has_entries
+            assert mt.calls == [] and not lesson._recorder.has_entries
         finally:
             asr.release.set()
             await pipeline.stop()

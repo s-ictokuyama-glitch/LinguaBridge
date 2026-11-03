@@ -76,7 +76,7 @@ async def make_pipeline(
     for i in range(students):
         await roster.add(RecordingSocket(), "student", langs[0])
     pipeline = Pipeline(roster, config, asr or FakeASREngine(), mt or FakeTranslationEngine(langs))
-    await pipeline.on_lesson_state("live")
+    await pipeline.set_accepting_audio(True)
     return pipeline
 
 
@@ -266,7 +266,8 @@ def test_breakdown_medians_reset_when_not_live() -> None:
             await _run_utterances(pipeline, 2000)
             assert pipeline.stats_snapshot().median_mt_ms > 0
 
-            await pipeline.on_lesson_state("paused")
+            await pipeline.set_accepting_audio(False)
+            await pipeline.flush_audio()
             stats = pipeline.stats_snapshot()
             assert stats.median_delay_ms == 0
             assert stats.median_asr_ms == 0

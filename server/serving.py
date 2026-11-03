@@ -41,6 +41,11 @@ class _HTTPProtocolFactory(Protocol):
 
 
 class _Server(uvicorn.Server):
+    def __init__(self, config: uvicorn.Config,
+                 before_shutdown: Callable[[], Awaitable[None]]) -> None:
+        super().__init__(config)
+        self._before_shutdown = before_shutdown
+
     def capture_signals(self):
         return nullcontext()
 
@@ -73,6 +78,12 @@ class _Server(uvicorn.Server):
             server.close()
         for sock in sockets or []:
             sock.close()
+        try:
+            await self._before_shutdown()
+        finally:
+            await self._shutdown_connections()
+
+    async def _shutdown_connections(self) -> None:
         for connection in list(self.server_state.connections):
             connection.shutdown()
         try:
@@ -106,6 +117,7 @@ class RunningListeners:
 async def start_listeners(
     app: Any, specs: Sequence[ListenerSpec], *, install_signals: bool = True,
     on_ready: Callable[[], Awaitable[None]] | None = None,
+    before_shutdown: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[RunningListeners]:
     if not specs:
         raise ValueError("少なくとも1つのリスナーが必要です。")
@@ -119,6 +131,19 @@ async def start_listeners(
     handlers: dict[Any, Any] = {}
     lifespan: LifespanOn | None = None
     running = RunningListeners((), servers)
+    shutdown_task: asyncio.Future[None] | None = None
+
+    async def run_before_shutdown() -> None:
+        nonlocal shutdown_task
+        if before_shutdown is None:
+            return
+        if shutdown_task is None:
+            for server in servers:
+                for listener in getattr(server, "servers", []):
+                    listener.close()
+            shutdown_task = asyncio.ensure_future(before_shutdown())
+        await asyncio.shield(shutdown_task)
+
     try:
         for spec in specs:
             sock = socket.create_server((spec.host, spec.port))
@@ -132,7 +157,7 @@ async def start_listeners(
                 timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
             )
             config.load()
-            servers.append(_Server(config))
+            servers.append(_Server(config, run_before_shutdown))
         if install_signals and threading.current_thread() is threading.main_thread():
             def stop(*_: object) -> None:
                 running.stop()

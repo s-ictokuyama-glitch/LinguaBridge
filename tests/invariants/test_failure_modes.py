@@ -263,7 +263,7 @@ class TestBackpressure:
             config = make_ws_test_config()
             config.limits.asr_queue_seconds = 2.0
             pipeline = Pipeline(roster, config, asr, FakeTranslationEngine(["en"]))
-            await pipeline.on_lesson_state("live")
+            await pipeline.set_accepting_audio(True)
             await pipeline.start()
             try:
                 for _ in range(8):
@@ -298,7 +298,7 @@ class TestHungInference:
             config = make_ws_test_config()
             config.limits.asr_timeout_s = 0.2
             pipeline = Pipeline(roster, config, GatedASREngine(gate), FakeTranslationEngine(["en"]))
-            await pipeline.on_lesson_state("live")
+            await pipeline.set_accepting_audio(True)
             await pipeline.start()
             try:
                 for chunk in utterance_bytes(1000):

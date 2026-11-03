@@ -111,7 +111,7 @@ class Classroom:
         for path, contents in self.saved_bytes.items():
             if current.get(path) != contents:
                 raise AssertionError(f"saved recording changed at {self.trace}: {path.name}")
-        if not getattr(self.pipeline, "recording_pending", False):
+        if (self.lesson._recording_task is None or self.lesson._recording_task.done()):
             self.saved_bytes = current
 
     def result(self):
@@ -202,7 +202,7 @@ async def pending_case(schedule, restart, parent):
                         room.trace.append(event)
                         executor.complete()
                         await settle(
-                            lambda: pipeline._asr_backlog.is_idle and not getattr(pipeline, "recording_pending", False),
+                            lambda: pipeline._asr_backlog.is_idle and (room.lesson._recording_task is None or room.lesson._recording_task.done()),
                             pipeline,
                         )
                         if retry_restart:
@@ -243,14 +243,14 @@ async def save_case(restart, failure, parent):
         try:
             await room.control("start")
             await room.speak()
-            recorder = room.pipeline._recorder
+            recorder = room.lesson._recorder
             method = "write" if failure == "before_write" else "_write_markdown"
             with patch.object(SessionRecorder, method, side_effect=OSError("disk unavailable")):
                 for action in ("end", restart, "pause", "start"):
                     await room.control(action)
                     if room.lesson.state != "ended":
                         raise AssertionError(f"unsaved recording accepted {action}: {room.trace}")
-                    if room.pipeline._recorder is not recorder:
+                    if room.lesson._recorder is not recorder:
                         raise AssertionError(f"unsaved recording replaced: {room.trace}")
             room.saved_bytes = {}
             await room.control(restart)
@@ -266,20 +266,20 @@ async def save_case(restart, failure, parent):
 def mutation_check(parent):
     mutations = {
         "remove_recorder_rotation": (
-            "                self._recorder = SessionRecorder(\n                    self._recording_out_dir, self._recording_languages\n                )",
+            "                self._recorder = self._new_recorder()",
             "                pass",
             "commands",
             "recording_ownership",
         ),
         "skip_save_before_rotation": (
-            "            recorder = self._recorder\n            await self._finalize_lesson()",
-            "            recorder = self._recorder\n            pass",
+            "                recorder = self._recorder\n                await self._finalize_lesson()",
+            "                recorder = self._recorder\n                pass",
             "save",
             "unsaved recording accepted",
         ),
         "seal_provisional_recording": (
-            "            directory = self._write_recording(final=False)",
-            "            directory = self._write_recording(final=True)",
+            "            self._write_recording(final=False)",
+            "            self._write_recording(final=True)",
             "pending",
             "recording_ownership",
         ),
@@ -289,7 +289,7 @@ def mutation_check(parent):
         with tempfile.TemporaryDirectory(dir=parent) as directory:
             scratch = Path(directory)
             shutil.copytree(args.source_root / "server", scratch / "server", ignore=shutil.ignore_patterns("__pycache__"))
-            product = scratch / "server/pipeline.py"
+            product = scratch / "server/lesson.py"
             source = product.read_text(encoding="utf-8")
             if source.count(before) != 1:
                 raise RuntimeError(f"mutation anchor changed: {name}; review the real code")
