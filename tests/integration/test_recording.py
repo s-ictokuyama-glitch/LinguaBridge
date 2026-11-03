@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import queue
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -257,8 +258,61 @@ def test_failed_background_save_retries_in_the_provisional_directory(tmp_path):
             assert transcript(provisional)[0]["translations"]["en"]["text"] == f"[en] {PHRASE_1000}"
 
 
-def test_listener_shutdown_flushes_records_and_delivers_before_socket_close(tmp_path, monkeypatch):
-    app = make_app(tmp_path, default_on=True)
+def test_two_teachers_waiting_to_restart_share_one_lesson_rotation(tmp_path):
+    asr = GatedASR(3000)
+    app = make_app(tmp_path, default_on=True, asr=asr, recording_wait_s=1)
+    starts = queue.SimpleQueue()
+
+    async def observed_app(scope, receive, send):
+        async def observe_start():
+            frame = await receive()
+            if frame.get("text") and json.loads(frame["text"]) == {"type": "control", "action": "start"}:
+                asyncio.get_running_loop().call_soon(starts.put, None)
+            return frame
+        await app(scope, observe_start, send)
+
+    with TestClient(observed_app) as client:
+        with client.websocket_connect("/ws") as old, client.websocket_connect("/ws") as student:
+            join_student(student, "en")
+            join_teacher(old)
+            start_session(old)
+            starts.get(timeout=2)
+            wait_for(student, SessionStateMsg, state="live")
+            try:
+                send_utterance(old, 3000)
+                assert asr.gate.entered.wait(2)
+                old.send_json({"type": "control", "action": "end"})
+                wait_for(old, ErrorMsg, code="recording_pending")
+                old.send_json({"type": "control", "action": "start"})
+                starts.get(timeout=2)
+                with client.websocket_connect("/ws") as teacher:
+                    assert join_teacher(teacher).session_state == "ended"
+                    teacher.send_json({"type": "control", "action": "start"})
+                    starts.get(timeout=2)
+                    asr.gate.release.set()
+
+                    frames = []
+                    wait_for(student, SessionStateMsg, state="live", received=frames)
+                    send_utterance(teacher, 2000)
+                    wait_for(student, Caption, seq=2, received=frames)
+                    live_count = sum(isinstance(msg, SessionStateMsg) and msg.state == "live"
+                                     for msg in frames)
+                    assert live_count == 1
+                    teacher.send_json({"type": "control", "action": "end"})
+                    set_recording(teacher, False)
+                    wait_for(teacher, RecordingState, on=False)
+                    assert sorted([entry["seq"] for entry in transcript(path)]
+                                  for path in tmp_path.glob("*/transcript.jsonl")) == [[1], [2]]
+            finally:
+                asr.gate.release.set()
+
+
+@pytest.mark.parametrize("expires", [False, True])
+def test_listener_shutdown_flushes_records_and_delivers_before_socket_close(
+    tmp_path, monkeypatch, expires,
+):
+    asr = GatedASR(2000) if expires else FakeASREngine()
+    app = make_app(tmp_path, default_on=True, asr=asr, recording_wait_s=0.1 if expires else 30)
 
     @asynccontextmanager
     async def loopback_listeners(app, _specs, **kwargs):
@@ -277,20 +331,33 @@ def test_listener_shutdown_flushes_records_and_delivers_before_socket_close(tmp_
                     await teacher.send(chunk)
                 await receive(student, "speaking", on=True)
 
-                running.stop()
-                await receive(teacher, "session", state="live")
-                await receive(teacher, "session", state="ended")
-                await receive(student, "session", state="ended")
-                await receive(teacher, "asr_final", seq=1, ja=PHRASE_2000)
-                await receive(student, "caption", seq=1, ja=PHRASE_2000)
-                for ws in (teacher, student):
-                    with pytest.raises(websockets.ConnectionClosed) as closed:
-                        await asyncio.wait_for(ws.recv(), timeout=2)
-                    assert closed.value.rcvd.code == 1012
+                try:
+                    running.stop()
+                    await receive(teacher, "session", state="live")
+                    await receive(teacher, "session", state="ended")
+                    await receive(student, "session", state="ended")
+                    if expires:
+                        assert await asyncio.to_thread(asr.gate.entered.wait, 2)
+                    else:
+                        await receive(teacher, "asr_final", seq=1, ja=PHRASE_2000)
+                        await receive(student, "caption", seq=1, ja=PHRASE_2000)
+                    for ws in (teacher, student):
+                        with pytest.raises(websockets.ConnectionClosed) as closed:
+                            await asyncio.wait_for(ws.recv(), timeout=2)
+                        assert closed.value.rcvd.code == 1012
+                    if expires:
+                        assert not any(task.get_name() == "recording-finalizer"
+                                       for task in asyncio.all_tasks())
+                finally:
+                    if expires:
+                        asr.gate.release.set()
             yield running
 
     monkeypatch.setattr("server.serving.start_listeners", loopback_listeners)
     event_loop.run(main._serve(app, open_browser=False))
+    if expires:
+        assert list(tmp_path.iterdir()) == []
+        return
     (saved,) = tmp_path.glob("*/transcript.jsonl")
     (entry,) = transcript(saved)
     assert entry["ja"] == PHRASE_2000
