@@ -4,6 +4,7 @@
 
 ## Sub-features
 
+- `lesson-teacher-join` はサーバーPCからの自動参加と別端末での先生コード入力を扱う。
 - `lesson-start` は開始から配信中へ進む。
 - `lesson-pause` は一時停止と再開を行う。
 - `lesson-end-live` と `lesson-end-paused` は両状態から終了する。
@@ -15,14 +16,16 @@
 
 ## How to get to it (user POV)
 
-このPCの `/teacher` を開き、開始、一時停止、終了を押す。入力機器は `#mic-select` で選ぶ。
+サーバーPCの `/teacher` を開くと自動で参加する。別端末では起動案内の先生用HTTPS URLを開き、サーバーPCの起動案内または先生画面で確認した6桁の先生コードを入力する。参加後に授業を操作できる。入力機器は `#mic-select` で選ぶ。
 
 ## Driving it with Playwright
 
 Preconditions:
 
-- 独立した先生・生徒contextが参加済み。実経路ではマイクと検証用発話が必要。
+- 先生・生徒は独立したcontextを使う。配信の操作は両者の参加後に行い、実経路ではマイクと検証用発話を用意する。
 
+- **サーバーPCでの参加。** loopbackの `/teacher` を開き、`#start-btn` がenabledになるのを待つ。`#local-teacher-code` は最初は伏字。`#toggle-local-teacher-code` を押し、半角数字6桁の表示と再度押した後の伏字を確認する。
+- **別端末での参加。** サーバーPCと異なる接続元を持つ端末と、先生用HTTPS URLを用意する。先生画面で入力欄 `#teacher-code` が見え、開始・記録の操作が無効であることを確認する。誤った6桁を1回だけ送信して拒否を確認し、正しい先生コードで再試行する。参加後に開始・記録が有効になることを確認する。現地でのマイク確認は [学校での受入 S6](../../../../docs/school-access-field-acceptance.md#学校で試す) に従う。
 - **狭い先生画面。** `teacher.set_viewport_size({"width": 360, "height": 800})` にし、`#start-btn`、`#pause-btn`、`#end-btn` の `bounding_box()` を読む。各ボタンの左端が0以上、右端が360以下で、横スクロールせず操作欄を見渡せることを確認する。全画面画像も保存し、配信操作前に元のviewportへ戻す。
 - **開始。** `teacher.locator('#start-btn').click()`。マイク許可後、先生 `#session-state` が `配信中`、英語生徒 `#session-banner` が `Live`。発話後の字幕まで確認する。
 - **停止と再開。** `teacher.locator('#pause-btn').click()`。先生は `一時停止中`、生徒は `Paused`。`#pause-btn` がdisabled、`#start-btn` が「再開」になったことを確認し、`teacher.locator('#start-btn').click()` で再開する。停止直前の未確定発話は確定字幕になる場合がある。停止後の音声が字幕へ追加されず、再開後の新しい発話が届くことを確認する。
