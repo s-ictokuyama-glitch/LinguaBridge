@@ -73,7 +73,7 @@ def test_language_switch_delivers_pending_caption_only_to_the_switching_student(
                         (2, f"[en] {PHRASE_2000}"),
                     ]
                     assert captions_until_recording_off(chinese) == [(2, f"[zh] {PHRASE_2000}")]
-                    assert sorted(captions_until_recording_off(switching)) == [
+                    assert captions_until_recording_off(switching) == [
                         (1, f"[zh] {PHRASE_1000}"),
                         (2, f"[zh] {PHRASE_2000}"),
                     ]

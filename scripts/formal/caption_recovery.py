@@ -144,6 +144,9 @@ async def scenario(operations, watermark, *, admission=False):
         violations = []
         captions = [m for m in socket.sent if m.get("type") == "caption"]
         received = sorted({m["seq"] for m in captions})
+        if len(received) != len(captions):
+            violations.append({"property": "replay_duplicate", "expected": received,
+                               "actual": [m["seq"] for m in captions]})
         if client is not None and socket.closed != 1013:
             missing = sorted(set(owed) - set(received))
             if missing:
@@ -213,12 +216,16 @@ async def check(args):
 def mutation_check(args):
     mutations = (
         ("drop_retarget", "retarget", "replay_recoverable",
-         'elif client.lang is not None:', 'elif False:'),
+         'elif selected not in attempted:', 'elif False:'),
         ("broadcast_replay", "isolation", "replay_isolation",
-         'self.roster.send(client, caption.model_dump())',
-         'self.roster.send_language(caption.lang, caption.model_dump())'),
+         'self.roster.send(client, captions[selected])',
+         'self.roster.send_language(selected, captions[selected])'),
         ("send_old_language", "language", "replay_language",
-         'if client.lang == job.lang:', 'if True:'),
+         'selected = client.lang', 'selected = job.lang'),
+        ("duplicate_caption", "isolation", "replay_duplicate",
+         'self.roster.send(client, captions[selected])',
+         'self.roster.send(client, captions[selected])\n'
+         '                    self.roster.send(client, captions[selected])'),
         ("skip_admission_retry", "admission", "replay_recoverable",
          'await self.roster.retry(client)', 'pass'),
         ("remove_without_retry_close", "admission", "replay_recoverable",

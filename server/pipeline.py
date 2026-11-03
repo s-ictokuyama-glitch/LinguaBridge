@@ -69,8 +69,8 @@ class MTJob:
     utterance: Utterance
     lang: str
     closed_at: float  # 発話確定時刻（monotonic）。delay_ms の起点
-    # 再接続時の差分復元（F-11）用: 指定時はこのクライアントにのみ届ける
-    target_client_id: str | None = None
+    recipient_ids: tuple[str, ...] = ()
+    replay: bool = False
 
 
 # MTキューの優先度: ライブ字幕（N-01の遅延基準の対象）が
@@ -521,8 +521,12 @@ class Pipeline:
                 turn_id=turn.turn_id,
             )
         )
-        for lang in sorted(self.roster.active_langs()):
-            await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, closed_at))
+        recipients: dict[str, list[str]] = {}
+        for client in self.roster.students():
+            if client.lang is not None:
+                recipients.setdefault(client.lang, []).append(client.id)
+        for lang, ids in sorted(recipients.items()):
+            await self._enqueue_mt(_LIVE_PRIORITY, MTJob(utterance, lang, closed_at, tuple(ids)))
 
     async def _enqueue_mt(self, priority: int, job: MTJob) -> bool:
         """翻訳ジョブを積む（#25 A-1: 無制限キューの有界化）。積めたら True。
@@ -570,28 +574,30 @@ class Pipeline:
             model_version=self._mt_model_version,
         )
 
-    def _translation_from_cache(self, job: MTJob) -> Translation | None:
+    def _translation_from_cache(self, utterance: Utterance, lang: str) -> Translation | None:
         """発話をまたぐキャッシュを引く（#26 B-4）。
 
         **推論スレッドへ渡す前**に引くのが要点。エンジン側をラップして
         キャッシュすると、ヒットしても単一スレッドExecutorで実行中の推論
         （1件 570〜850ms）の後ろに並んでしまい、「Hy-MT2 の前に置く」意味が消える。
         """
-        cached = self._mt_cache.get(self._cache_key(job.utterance.text_ja, job.lang))
+        cached = self._mt_cache.get(self._cache_key(utterance.text_ja, lang))
         if cached is None:
             return None
         # mt_ms=0 は「推論していない」の意味。遅延の内訳（#30）でヒットが
         # 推論時間として数えられないようにする
         translation = Translation(
-            lang=job.lang, text=cached, engine=self._mt_engine_name, mt_ms=0
+            lang=lang, text=cached, engine=self._mt_engine_name, mt_ms=0
         )
-        job.utterance.translations[job.lang] = translation
+        utterance.translations[lang] = translation
         return translation
 
-    async def _process_mt_job(self, loop: asyncio.AbstractEventLoop, job: MTJob) -> None:
-        translation = job.utterance.translations.get(job.lang)
+    async def _translate(
+        self, loop: asyncio.AbstractEventLoop, utterance: Utterance, lang: str,
+    ) -> Translation | None:
+        translation = utterance.translations.get(lang)
         if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
-            translation = self._translation_from_cache(job)
+            translation = self._translation_from_cache(utterance, lang)
         if translation is None:
             started = time.monotonic()
             # 呼んだ時点で数える（#32）。キャッシュヒットも復元済みの再送もここへ
@@ -602,8 +608,8 @@ class Pipeline:
                     loop.run_in_executor(
                         self._mt_executor,
                         self._mt.translate,
-                        job.utterance.text_ja,
-                        job.lang,
+                        utterance.text_ja,
+                        lang,
                     ),
                     timeout=self._limits.mt_timeout_s,
                 )
@@ -612,17 +618,17 @@ class Pipeline:
                 logger.error(
                     "翻訳が %.0f 秒で返らないため諦めます; lang=%s seq=%s",
                     self._limits.mt_timeout_s,
-                    job.lang,
-                    job.utterance.seq,
+                    lang,
+                    utterance.seq,
                 )
                 await self._notify_overload("mt_timeout", "翻訳が応答しません。字幕を1件飛ばしました")
-                return
+                return None
             except TranslationModelError as exc:
                 logger.error("翻訳に失敗: %s", exc)
-                return
+                return None
             except Exception:
-                logger.exception("MT failed; lang=%s seq=%s", job.lang, job.utterance.seq)
-                return
+                logger.exception("MT failed; lang=%s seq=%s", lang, utterance.seq)
+                return None
             mt_ms = int((time.monotonic() - started) * 1000)
             # 遅延の内訳（#30）。**実際に推論したときだけ**数える。キャッシュヒットを
             # 母数に入れると（実測ヒット率 27.8%）中央値が 0 へ引っ張られ、
@@ -630,47 +636,53 @@ class Pipeline:
             # 再接続復元ジョブの推論は数える（`_delay_samples` と違い実CPU費用そのもの）
             self._mt_ms_samples.append(mt_ms)
             translation = Translation(
-                lang=job.lang,
+                lang=lang,
                 text=text,
                 engine=self._mt_engine_name,
                 mt_ms=mt_ms,
             )
-            self._mt_cache.put(self._cache_key(job.utterance.text_ja, job.lang), text)
-            job.utterance.translations[job.lang] = translation
-        # delay_ms は「ライブ配信の処理遅延」の指標（E-05）。再接続復元の字幕は
-        # 歴史的な再送なので 0 とし、生徒側の「遅延中」表示を誤発火させない
-        delay_ms = (
-            0
-            if job.target_client_id is not None
-            else max(0, int((time.monotonic() - job.closed_at) * 1000))
-        )
-        caption = proto.Caption(
-            seq=job.utterance.seq,
-            ja=job.utterance.text_ja,
-            text=translation.text,
-            lang=job.lang,
-            delay_ms=delay_ms,
-        )
-        if job.target_client_id is None:
-            self._delay_samples.append(caption.delay_ms)  # ライブ配信のみ統計対象
-            await self.broadcast_caption(caption)
-        else:
-            await self._deliver_replay(job, caption)
+            self._mt_cache.put(self._cache_key(utterance.text_ja, lang), text)
+            utterance.translations[lang] = translation
+        return translation
 
-    async def _deliver_replay(self, job: MTJob, caption: proto.Caption) -> None:
-        """再接続復元ジョブの成果を対象クライアントにのみ届ける。"""
-        assert job.target_client_id is not None
-        client = self.roster.get(job.target_client_id)
-        if client is None:
-            return  # 復元待ちの間に再切断。次回rejoinのlast_seqで再復元される
-        if client.lang == job.lang:
-            self.roster.send(client, caption.model_dump())
-        elif client.lang is not None:
-            # 復元待ちの間に言語変更: 新しい言語で翻訳し直して届ける
-            await self._enqueue_mt(
-                _REPLAY_PRIORITY,
-                MTJob(job.utterance, client.lang, job.closed_at, target_client_id=client.id),
-            )
+    async def _process_mt_job(self, loop: asyncio.AbstractEventLoop, job: MTJob) -> None:
+        pending = list(job.recipient_ids)
+        lang = job.lang
+        attempted: set[str] = set()
+        while True:
+            attempted.add(lang)
+            translation = await self._translate(loop, job.utterance, lang)
+            delay_ms = 0 if job.replay else max(0, int((time.monotonic() - job.closed_at) * 1000))
+            if translation is not None and lang == job.lang and not job.replay:
+                self._delay_samples.append(delay_ms)
+
+            remaining: list[str] = []
+            next_lang = None
+            captions: dict[str, dict] = {}
+            for client_id in pending:
+                client = self.roster.get(client_id)
+                if client is None or client.lang is None:
+                    continue
+                selected = client.lang
+                translated = job.utterance.translations.get(selected)
+                if translated is not None:
+                    if selected not in captions:
+                        captions[selected] = proto.Caption(
+                            seq=job.utterance.seq,
+                            ja=job.utterance.text_ja,
+                            text=translated.text,
+                            lang=selected,
+                            delay_ms=delay_ms,
+                        ).model_dump()
+                    self.roster.send(client, captions[selected])
+                elif selected not in attempted:
+                    remaining.append(client_id)
+                    if next_lang is None:
+                        next_lang = selected
+            if next_lang is None:
+                return
+            lang = next_lang
+            pending = remaining
 
     async def replay_history(self, client: Client, last_seq: int) -> None:
         """再接続した生徒への差分復元（F-11）。
@@ -685,7 +697,7 @@ class Pipeline:
         for utterance in self.history.since(last_seq):
             queued = await self._enqueue_mt(
                 _REPLAY_PRIORITY,
-                MTJob(utterance, client.lang, time.monotonic(), target_client_id=client.id),
+                MTJob(utterance, client.lang, time.monotonic(), (client.id,), replay=True),
             )
             if not queued:
                 # 混雑で復元を積めなかった。ここで黙って諦めると、この生徒は

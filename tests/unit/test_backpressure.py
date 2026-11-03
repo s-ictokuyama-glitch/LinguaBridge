@@ -140,7 +140,7 @@ class TestMtQueueBound:
             for _ in range(20):
                 await pipeline._enqueue_mt(
                     _REPLAY_PRIORITY,
-                    MTJob(utterance, "en", time.monotonic(), target_client_id="s1"),
+                    MTJob(utterance, "en", time.monotonic(), ("s1",), replay=True),
                 )
             assert pipeline.mt_queue_depth == 4, "復元ジョブが水位で止まっていない"
 

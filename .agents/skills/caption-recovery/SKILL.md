@@ -22,9 +22,9 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 終了コード0は指定範囲内で反例なし、1は反例ありを表す。Traceback は検証器か環境の失敗として調査する。
 Windows の制限環境で asyncio の socketpair 生成に停止したら、実行権限を確認する。
 
-現在の製品コードには反例があり、全探索は `FAIL` となる。
-[検証範囲と反例](../../../scripts/formal/caption_recovery.md) と [基準結果](../../../scripts/formal/caption_recovery_baseline.json) を比較する。
-`witnesses` の4件は `PASS`、破壊5件は `detected: true` である。
+Issue #130 の修正後は、全探索が `PASS` となり、反例は0件になる。
+[検証範囲と結果](../../../scripts/formal/caption_recovery.md) と [修正前の基準結果](../../../scripts/formal/caption_recovery_baseline.json) を比較する。
+`witnesses` の4件は `PASS`、破壊6件は `detected: true` である。
 正常な専用ケースに破壊を加えてから予想した違反を確認するため、既存の失敗だけを破壊検出に数えることはない。
 
 ## 反例を判断する
@@ -42,12 +42,12 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 
 ## 実装との同期を確認する
 
-最終同期コミットは `f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4`。
-この値は製品コードを照合したコミットを表す。
+修正前の比較基準は `f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4`。
+この値は修正前の基準結果を採取したコミットで、結果 JSON の `sync_commit` に出る。
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/pipeline.py` | `MTJob`、`_publish_turn`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`_deliver_replay`、`replay_history` |
+| `server/pipeline.py` | `MTJob`、`_publish_turn`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`replay_history` |
 | `server/lesson.py` | `join`、`set_lang` |
 | `server/roster.py` | `add`、`remove`、`retry`、`contains`、`send`、`send_language`、`active_langs` |
 | `server/delivery.py` | `ClientSender.send`、`_run`、`aclose` |
@@ -61,7 +61,7 @@ git diff f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4 -- server/pipeline.py server/l
 
 対象処理が変わったら、MTの待機境界、復元対象、切断条件、操作集合を照合して検証器を更新する。
 `--mutation-check` は一時コピーの製品コードだけを壊す。置換箇所が変わると実行エラーになるので、新実装に合う破壊へ更新する。
-製品コードとの一致、全探索、全破壊の検出を確認した後だけ、この同期コミットと検証器の `SYNC_COMMIT` を同じ値へ進める。
+比較基準を更新する場合は、製品コードとの一致、全探索、全破壊の検出を確認し、ここに記すコミットと検証器の `SYNC_COMMIT` をそろえる。
 基準結果を更新する場合は、消えた反例と新しい反例の理由を記録する。
 未確認の変更から復旧する場合は `/maintain-formal-verification-skill` を使う。
 
