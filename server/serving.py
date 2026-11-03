@@ -151,7 +151,7 @@ async def start_listeners(
             sockets.append(sock)
             config = uvicorn.Config(
                 app, host=spec.host, port=spec.port, lifespan="off",
-                log_config=None, access_log=False,
+                log_config=None, access_log=False, proxy_headers=False,
                 ssl_certfile=str(spec.tls.cert) if spec.tls else None,
                 ssl_keyfile=str(spec.tls.key) if spec.tls else None,
                 timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,

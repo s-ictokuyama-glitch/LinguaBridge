@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.config import AppConfig, Language
 from server.recorder import SessionRecorder

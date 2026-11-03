@@ -11,7 +11,7 @@ import threading
 import time
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine

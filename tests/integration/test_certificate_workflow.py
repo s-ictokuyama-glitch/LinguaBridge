@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from scripts import make_cert
 from server import main

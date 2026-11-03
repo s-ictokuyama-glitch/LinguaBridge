@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from threading import Event
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.config import Language

@@ -8,7 +8,7 @@ LAN内の正規の使い方（ブラウザ・replay_client）が巻き添えで�
 from __future__ import annotations
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from server import ws_protocol as proto

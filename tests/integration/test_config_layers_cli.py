@@ -13,7 +13,7 @@ from http.client import HTTPConnection
 from html import escape, unescape
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from scripts import make_cert
 from server import diagnostics, main

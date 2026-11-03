@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server import main
 from server.asr.fake_engine import FakeASREngine

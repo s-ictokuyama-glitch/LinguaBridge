@@ -37,6 +37,7 @@ from server.pipeline import Pipeline
 from server.rate_limit import JoinRateLimiter
 from server.lesson import Lesson, generate_join_code
 from server.roster import Roster
+from server.source_access import SourceAccess
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,7 @@ def create_app(
                 await pipeline.stop()
 
     app = FastAPI(lifespan=lifespan)
+    app.add_middleware(SourceAccess)
     app.state.lesson = lesson
     app.state.pipeline = pipeline
     app.state.config = config

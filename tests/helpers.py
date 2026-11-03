@@ -7,15 +7,17 @@ FakeASREngine の規約: 発話中の最初の非ゼロサンプル値がフレ�
 from __future__ import annotations
 
 from collections.abc import Coroutine, Iterator
+from functools import partial
 from typing import TypeVar, overload
 
 import numpy as np
-from starlette.testclient import WebSocketTestSession
+from starlette.testclient import TestClient as StarletteTestClient, WebSocketTestSession
 
 from server.config import AppConfig, VadConfig
 from server.ws_protocol import ServerMessage, parse_server_message
 
 JOIN_CODE = "4831"
+TestClient = partial(StarletteTestClient, client=("127.0.0.1", 50000))
 
 SAMPLE_RATE = 16000
 CHUNK_BYTES = 3200  # ブラウザが送る100msフレーム相当
