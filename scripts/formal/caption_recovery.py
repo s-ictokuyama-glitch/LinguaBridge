@@ -165,15 +165,52 @@ async def scenario(operations, watermark, *, admission=False):
             violations.append({"property": "replay_language", "expected": client.lang, "actual": wrong})
         for violation in violations:
             violation.update({"trace": trace, "watermark": watermark})
-        return violations
+        screen = {
+            "language": client.lang if client is not None else None,
+            "frames": socket.sent,
+            "owed": owed if active and socket.closed != 1013 else [],
+            "trace": trace,
+            "watermark": watermark,
+        }
+        return violations, screen
     finally:
         await pipeline.stop()
+
+
+def check_screens(screens):
+    command = ["node", str(ROOT / "scripts/formal/caption_recovery_view.cjs")]
+    rendered = subprocess.run(
+        command, input=json.dumps(screens), capture_output=True,
+        encoding="utf-8", check=True, timeout=30,
+    )
+    return json.loads(rendered.stdout)
+
+
+def screen_violation(screen, rendered):
+    cards = {}
+    expected_last_seq = 0
+    for frame in screen["frames"]:
+        if frame["type"] == "joined":
+            expected_last_seq = max(expected_last_seq, frame["history_from"] - 1)
+        if frame["type"] == "caption" and frame["lang"] == screen["language"]:
+            cards.setdefault(frame["seq"], frame)
+    while expected_last_seq + 1 in cards:
+        expected_last_seq += 1
+    expected = {"cards": [cards[seq] for seq in sorted(cards)], "last_seq": expected_last_seq}
+    if rendered != expected or rendered["last_seq"] < max(screen["owed"], default=0):
+        return {
+            "property": "screen_recovery", "trace": screen["trace"],
+            "watermark": screen["watermark"], "expected": expected,
+            "required_replay": screen["owed"], "actual": rendered,
+        }
+    return None
 
 
 async def check(args):
     counts = {"schedules": 0, "admission": 0, "witnesses": 0, "violating_scenarios": 0}
     findings = {}
     witnesses = {}
+    cases = []
 
     def record(violations):
         if violations:
@@ -188,9 +225,9 @@ async def check(args):
         for watermark in (1, 2):
             for length in range(args.depth + 1):
                 for operations in itertools.product(OPERATIONS, repeat=length):
-                    record(await scenario(operations, watermark))
+                    cases.append((*await scenario(operations, watermark), None))
                     counts["schedules"] += 1
-            record(await scenario((), watermark, admission=True))
+            cases.append((*await scenario((), watermark, admission=True), None))
             counts["admission"] += 1
     for name in WITNESSES:
         if args.case is not None and args.case != name:
@@ -198,10 +235,17 @@ async def check(args):
         operations = ("set_zh",) if name in ("retarget", "language") else ()
         if name == "retarget":
             operations += ("live_turn",)
-        violations = await scenario(operations, 1, admission=name == "admission")
-        witnesses[name] = "FAIL" if violations else "PASS"
-        record(violations)
+        cases.append((*await scenario(operations, 1, admission=name == "admission"), name))
         counts["witnesses"] += 1
+    screens = [screen for _, screen, _ in cases]
+    for (violations, screen, name), rendered in zip(cases, check_screens(screens), strict=True):
+        violation = screen_violation(screen, rendered)
+        if violation is not None:
+            violations.append(violation)
+        record(violations)
+        if name is not None:
+            witnesses[name] = "FAIL" if violations else "PASS"
+    counts["screens"] = len(screens)
     return {
         "status": "FAIL" if findings else "PASS", "sync_commit": SYNC_COMMIT,
         "scope": {"depth": args.depth, "operations": OPERATIONS, "watermarks": [1, 2],

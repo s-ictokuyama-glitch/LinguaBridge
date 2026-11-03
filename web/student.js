@@ -13,11 +13,7 @@ const state = {
   code: "",
   lang: null,
   prevLang: null,
-  // 連続確定watermark: 「ここまでは1つも欠けずに受信済み」のseq。
-  // 再接続時の last_seq に使う（表示済みの最大seqではない — 復元とライブの
-  // 交錯で歯抜けのまま最大値を申告すると、間のseqが恒久欠落するため）
-  lastSeq: 0,
-  pendingSeqs: new Set(), // watermarkより先に届いたseq（連続がつながるまで保持）
+  captionRecovery: new CaptionRecovery(),
   ws: null,
   joined: false,
   ended: false,
@@ -26,15 +22,6 @@ const state = {
   following: true, // 自動スクロール追従中か（上スクロールで停止、「最新へ」で復帰）
   bannerKey: "idle",
 };
-
-function advanceWatermark(seq) {
-  if (seq <= state.lastSeq) return;
-  state.pendingSeqs.add(seq);
-  while (state.pendingSeqs.has(state.lastSeq + 1)) {
-    state.pendingSeqs.delete(state.lastSeq + 1);
-    state.lastSeq += 1;
-  }
-}
 
 const el = {
   joinScreen: document.getElementById("join-screen"),
@@ -248,7 +235,7 @@ function connect(lastSeq) {
     // 指数バックオフ＋ジッタで自動再接続し、last_seq で欠落分を差分復元する（E-06）。
     // ジッタはAP瞬断復帰時に全端末が同時再接続するのを避けるため
     const jitter = 0.7 + Math.random() * 0.6;
-    setTimeout(() => connect(state.lastSeq), state.retryDelayMs * jitter);
+    setTimeout(() => connect(state.captionRecovery.lastSeq), state.retryDelayMs * jitter);
     state.retryDelayMs = Math.min(state.retryDelayMs * 2, RETRY_MAX_MS);
   });
 }
@@ -259,11 +246,7 @@ function handleMessage(msg) {
       state.joined = true;
       state.ended = msg.session_state === "ended";
       state.retryDelayMs = RETRY_BASE_MS; // 再接続成功でバックオフをリセット
-      // 履歴上限で復元不能になった分は欠落確定として watermark を進める
-      if (msg.history_from - 1 > state.lastSeq) {
-        state.lastSeq = msg.history_from - 1;
-        state.pendingSeqs.clear();
-      }
+      state.captionRecovery.applyHistoryFloor(msg.history_from);
       el.joinScreen.hidden = true;
       el.captionScreen.hidden = false;
       el.langSelect.value = state.lang;
@@ -285,6 +268,11 @@ function handleMessage(msg) {
         state.ws.close();
         break;
       }
+      if (msg.reason === "bad_code") {
+        state.captionRecovery = new CaptionRecovery();
+        el.cards.replaceChildren();
+        setFollowing(true);
+      }
       if (state.joined) {
         // 再接続中にコードが無効化された（サーバー再起動等）: 参加画面へ戻す
         state.joined = false;
@@ -297,11 +285,11 @@ function handleMessage(msg) {
       el.joinError.hidden = false;
       break;
     }
-    case "caption":
-      if (msg.lang !== state.lang) break;
-      showCaption(msg);
-      advanceWatermark(msg.seq);
+    case "caption": {
+      const change = state.captionRecovery.accept(msg, state.lang);
+      if (change) showCaption(msg, change);
       break;
+    }
     case "session":
       state.ended = msg.state === "ended";
       if (msg.state !== "live") el.speakingIndicator.hidden = true; // 非liveで残さない（#29）
@@ -318,13 +306,12 @@ function handleMessage(msg) {
   }
 }
 
-function showCaption(msg) {
-  const existing = el.cards.querySelector(`[data-seq="${msg.seq}"] .text`);
-  if (existing) {
-    if (existing.lang !== msg.lang) {
-      existing.lang = msg.lang;
-      existing.textContent = msg.text;
-    }
+function showCaption(msg, { kind, index }) {
+  const ref = el.cards.children.item(index);
+  if (kind === "replace") {
+    const text = ref.querySelector(".text");
+    text.lang = msg.lang;
+    text.textContent = msg.text;
     return;
   }
   const card = document.createElement("div");
@@ -350,12 +337,6 @@ function showCaption(msg) {
   time.className = "time";
   time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   card.append(time);
-  // 再接続復元と新着が交錯しても表示は発話順を保つ（seq昇順の位置に挿入）
-  let ref = null;
-  for (let node = el.cards.lastElementChild; node; node = node.previousElementSibling) {
-    if (Number(node.dataset.seq) < msg.seq) break;
-    ref = node;
-  }
   el.cards.insertBefore(card, ref);
   if (state.following) {
     // 追従中のみ自動スクロール（上スクロールで停止、「最新へ」で復帰）
