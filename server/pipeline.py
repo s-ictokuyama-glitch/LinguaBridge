@@ -73,6 +73,12 @@ class MTJob:
     replay: bool = False
 
 
+@dataclass
+class HistoryRefresh:
+    lang: str
+    utterances: deque[Utterance]
+
+
 # MTキューの優先度: ライブ字幕（N-01の遅延基準の対象）が
 # 再接続復元ジョブ（最大K=50件）に停滞させられないようにする
 _LIVE_PRIORITY = 0
@@ -179,6 +185,11 @@ class Pipeline:
             maxsize=config.limits.mt_queue_max
         )
         self._mt_counter = itertools.count()
+        self._mt_work = asyncio.Event()
+        self._mt_idle = asyncio.Event()
+        self._mt_idle.set()
+        self._history_refreshes: dict[str, HistoryRefresh] = {}
+        self._caption_receipt_limit = 2 * config.history_resend
         self._notice_at: dict[str, float] = {}  # 過負荷通知のクールダウン（code -> 最終送信時刻）
         self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
         self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
@@ -258,6 +269,7 @@ class Pipeline:
         self._tasks = []
         self._warmup_task = None
         self._recording_task = None
+        self._history_refreshes.clear()
         await self.roster.aclose()
         # cancel_futures: 未着手の推論は捨てる（whisper-flow W-3 の見直し）。
         # 実行中のスレッドは止められないので wait=False のままにする。待つと
@@ -315,7 +327,7 @@ class Pipeline:
     async def drain(self, timeout: float | None = 30) -> None:
         """ASR、MT の順に排出する。timeout は各段の待機秒数。"""
         await asyncio.wait_for(self._asr_backlog.join(), timeout=timeout)
-        await asyncio.wait_for(self._mt_queue.join(), timeout=timeout)
+        await asyncio.wait_for(self._mt_idle.wait(), timeout=timeout)
 
     async def _enqueue_asr(self, event: AsrEvent) -> None:
         outcome = self._asr_backlog.offer(event)
@@ -544,22 +556,35 @@ class Pipeline:
                 logger.info("翻訳キューが混雑しているため再接続復元ジョブを見送りました")
                 return False
             self._mt_queue.put_nowait((priority, next(self._mt_counter), job))
-            return True
-        entry = (priority, next(self._mt_counter), job)
-        try:
-            self._mt_queue.put_nowait(entry)
-        except asyncio.QueueFull:
-            await self._notify_overload(
-                "mt_backlog",
-                "翻訳が追いつかず字幕が遅れています。少し間を置いて話してください",
-            )
-            await self._mt_queue.put(entry)
+        else:
+            entry = (priority, next(self._mt_counter), job)
+            try:
+                self._mt_queue.put_nowait(entry)
+            except asyncio.QueueFull:
+                await self._notify_overload(
+                    "mt_backlog",
+                    "翻訳が追いつかず字幕が遅れています。少し間を置いて話してください",
+                )
+                await self._mt_queue.put(entry)
+        if self._mt_queue.qsize() >= self._limits.mt_replay_watermark:
+            self._history_refreshes.clear()
+        self._mt_idle.clear()
+        self._mt_work.set()
         return True
 
     async def _mt_worker(self) -> None:
         loop = asyncio.get_running_loop()
         while True:
-            _, _, job = await self._mt_queue.get()
+            await self._mt_work.wait()
+            if self._mt_queue.empty():
+                if self._history_refreshes:
+                    await self._refresh_one_caption(loop)
+                    await asyncio.sleep(0)
+                else:
+                    self._mt_work.clear()
+                    self._mt_idle.set()
+                continue
+            _, _, job = self._mt_queue.get_nowait()
             try:
                 await self._process_mt_job(loop, job)
             finally:
@@ -674,7 +699,8 @@ class Pipeline:
                             lang=selected,
                             delay_ms=delay_ms,
                         ).model_dump()
-                    self.roster.send(client, captions[selected])
+                    if self.roster.send(client, captions[selected]):
+                        self._remember_caption(client, job.utterance.seq, selected)
                 elif selected not in attempted:
                     remaining.append(client_id)
                     if next_lang is None:
@@ -683,6 +709,56 @@ class Pipeline:
                 return
             lang = next_lang
             pending = remaining
+
+    def _remember_caption(self, client: Client, seq: int, lang: str) -> None:
+        if len(client.caption_languages) >= self._caption_receipt_limit:
+            client.caption_languages = {
+                seq: lang for seq, lang in client.caption_languages.items()
+                if seq >= self.history.history_from
+            }
+        if seq >= self.history.history_from:
+            client.caption_languages[seq] = lang
+
+    def refresh_history(self, client: Client) -> None:
+        self._history_refreshes.pop(client.id, None)
+        if client.lang is None or self._mt_queue.qsize() >= self._limits.mt_replay_watermark:
+            return
+        utterances = deque(self.history.since(0))
+        if utterances:
+            self._history_refreshes[client.id] = HistoryRefresh(client.lang, utterances)
+            self._mt_idle.clear()
+            self._mt_work.set()
+
+    def cancel_history_refresh(self, client: Client) -> None:
+        self._history_refreshes.pop(client.id, None)
+
+    async def _refresh_one_caption(self, loop: asyncio.AbstractEventLoop) -> None:
+        client_id = next(iter(self._history_refreshes))
+        refresh = self._history_refreshes[client_id]
+        client = self.roster.get(client_id)
+        if client is None:
+            del self._history_refreshes[client_id]
+            return
+
+        utterance = refresh.utterances.popleft()
+        if client.caption_languages.get(utterance.seq) != refresh.lang:
+            translation = await self._translate(loop, utterance, refresh.lang)
+            if self._history_refreshes.get(client_id) is not refresh:
+                return
+            if translation is not None and self.roster.contains(client):
+                caption = proto.Caption(
+                    seq=utterance.seq,
+                    ja=utterance.text_ja,
+                    text=translation.text,
+                    lang=refresh.lang,
+                    delay_ms=0,
+                )
+                if not self.roster.send(client, caption.model_dump(), drop_if_full=True):
+                    del self._history_refreshes[client_id]
+                    return
+                self._remember_caption(client, utterance.seq, refresh.lang)
+        if not refresh.utterances:
+            del self._history_refreshes[client_id]
 
     async def replay_history(self, client: Client, last_seq: int) -> None:
         """再接続した生徒への差分復元（F-11）。

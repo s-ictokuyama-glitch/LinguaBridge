@@ -298,7 +298,8 @@ function handleMessage(msg) {
       break;
     }
     case "caption":
-      addCard(msg);
+      if (msg.lang !== state.lang) break;
+      showCaption(msg);
       advanceWatermark(msg.seq);
       break;
     case "session":
@@ -317,13 +318,21 @@ function handleMessage(msg) {
   }
 }
 
-function addCard(msg) {
-  if (el.cards.querySelector(`[data-seq="${msg.seq}"]`)) return; // 再送の重複防御
+function showCaption(msg) {
+  const existing = el.cards.querySelector(`[data-seq="${msg.seq}"] .text`);
+  if (existing) {
+    if (existing.lang !== msg.lang) {
+      existing.lang = msg.lang;
+      existing.textContent = msg.text;
+    }
+    return;
+  }
   const card = document.createElement("div");
   card.className = "card";
   card.dataset.seq = msg.seq;
   const text = document.createElement("p");
   text.className = "text";
+  text.lang = msg.lang;
   text.textContent = msg.text;
   card.append(text);
   if (msg.delay_ms >= DELAY_NOTICE_MS) {

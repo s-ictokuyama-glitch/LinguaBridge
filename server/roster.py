@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from server.config import LimitsConfig
@@ -25,6 +25,7 @@ class Client:
     role: Literal["teacher", "student"]
     lang: str | None
     ws: ClientSocket
+    caption_languages: dict[int, str] = field(default_factory=dict)
 
 
 class Roster:
@@ -99,10 +100,9 @@ class Roster:
     async def retry(self, client: Client) -> None:
         await self.remove(client, close_code=_RETRY)
 
-    def send(self, client: Client, payload: dict) -> None:
+    def send(self, client: Client, payload: dict, *, drop_if_full: bool = False) -> bool:
         sender = self._senders.get(client.id)
-        if sender is not None:
-            sender.send(payload)
+        return sender is not None and sender.send(payload, drop_if_full=drop_if_full)
 
     def send_teacher(self, payload: dict) -> None:
         teacher = self.teacher()

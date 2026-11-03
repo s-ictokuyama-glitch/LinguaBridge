@@ -362,8 +362,8 @@ def emit(page, msg):
     page.evaluate("msg => qaEmit(msg)", msg)
 
 
-def caption(page, seq=1, delay=0, text="The sunlight is necessary."):
-    emit(page, {"type":"caption", "seq":seq, "text":text, "ja":"光合成には日光が必要です。", "lang":"en", "delay_ms":delay})
+def caption(page, seq=1, delay=0, text="The sunlight is necessary.", *, lang="en"):
+    emit(page, {"type":"caption", "seq":seq, "text":text, "ja":"光合成には日光が必要です。", "lang":lang, "delay_ms":delay})
 
 
 def open_settings(page):
@@ -605,6 +605,40 @@ def test_language(page):
     assert page.locator("#cards .card").count()==1
     emit(page,{"type":"error","code":"bad_lang"})
     expect(page.locator("#lang-select")).to_have_value("en")
+
+
+@case(
+    "STU-06", "replace_caption_while_reading_and_ignore_stale_language", complete=False,
+    context_options={"viewport": {"width": 540, "height": 560}},
+)
+def test_language_caption_replacement(page):
+    join(page)
+    original = "The sunlight is necessary. " * 25
+    for seq in range(1, 9):
+        caption(page, seq, text=original)
+    cards = page.locator("#cards")
+    cards.evaluate("e => { e.scrollTop = e.scrollHeight / 3; }")
+    expect(page.locator("#latest-btn")).to_be_visible()
+    top = cards.evaluate("e => e.scrollTop")
+    assert top > 0
+    last_card = cards.locator('[data-seq="8"]')
+    original_time = last_card.locator(".time").inner_text()
+
+    select_language(page, "zh")
+    caption(page, 8, text="阳光是必要的。", lang="zh")
+    caption(page, 8, text="Stale translation")
+    caption(page, 9, text="Stale new caption")
+    expect(last_card.locator(".text")).to_have_text("阳光是必要的。")
+    expect(last_card.locator(".time")).to_have_text(original_time)
+    expect(cards.locator('[data-seq="1"] .text')).to_have_text(original.strip())
+    assert cards.locator(".card").evaluate_all("nodes => nodes.map(n => Number(n.dataset.seq))") == list(range(1, 9))
+    after_top = cards.evaluate("e => e.scrollTop")
+    assert after_top == top, {"before": top, "after": after_top}
+    expect(page.locator("#latest-btn")).to_be_visible()
+
+    page.evaluate("qa.sockets.at(-1).close(); qa.timers.shift().fn()")
+    assert page.evaluate("qa.sent.at(-1).last_seq") == 8
+    return {"replaced_seq": 8, "retained_count": 8, "scroll_top": top, "resume_after_seq": 8}
 
 
 @case("STU-07", "recording_indicator_localized")

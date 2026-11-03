@@ -434,6 +434,8 @@ def live_screens(browser, *, scenario="", lan_ip=None):
     assert config.monitoring.stats_interval_s == 2
     gate = threading.Event()
     gate.set()
+    if scenario == "native_language_switch_and_rejection":
+        config.history_resend = 2
     if scenario == "native_replay_backpressure_recovers":
         config.limits.mt_replay_watermark = 2
         config.limits.mt_queue_max = 8
@@ -772,27 +774,34 @@ def teacher_replacement(screens):
 
 def language_switch(screens):
     teacher, student = started_pair(screens)
-    audio(teacher)
-    expect(student.locator("#cards .card")).to_have_count(1)
-    first = student.locator("#cards .text").first.inner_text()
+    cards = student.locator("#cards .card")
+    texts = cards.locator(".text")
+    for seq, key in enumerate([2000, 1000, 3000], start=1):
+        audio(teacher, key)
+        expect(cards).to_have_count(seq)
+    old_texts = texts.all_inner_texts()
     select_language(student, "zh")
+    expect(texts).to_have_text([
+        old_texts[0],
+        "[zh] おはようございます。",
+        "[zh] 今日は天気がいいですね。",
+    ])
     # Receiving the updated stats is a server-side barrier for set_lang.
     expect(teacher.locator("#stat-langs")).to_have_text("zh: 1")
     audio(teacher, 1000)
-    expect(student.locator("#cards .card")).to_have_count(2)
-    expect(student.locator("#cards .text").first).to_have_text(first)
-    expect(student.locator("#cards .text").last).to_contain_text("[zh]")
+    expect(cards).to_have_count(4)
+    expect(texts.last).to_have_text("[zh] おはようございます。")
     student.evaluate("el.langSelect.add(new Option('Unsupported','fr'))")
     select_language(student, "fr")
     expect(student.locator("#lang-select")).to_have_value("zh")
     expect(student.locator("html")).to_have_attribute("lang", "zh")
+    return {"retained_in_english": [1], "replaced_with_chinese": [2, 3], "live_in_chinese": [4]}
 
 
 def language_switch_during_replay(screens):
     teacher, student = started_pair(screens)
     audio(teacher)
     expect(student.locator("#cards .card")).to_have_count(1)
-    first = student.locator("#cards .text").first.inner_text()
     student.evaluate("window.qaHeldTimers=[]; window.setTimeout=(fn,ms)=>{qaHeldTimers.push({fn,ms});return qaHeldTimers.length}; state.ws.close()")
     expect(student.locator("#session-banner")).to_have_text("Reconnecting…")
     audio(teacher, 1000)
@@ -807,14 +816,14 @@ def language_switch_during_replay(screens):
     expect(teacher.locator("#stat-langs")).to_have_text("zh: 1")
     screens.gate.set()
     expect(student.locator("#cards .card")).to_have_count(2)
-    expect(student.locator("#cards .text").first).to_have_text(first)
+    expect(student.locator("#cards .text").first).to_have_text("[zh] 光合成には日光が必要です。")
     expect(student.locator("#cards .text").last).to_have_text("[zh] おはようございます。")
     audio(teacher, 3000)
     expect(student.locator("#cards .card")).to_have_count(3)
     expect(student.locator("#cards .text").last).to_contain_text("[zh]")
     assert student.evaluate("state.lastSeq") == 3
     assert student.evaluate("qaNativeFrames.filter(x=>x.message.type==='caption' && x.message.seq>1).every(x=>x.message.lang==='zh')")
-    return {"last_seq": 3, "restored_and_live_language": "zh", "existing_card_unchanged": True}
+    return {"last_seq": 3, "restored_and_live_language": "zh", "replaced_seq": 1}
 
 
 def transcript_follow(screens):

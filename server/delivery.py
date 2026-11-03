@@ -60,9 +60,11 @@ class ClientSender:
     def pending(self) -> int:
         return self._queue.qsize()
 
-    def send(self, payload: dict) -> bool:
+    def send(self, payload: dict, *, drop_if_full: bool = False) -> bool:
         """送信を予約する。ブロックしない。False は「この接続へは届かない」。"""
         if not self._alive:
+            return False
+        if drop_if_full and self._queue.qsize() >= self._queue.maxsize - 1:
             return False
         try:
             self._queue.put_nowait(payload)
