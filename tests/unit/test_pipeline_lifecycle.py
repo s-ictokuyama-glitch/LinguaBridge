@@ -10,7 +10,7 @@ from server.config import AppConfig, PartialConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.roster import Roster
-from tests.helpers import silence_pcm, speech_pcm
+from tests.helpers import RecordingSocket, silence_pcm, speech_pcm
 
 
 class ObservedPipeline(Pipeline):
@@ -75,8 +75,8 @@ def test_one_batch_opens_closes_and_hallucination_settles_off():
         try:
             await pipeline.drain(timeout=1)
             assert pipeline.indicators == [True, False]
-            assert pipeline.history.seq_head == 0
-            assert pipeline.queue_depth == pipeline.asr_queue_depth == pipeline.mt_queue_depth == 0
+            assert pipeline.captions.history.seq_head == 0
+            assert pipeline.queue_depth == pipeline.asr_queue_depth == pipeline.captions.queue_depth == 0
         finally:
             await pipeline.stop()
     asyncio.run(scenario())
@@ -89,7 +89,11 @@ def test_drain_gives_each_stage_the_full_timeout(monkeypatch):
         now = loop.time()
         monkeypatch.setattr(loop, "time", lambda: now)
         pipeline._asr_backlog.offer(FlushTurn(closed_at=now))
-        pipeline._mt_idle.clear()
+        await pipeline.roster.add(RecordingSocket(), "student", "en")
+        utterance = pipeline.captions.history.append(
+            t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1,
+        )
+        await pipeline.captions.publish(utterance, closed_at=now)
         draining = asyncio.create_task(pipeline.drain(timeout=1))
         await asyncio.sleep(0)
         try:
@@ -100,7 +104,7 @@ def test_drain_gives_each_stage_the_full_timeout(monkeypatch):
             now += 0.75
             await asyncio.sleep(0)
             await asyncio.sleep(0)
-            pipeline._mt_idle.set()
+            pipeline.captions.start()
             await draining
         finally:
             await pipeline.stop()

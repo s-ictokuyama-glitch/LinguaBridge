@@ -60,7 +60,7 @@ async def main():
         await pipeline.flush_audio()
         await pipeline.feed_audio(speech_pcm(2000, .8).tobytes())
         await pipeline.drain(timeout=1)
-        assert pipeline.history.seq_head == 1 and not pipeline.speaking
+        assert pipeline.captions.history.seq_head == 1 and not pipeline.speaking
         print(json.dumps({"result":"PASS", "asr_then_new_mt_drain_order":True, "paused_audio_ignored":True, "caption":caption, "stats":stats}, ensure_ascii=False))
     finally:
         asr.release.set()

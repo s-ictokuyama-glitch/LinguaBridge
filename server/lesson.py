@@ -156,7 +156,7 @@ class Lesson:
             await self.roster.aclose()
 
     async def leave(self, client: Client) -> None:
-        self.pipeline.cancel_history_refresh(client)
+        self.pipeline.captions.cancel_history_refresh(client)
         await self.roster.remove(client)
         if (self._shutdown_task is None and client.role == "teacher"
                 and self.roster.teacher() is None and self.state == "live"):
@@ -201,18 +201,18 @@ class Lesson:
                 await self.send_now(socket, payload)
             return current
         if current is not None:
-            self.pipeline.cancel_history_refresh(current)
+            self.pipeline.captions.cancel_history_refresh(current)
         client = await self.roster.add(
             socket, msg.role, msg.lang, current=current,
             initial=proto.Joined(
-                seq_head=self.pipeline.history.seq_head,
-                history_from=self.pipeline.history.history_from,
+                seq_head=self.pipeline.captions.history.seq_head,
+                history_from=self.pipeline.captions.history.history_from,
                 languages=self._config.languages, session_state=self.state,
                 recording=self.recording, speaking=self.pipeline.speaking,
             ).model_dump(),
         )
         if msg.role == "student" and msg.last_seq is not None:
-            await self.pipeline.replay_history(client, msg.last_seq)
+            await self.pipeline.captions.replay_history(client, msg.last_seq)
         if (self._shutdown_task is None and msg.role == "teacher"
                 and self.roster.contains(client)):
             self.pipeline.on_teacher_joined()
@@ -226,10 +226,7 @@ class Lesson:
                 or client.role != "student"):
             return
         if lang in self._config.language_codes:
-            if client.lang != lang:
-                client.lang = lang
-                client.caption_languages.clear()
-                self.pipeline.refresh_history(client)
+            self.pipeline.captions.set_language(client, lang)
         else:
             self.roster.send(client, proto.ErrorMsg(
                 code="bad_lang", message=f"未対応の言語: {lang}"
