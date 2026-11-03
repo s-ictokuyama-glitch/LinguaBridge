@@ -130,6 +130,7 @@ class Lesson:
         if lang in self._config.language_codes:
             if client.lang != lang:
                 client.lang = lang
+                client.caption_languages.clear()
                 self.pipeline.refresh_history(client)
         else:
             self.roster.send(client, proto.ErrorMsg(

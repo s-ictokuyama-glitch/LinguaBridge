@@ -19,13 +19,14 @@ from tests.integration.test_ws_boundary import (
 
 
 class HeldRefresh(FakeTranslationEngine):
-    def __init__(self):
+    def __init__(self, held_lang="zh"):
         super().__init__(["en", "zh", "ko"])
+        self.held_lang = held_lang
         self.started = Event()
         self.release = Event()
 
     def translate(self, text_ja: str, target_lang: str) -> str:
-        if target_lang == "zh" and text_ja == PHRASE_1000:
+        if target_lang == self.held_lang and text_ja == PHRASE_1000:
             self.started.set()
             assert self.release.wait(5)
         return super().translate(text_ja, target_lang)
@@ -110,6 +111,24 @@ def test_switch_discards_previous_history_request(tmp_path):
             (1, f"[ko] {PHRASE_1000}"), (2, f"[ko] {PHRASE_2000}"),
         ]
         assert (PHRASE_2000, "zh") not in mt.calls
+
+
+def test_switching_back_refreshes_even_if_the_previous_result_was_queued(tmp_path):
+    mt = HeldRefresh("ko")
+    with classroom(tmp_path, mt) as (teacher, student, _):
+        chinese = switch_language(student, "zh")
+        while len(chinese) < 2:
+            caption = wait_for(student, Caption)
+            chinese.append((caption.seq, caption.text))
+        try:
+            switch_language(student, "ko")
+            assert mt.started.wait(3)
+            before_barrier = switch_language(student, "zh")
+        finally:
+            mt.release.set()
+        finish_lesson(teacher)
+        updated = before_barrier + remaining_captions(student)
+        assert [caption for caption in updated if caption[1].startswith("[zh] ")] == chinese
 
 
 @pytest.mark.parametrize("watermark", [1, 128])
