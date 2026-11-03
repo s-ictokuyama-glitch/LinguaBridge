@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from server import event_loop
-from server import ws_protocol as proto
+from server.connection import Connection
 from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, add_layer_arguments, config_cli_args, load_config
@@ -36,7 +36,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.rate_limit import JoinRateLimiter
 from server.lesson import Lesson, generate_join_code
-from server.roster import Client, Roster
+from server.roster import Roster
 
 logger = logging.getLogger(__name__)
 
@@ -274,65 +274,22 @@ def create_app(
             await ws.close(code=1008)
             return
         await ws.accept()
-        client_ip = ws.client.host if ws.client else "unknown"
-        client: Client | None = None
-        try:
-            while True:
-                message = await ws.receive()
-                if message["type"] == "websocket.disconnect":
-                    break
-                data = message.get("bytes")
-                if data is not None:
-                    if len(data) > config.limits.max_audio_bytes:
-                        # 100msフレーム(3200B)を大きく超えるバイナリは捨てる。
-                        # 接続は維持する（先生の操作は効いたままにする）
-                        logger.warning("上限超過の音声フレームを破棄: %d bytes", len(data))
-                        pipeline.audio_frames_rejected += 1  # 長時間試験の破棄内訳（#32）
-                        continue
-                    if client is not None and roster.contains(client) and client.role == "teacher":
-                        await pipeline.feed_audio(data)
-                    continue
-                text = message.get("text")
-                if text is None:
-                    continue
-                # 文字数ではなくバイト数で測る（日本語は1文字3バイト）
-                if len(text.encode("utf-8", "ignore")) > config.limits.max_text_bytes:
-                    await lesson.send_now(
-                        ws,
-                        proto.ErrorMsg(
-                            code="too_large", message="メッセージが大きすぎます"
-                        ).model_dump(),
-                    )
-                    continue
-                try:
-                    msg = proto.parse_client_message(text)
-                except proto.ProtocolError as exc:
-                    await lesson.send_now(
-                        ws, proto.ErrorMsg(code="bad_message", message=str(exc)).model_dump()
-                    )
-                    continue
-                if isinstance(msg, proto.JoinMessage):
-                    client = await lesson.join(ws, client, msg, client_ip)
-                elif client is None or not roster.contains(client):
-                    await lesson.send_now(
-                        ws,
-                        proto.ErrorMsg(
-                            code="not_joined", message="先に join してください"
-                        ).model_dump(),
-                    )
-                elif isinstance(msg, proto.SetLangMessage):
-                    await lesson.set_lang(client, msg.lang)
-                elif isinstance(msg, proto.ControlMessage):
-                    if client.role == "teacher":
-                        await lesson.control(msg.action)
-                elif isinstance(msg, proto.RecordingMessage):
-                    if client.role == "teacher":
-                        lesson.set_recording(msg.on)
-        except WebSocketDisconnect:
-            pass
-        finally:
-            if client is not None:
-                await lesson.leave(client)
+        connection = Connection(
+            ws, ws.client.host if ws.client else "unknown", lesson, config.limits
+        )
+        async with connection.handling():
+            try:
+                while True:
+                    message = await ws.receive()
+                    if message["type"] == "websocket.disconnect":
+                        break
+                    frame = message.get("bytes")
+                    if frame is None:
+                        frame = message.get("text")
+                    if frame is not None:
+                        await connection.receive(frame)
+            except WebSocketDisconnect:
+                pass
 
     return app
 
