@@ -32,6 +32,7 @@ import numpy as np
 
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, RecordingConfig, VadConfig
+from server.inference import InferenceRunner
 from server.lesson import Lesson
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -64,11 +65,15 @@ class ControlledExecutor(Executor):
 
 
 class Classroom:
-    def __init__(self, directory):
+    def __init__(self, directory, *, asr_executor=None):
         config = AppConfig(vad=VadConfig(engine="energy", threshold=300))
         config.recording = RecordingConfig(default_on=True, out_dir=str(directory))
         config.turn.strategy = "simple"
-        self.pipeline = Pipeline(Roster(), config, FakeASREngine(), FakeTranslationEngine(["en"]))
+        config.limits.asr_timeout_s = 90
+        self.pipeline = Pipeline(
+            Roster(), config, FakeASREngine(), FakeTranslationEngine(["en"]),
+            asr_runner=InferenceRunner(asr_executor, name="asr"),
+        )
         self.pipeline._tasks = [asyncio.create_task(self.pipeline._asr_worker())]
         self.lesson = Lesson(self.pipeline, config, join_code="1234")
         self.directory = directory
@@ -163,28 +168,28 @@ async def settle(predicate, pipeline):
 
 async def pending_case(schedule, restart, parent):
     with tempfile.TemporaryDirectory(dir=parent) as directory:
-        room = Classroom(Path(directory))
-        pipeline = room.pipeline
         executor = ControlledExecutor()
-        pipeline._asr_executor.shutdown()
-        pipeline._asr_executor = executor
-        pipeline._limits.asr_timeout_s = 90
-        wait_for = asyncio.wait_for
+        room = Classroom(Path(directory), asr_executor=executor)
+        pipeline = room.pipeline
+        loop = asyncio.get_running_loop()
+        loop_time = loop.time
+        advance = 0.0
         timeouts = 0
 
-        async def controlled_wait(awaitable, timeout):
-            nonlocal timeouts
-            if timeout == 30 and executor.pending:
+        async def control_at_deadline(action):
+            nonlocal advance, timeouts
+            if not executor.pending:
+                await room.control(action)
+                return
+            control = asyncio.create_task(room.control(action))
+            await asyncio.sleep(0)  # Let control enter the real recording wait.
+            if not control.done():
+                advance += 30
                 timeouts += 1
-                if timeouts * timeout >= pipeline._limits.asr_timeout_s:
-                    raise RuntimeError("injected drain waits exceed the ASR deadline")
+                if advance >= 90:
+                    raise RuntimeError("recording waits reached the ASR deadline")
                 room.trace.append("drain_timeout_with_ASR_pending")
-                if isinstance(awaitable, asyncio.Future):
-                    awaitable.cancel()
-                else:
-                    awaitable.close()
-                raise TimeoutError
-            return await wait_for(awaitable, timeout=timeout)
+            await control
 
         try:
             await room.control("start")
@@ -196,7 +201,7 @@ async def pending_case(schedule, restart, parent):
             await settle(lambda: len(executor.pending) == 1, pipeline)
             retry_restart = False
             retry_turn = False
-            with patch.object(asyncio, "wait_for", controlled_wait):
+            with patch.object(loop, "time", lambda: loop_time() + advance):
                 for event in schedule:
                     if event == "asr_done":
                         room.trace.append(event)
@@ -213,7 +218,7 @@ async def pending_case(schedule, restart, parent):
                             if retry_turn:
                                 await room.speak()
                     elif event == "restart":
-                        await room.control(restart)
+                        await control_at_deadline(restart)
                         if executor.pending:
                             if room.lesson.state != "ended":
                                 return Violation(
@@ -230,7 +235,7 @@ async def pending_case(schedule, restart, parent):
                         else:
                             await room.speak()
                     else:
-                        await room.control(event)
+                        await control_at_deadline(event)
             await room.control("end")
             return room.result(), timeouts
         finally:

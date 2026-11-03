@@ -23,8 +23,8 @@ import statistics
 import time
 from collections import Counter, deque
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 
 from server import ws_protocol as proto
 from server.asr.base import ASREngine
@@ -41,6 +41,7 @@ from server.audio.vad import (
 from server.asr_backlog import AsrBacklog, AsrEvent, Dropped, FlushTurn
 from server.config import AppConfig
 from server.caption_history import CaptionHistory, Translation, Utterance
+from server.inference import InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut
 from server.mt.base import TranslationEngine
 from server.model_files import TranslationModelError
 from server.mt.cache import CacheKey, TranslationCache
@@ -109,6 +110,9 @@ class Pipeline:
         config: AppConfig,
         asr_engine: ASREngine,
         mt_engine: TranslationEngine,
+        *,
+        asr_runner: InferenceRunner | None = None,
+        mt_runner: InferenceRunner | None = None,
     ) -> None:
         self.roster = roster
         self.history = CaptionHistory(config.history_resend)
@@ -179,8 +183,8 @@ class Pipeline:
         self._history_refreshes: dict[str, HistoryRefresh] = {}
         self._caption_receipt_limit = 2 * config.history_resend
         self._notice_at: dict[str, float] = {}  # 過負荷通知のクールダウン（code -> 最終送信時刻）
-        self._asr_executor = ThreadPoolExecutor(1, thread_name_prefix="asr")
-        self._mt_executor = ThreadPoolExecutor(1, thread_name_prefix="mt")
+        self._asr_runner = asr_runner if asr_runner is not None else InferenceRunner(name="asr")
+        self._mt_runner = mt_runner if mt_runner is not None else InferenceRunner(name="mt")
         self._tasks: list[asyncio.Task[None]] = []
         self._warmup_task: asyncio.Task[None] | None = None
         self.ready = False  # モデルの事前ロード完了（/ready が 200 を返す条件）
@@ -210,17 +214,21 @@ class Pipeline:
         self._warmup_task = asyncio.create_task(self._run_warmup(), name="warmup")
 
     async def _run_warmup(self) -> None:
-        loop = asyncio.get_running_loop()
-        try:
-            await loop.run_in_executor(self._asr_executor, self._asr.warmup)
-            await loop.run_in_executor(self._mt_executor, self._mt.warmup)
-        except TranslationModelError as exc:
-            logger.error("%s。/ready は 503 のままになります", exc)
-            return
-        except Exception:
-            # warmup失敗時は ready を立てない（/ready は 503 のまま = 異常を正直に返す）。
-            # 実推論側の遅延ロードで復旧する可能性はあるが、健全性としては未ロード扱い
-            logger.exception("モデルの事前ロードに失敗。/ready は 503 のままになります")
+        for runner, warmup in (
+            (self._asr_runner, self._asr.warmup),
+            (self._mt_runner, self._mt.warmup),
+        ):
+            outcome = await runner.run(warmup, timeout=None)
+            if isinstance(outcome, InferenceSucceeded):
+                continue
+            if isinstance(outcome, InferenceFailed):
+                if isinstance(outcome.error, TranslationModelError):
+                    logger.error("%s。/ready は 503 のままになります", outcome.error)
+                else:
+                    logger.error(
+                        "モデルの事前ロードに失敗。/ready は 503 のままになります",
+                        exc_info=outcome.error,
+                    )
             return
         self.ready = True
 
@@ -247,11 +255,8 @@ class Pipeline:
         self._warmup_task = None
         self._history_refreshes.clear()
         await self.roster.aclose()
-        # cancel_futures: 未着手の推論は捨てる（whisper-flow W-3 の見直し）。
-        # 実行中のスレッドは止められないので wait=False のままにする。待つと
-        # 病的入力で固まった推論に終了が引きずられる
-        self._asr_executor.shutdown(wait=False, cancel_futures=True)
-        self._mt_executor.shutdown(wait=False, cancel_futures=True)
+        self._asr_runner.stop()
+        self._mt_runner.stop()
 
     @property
     def queue_depth(self) -> int:
@@ -362,14 +367,13 @@ class Pipeline:
     # ---- ワーカー ----
 
     async def _asr_worker(self) -> None:
-        loop = asyncio.get_running_loop()
         while True:
             try:
                 async with self._asr_backlog.next() as event:
                     if isinstance(event, Segment):
-                        await self._process_segment(loop, event)
+                        await self._process_segment(event)
                     elif isinstance(event, InterimSegment):
-                        await self._process_interim(loop, event)
+                        await self._process_interim(event)
                     else:
                         await self._close_pending_turn(event)
             finally:
@@ -385,9 +389,7 @@ class Pipeline:
         if turn is not None:
             await self._publish_turn(turn, closed_at=event.closed_at)
 
-    async def _process_interim(
-        self, loop: asyncio.AbstractEventLoop, interim: InterimSegment
-    ) -> None:
+    async def _process_interim(self, interim: InterimSegment) -> None:
         """発話の途中の音声を ASR にかけ、partial を**先生にだけ**送る（#29）。
 
         確定字幕の経路には一切関与しない: 履歴にも記録にも翻訳にも載らず、
@@ -401,22 +403,20 @@ class Pipeline:
         turn_id = self._assembler.reserve_turn_id()
         # 呼んだ時点で数える（#32）。stale で捨てても推論費用は払っている
         self.asr_partial_calls += 1
-        try:
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    self._asr_executor,
-                    self._asr.transcribe,
-                    interim.pcm,
-                    self._segmenter.sample_rate,
-                ),
-                timeout=self._limits.asr_timeout_s,
-            )
-        except asyncio.TimeoutError:
+        outcome = await self._asr_runner.run(
+            partial(self._asr.transcribe, interim.pcm, self._segmenter.sample_rate),
+            timeout=self._limits.asr_timeout_s,
+        )
+        if isinstance(outcome, InferenceTimedOut):
             logger.warning("interim ASR がタイムアウトしました（partial のみ・確定字幕に影響なし）")
             return
-        except Exception:
-            logger.warning("interim ASR に失敗しました（partial のみ・確定字幕に影響なし）", exc_info=True)
+        if isinstance(outcome, InferenceFailed):
+            logger.warning(
+                "interim ASR に失敗しました（partial のみ・確定字幕に影響なし）",
+                exc_info=outcome.error,
+            )
             return
+        result = outcome.value
         if self._assembler.current_turn_id != turn_id:
             self.partials_stale += 1
             return
@@ -428,38 +428,26 @@ class Pipeline:
         self.partials_sent += 1
         await self.send_to_teacher(proto.TurnPartial(turn_id=turn_id, revision=revision, ja=text))
 
-    async def _process_segment(
-        self, loop: asyncio.AbstractEventLoop, segment: Segment
-    ) -> None:
-        started = time.monotonic()
+    async def _process_segment(self, segment: Segment) -> None:
         # 呼んだ時点で数える（#32）。タイムアウトしても幻覚で捨てても推論費用は
         # 払っているので、「何回 ASR を叩いたか」はここが正しい数え場所になる
         self.asr_calls += 1
-        try:
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    self._asr_executor,
-                    self._asr.transcribe,
-                    segment.pcm,
-                    self._segmenter.sample_rate,
-                ),
-                timeout=self._limits.asr_timeout_s,
-            )
-        except asyncio.TimeoutError:
-            # 注意: これはワーカーループを解放するだけで、**推論スレッドは止まらない**
-            # （run_in_executor の future をキャンセルしても実行中の関数は走り続ける）。
-            # タイムアウトを「復旧」と読まないこと。詰まりは次の発話がキューで待つ形で
-            # 現れ、秒数上限と過負荷通知が受け止める
+        outcome = await self._asr_runner.run(
+            partial(self._asr.transcribe, segment.pcm, self._segmenter.sample_rate),
+            timeout=self._limits.asr_timeout_s,
+        )
+        if isinstance(outcome, InferenceTimedOut):
             logger.error(
                 "ASRが %.0f 秒で返らないため、この発話を諦めます（スレッドは実行中のまま）",
                 self._limits.asr_timeout_s,
             )
             await self._notify_overload("asr_timeout", "音声認識が応答しません。処理を1件飛ばしました")
             return
-        except Exception:
-            logger.exception("ASR failed; utterance dropped")
+        if isinstance(outcome, InferenceFailed):
+            logger.error("ASR failed; utterance dropped", exc_info=outcome.error)
             return
-        asr_ms = int((time.monotonic() - started) * 1000)
+        result = outcome.value
+        asr_ms = outcome.elapsed_ms
         # 遅延の内訳（#30）。幻覚で捨てる発話も推論費用は払っているので、
         # 破棄判定より前に数える（先生に見せるのは「ASRに何ms かかる機械か」）。
         # interim（partial）はここを通らない＝中央値に混ざらない
@@ -549,12 +537,11 @@ class Pipeline:
         return True
 
     async def _mt_worker(self) -> None:
-        loop = asyncio.get_running_loop()
         while True:
             await self._mt_work.wait()
             if self._mt_queue.empty():
                 if self._history_refreshes:
-                    await self._refresh_one_caption(loop)
+                    await self._refresh_one_caption()
                     await asyncio.sleep(0)
                 else:
                     self._mt_work.clear()
@@ -562,7 +549,7 @@ class Pipeline:
                 continue
             _, _, job = self._mt_queue.get_nowait()
             try:
-                await self._process_mt_job(loop, job)
+                await self._process_mt_job(job)
             finally:
                 self._mt_queue.task_done()
 
@@ -593,29 +580,19 @@ class Pipeline:
         utterance.translations[lang] = translation
         return translation
 
-    async def _translate(
-        self, loop: asyncio.AbstractEventLoop, utterance: Utterance, lang: str,
-    ) -> Translation | None:
+    async def _translate(self, utterance: Utterance, lang: str) -> Translation | None:
         translation = utterance.translations.get(lang)
         if translation is None:  # 再接続復元ジョブは翻訳済みのことがある
             translation = self._translation_from_cache(utterance, lang)
         if translation is None:
-            started = time.monotonic()
             # 呼んだ時点で数える（#32）。キャッシュヒットも復元済みの再送もここへ
             # 来ないので、これが「Hy-MT2 を叩いた回数」そのものになる
             self.mt_calls += 1
-            try:
-                text = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        self._mt_executor,
-                        self._mt.translate,
-                        utterance.text_ja,
-                        lang,
-                    ),
-                    timeout=self._limits.mt_timeout_s,
-                )
-            except asyncio.TimeoutError:
-                # ASR側と同じく、翻訳スレッド自体は止まらない（_process_segment のコメント参照）
+            outcome = await self._mt_runner.run(
+                partial(self._mt.translate, utterance.text_ja, lang),
+                timeout=self._limits.mt_timeout_s,
+            )
+            if isinstance(outcome, InferenceTimedOut):
                 logger.error(
                     "翻訳が %.0f 秒で返らないため諦めます; lang=%s seq=%s",
                     self._limits.mt_timeout_s,
@@ -624,13 +601,14 @@ class Pipeline:
                 )
                 await self._notify_overload("mt_timeout", "翻訳が応答しません。字幕を1件飛ばしました")
                 return None
-            except TranslationModelError as exc:
-                logger.error("翻訳に失敗: %s", exc)
+            if isinstance(outcome, InferenceFailed):
+                if isinstance(outcome.error, TranslationModelError):
+                    logger.error("翻訳に失敗: %s", outcome.error)
+                else:
+                    logger.error("MT failed; lang=%s seq=%s", lang, utterance.seq, exc_info=outcome.error)
                 return None
-            except Exception:
-                logger.exception("MT failed; lang=%s seq=%s", lang, utterance.seq)
-                return None
-            mt_ms = int((time.monotonic() - started) * 1000)
+            text = outcome.value
+            mt_ms = outcome.elapsed_ms
             # 遅延の内訳（#30）。**実際に推論したときだけ**数える。キャッシュヒットを
             # 母数に入れると（実測ヒット率 27.8%）中央値が 0 へ引っ張られ、
             # 「翻訳は速い」と誤読させる。節約ぶんは mt_cache_hit_rate が別に表す。
@@ -646,13 +624,13 @@ class Pipeline:
             utterance.translations[lang] = translation
         return translation
 
-    async def _process_mt_job(self, loop: asyncio.AbstractEventLoop, job: MTJob) -> None:
+    async def _process_mt_job(self, job: MTJob) -> None:
         pending = list(job.recipient_ids)
         lang = job.lang
         attempted: set[str] = set()
         while True:
             attempted.add(lang)
-            translation = await self._translate(loop, job.utterance, lang)
+            translation = await self._translate(job.utterance, lang)
             delay_ms = 0 if job.replay else max(0, int((time.monotonic() - job.closed_at) * 1000))
             if translation is not None and lang == job.lang and not job.replay:
                 self._delay_samples.append(delay_ms)
@@ -708,7 +686,7 @@ class Pipeline:
     def cancel_history_refresh(self, client: Client) -> None:
         self._history_refreshes.pop(client.id, None)
 
-    async def _refresh_one_caption(self, loop: asyncio.AbstractEventLoop) -> None:
+    async def _refresh_one_caption(self) -> None:
         client_id = next(iter(self._history_refreshes))
         refresh = self._history_refreshes[client_id]
         client = self.roster.get(client_id)
@@ -718,7 +696,7 @@ class Pipeline:
 
         utterance = refresh.utterances.popleft()
         if client.caption_languages.get(utterance.seq) != refresh.lang:
-            translation = await self._translate(loop, utterance, refresh.lang)
+            translation = await self._translate(utterance, refresh.lang)
             if self._history_refreshes.get(client_id) is not refresh:
                 return
             if translation is not None and self.roster.contains(client):

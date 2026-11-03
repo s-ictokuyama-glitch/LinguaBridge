@@ -62,6 +62,7 @@ async def scenario(operations, watermark, *, admission=False):
     from server import ws_protocol as proto
     from server.asr.fake_engine import FakeASREngine
     from server.config import AppConfig
+    from server.inference import InferenceRunner
     from server.lesson import Lesson
     from server.mt.fake_engine import FakeTranslationEngine
     from server.pipeline import Pipeline
@@ -74,10 +75,10 @@ async def scenario(operations, watermark, *, admission=False):
         "limits": {"mt_queue_max": 8, "mt_replay_watermark": watermark},
     })
     roster = Roster(config.limits)
-    pipeline = Pipeline(roster, config, FakeASREngine(), FakeTranslationEngine())
-    pipeline._mt_executor.shutdown(wait=True)
     gate = FirstTranslationGate()
-    pipeline._mt_executor = gate
+    pipeline = Pipeline(
+        roster, config, FakeASREngine(), FakeTranslationEngine(), mt_runner=InferenceRunner(gate),
+    )
     lesson = Lesson(pipeline, config, join_code="1234")
     trace = []
     peers = []
@@ -171,8 +172,7 @@ async def scenario(operations, watermark, *, admission=False):
             worker.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await worker
-        await roster.aclose()
-        pipeline._asr_executor.shutdown(wait=True)
+        await pipeline.stop()
 
 
 async def check(args):
