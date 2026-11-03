@@ -69,16 +69,17 @@ def test_save_failure_keeps_teacher_connected_and_end_retries(tmp_path, caplog):
 
             destination.unlink()
             teacher.send_json({"type": "control", "action": "end"})
-            start_session(teacher)
-            states = []
-            wait_for(student, SessionStateMsg, state="live", received=states)
-            assert [msg.state for msg in states if isinstance(msg, SessionStateMsg)] == [
-                "ended", "live",
-            ]
+            set_recording(teacher, False)
+            received = []
+            wait_for(student, RecordingState, on=False, received=received)
+            assert [msg.state for msg in received if isinstance(msg, SessionStateMsg)] == ["ended"]
 
             (transcript,) = destination.glob("*/transcript.jsonl")
             (line,) = transcript.read_text(encoding="utf-8").splitlines()
             assert json.loads(line)["ja"] == PHRASE_2000
+
+            start_session(teacher)
+            wait_for(student, SessionStateMsg, state="live")
 
 
 class TestRecordingFiles:

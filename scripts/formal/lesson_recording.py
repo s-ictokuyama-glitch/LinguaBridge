@@ -247,14 +247,10 @@ async def save_case(restart, failure, parent):
             method = "write" if failure == "before_write" else "_write_markdown"
             with patch.object(SessionRecorder, method, side_effect=OSError("disk unavailable")):
                 for action in ("end", restart, "pause", "start"):
-                    try:
-                        await room.control(action)
-                    except OSError:
-                        if action == "end":
-                            room.state = "ended"
-                    else:
+                    await room.control(action)
+                    if room.lesson.state != "ended":
                         raise AssertionError(f"unsaved recording accepted {action}: {room.trace}")
-                    if room.lesson.state != "ended" or room.pipeline._recorder is not recorder:
+                    if room.pipeline._recorder is not recorder:
                         raise AssertionError(f"unsaved recording replaced: {room.trace}")
             room.saved_bytes = {}
             await room.control(restart)
@@ -282,8 +278,8 @@ def mutation_check(parent):
             "unsaved recording accepted",
         ),
         "seal_provisional_recording": (
-            "            directory = self._recorder.write(final=False)",
-            "            directory = self._recorder.write()",
+            "            directory = self._write_recording(final=False)",
+            "            directory = self._write_recording(final=True)",
             "pending",
             "recording_ownership",
         ),
