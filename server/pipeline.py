@@ -281,6 +281,9 @@ class Pipeline:
 
     # ---- 音声入力（先生WSハンドラから呼ばれる） ----
 
+    def reject_audio_frame(self) -> None:
+        self.audio_frames_rejected += 1
+
     async def feed_audio(self, data: bytes) -> None:
         if not self._accepting_audio:
             return  # 一時停止・終了中の音声は破棄

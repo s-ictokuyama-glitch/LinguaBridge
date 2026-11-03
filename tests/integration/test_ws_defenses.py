@@ -18,7 +18,9 @@ from server.main import create_app, origin_allowed
 from server.mt.fake_engine import FakeTranslationEngine
 from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.helpers import wait_for
-from tests.integration.test_ws_boundary import join_student, join_teacher
+from tests.integration.test_ws_boundary import (
+    PHRASE_2000, join_student, join_teacher, send_utterance, start_session,
+)
 
 
 def make_app(**limit_overrides):
@@ -107,3 +109,37 @@ class TestMessageSizeLimits:
                 # 受信ループが生きていることを control の往復で示す
                 teacher.send_json({"type": "control", "action": "pause"})
                 wait_for(teacher, proto.SessionStateMsg, state="paused")
+                assert wait_for(teacher, proto.Stats).audio_frames_rejected == 1
+
+
+def test_unexpected_connection_error_closes_and_reconnect_restores_caption(monkeypatch, caplog):
+    app = make_app()
+    set_lang = app.state.lesson.set_lang
+
+    async def fail_once(client, lang):
+        monkeypatch.setattr(app.state.lesson, "set_lang", set_lang)
+        raise RuntimeError("unexpected language switch failure")
+
+    monkeypatch.setattr(app.state.lesson, "set_lang", fail_once)
+    with TestClient(app) as client, client.websocket_connect("/ws") as teacher:
+        join_teacher(teacher)
+        start_session(teacher)
+        with client.websocket_connect("/ws") as student:
+            join_student(student, "en")
+            send_utterance(teacher, 2000)
+            assert wait_for(student, proto.Caption).seq == 1
+            student.send_json({"type": "set_lang", "lang": "zh"})
+            with pytest.raises(WebSocketDisconnect) as closed:
+                while True:
+                    student.receive_text()
+            assert closed.value.code == 1011
+
+        with client.websocket_connect("/ws") as student:
+            join_student(student, "zh", last_seq=0)
+            restored = wait_for(student, proto.Caption)
+            assert (restored.seq, restored.text) == (1, f"[zh] {PHRASE_2000}")
+    assert any(
+        record.name == "server.connection"
+        and record.exc_info and str(record.exc_info[1]) == "unexpected language switch failure"
+        for record in caplog.records
+    )
