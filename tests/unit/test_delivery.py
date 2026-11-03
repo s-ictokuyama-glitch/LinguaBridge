@@ -82,6 +82,19 @@ class TestNonBlocking:
 
 
 class TestIsolation:
+    def test_optional_caption_leaves_room_for_live_caption_without_closing(self):
+        async def scenario() -> None:
+            ws = FakeSocket()
+            sender = _make(ws, maxsize=2)
+            assert sender.send({"seq": 1}, drop_if_full=True)
+            assert not sender.send({"seq": 2}, drop_if_full=True)
+            assert sender.send({"seq": 3})
+            await sender.aclose()
+            assert ws.closed_with is None
+            assert [message["seq"] for message in ws.sent] == [1, 3]
+
+        asyncio.run(scenario())
+
     def test_overflow_closes_only_that_connection(self):
         """キューが溢れたら、その接続を切って以後の送信を捨てる。
 
