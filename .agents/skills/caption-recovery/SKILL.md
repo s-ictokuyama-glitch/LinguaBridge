@@ -11,7 +11,7 @@ description: 再接続字幕の復元漏れ・誤配信を実コードの有界�
 
 ## 実行する
 
-リポジトリ直下で次を実行する。Python 3.12.10 と依存を uv が用意する。
+リポジトリ直下で次を実行する。Python 3.12.10 と依存を uv が用意する。生徒ページの復元規則を実行するため Node.js も必要。
 
 ```powershell
 uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt python scripts/formal/caption_recovery.py --mutation-check --json .audit/caption-recovery-result.json
@@ -32,7 +32,7 @@ Issue #130 の修正後は、全探索が `PASS` となり、反例は0件にな
 `trace` を `Lesson.join`、MT開始、言語変更、新着発話、MT完了の順に実コードと照合する。
 `replay_recoverable` は復元対象の未受信seqと1013切断の有無を示す。
 `replay_isolation` は復元を要求していない生徒へのseq1の誤送信を示す。
-`replay_language` は最初のMT完了前に確定した言語と受信言語の不一致を示す。
+`replay_language` は最初のMT完了前に確定した言語と受信言語の不一致を示す。`screen_recovery` は生徒ページの復元規則に実際の配信内容を渡した後のカードと last_seq を比較する。
 
 実際には制御を譲らない `await` の途中へ割込みを追加していないことを確認する。
 MTは必ず成功し、操作列終了後はキューを公平に排出するという前提を守る。
@@ -71,5 +71,5 @@ Python実装を実行する有限入力列の全列挙であり、無制限の�
 対象生徒1人と復元を要求しない生徒2人、2言語、最初の未完了MT1件を扱う。
 5操作の長さ0〜4の全列を水位1と2で探索する。MT容量8、履歴は最大5件で失効しない。
 最初のMT結果を最後に解放し、その後の翻訳を成功させて排出する。全await順序の探索ではない。
-キャッシュを無効にし、実翻訳モデル、翻訳失敗、タイムアウト、送信障害、履歴失効、ブラウザー表示・watermark、授業終了・記録は対象外とする。
+キャッシュを無効にし、実翻訳モデル、翻訳失敗、タイムアウト、送信障害、履歴失効、ブラウザーの DOM 描画、授業終了・記録は対象外とする。復元規則は Node.js で実行し、DOM は Edge QA で確認する。
 操作・原子性・判定の詳細は [検証範囲と反例](../../../scripts/formal/caption_recovery.md) を読む。

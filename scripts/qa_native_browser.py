@@ -821,7 +821,7 @@ def language_switch_during_replay(screens):
     audio(teacher, 3000)
     expect(student.locator("#cards .card")).to_have_count(3)
     expect(student.locator("#cards .text").last).to_contain_text("[zh]")
-    assert student.evaluate("state.lastSeq") == 3
+    assert student.evaluate("state.captionRecovery.lastSeq") == 3
     assert student.evaluate("qaNativeFrames.filter(x=>x.message.type==='caption' && x.message.seq>1).every(x=>x.message.lang==='zh')")
     return {"last_seq": 3, "restored_and_live_language": "zh", "replaced_seq": 1}
 
@@ -1059,7 +1059,7 @@ def reconnect_history(screens):
     expect(student.locator("#session-banner")).to_have_text("Live")
     expect(student.locator("#cards .card")).to_have_count(2)
     assert student.locator("#cards .card").evaluate_all("xs=>xs.map(x=>+x.dataset.seq)") == [1,2]
-    assert student.evaluate("state.lastSeq") == 2
+    assert student.evaluate("state.captionRecovery.lastSeq") == 2
     expect(student.locator("#cards .text").last).to_have_text("[en] おはようございます。")
     return {"restored_seq": 2, "last_seq": 2}
 
@@ -1084,7 +1084,7 @@ def local_only_lesson_path(screens):
     student.evaluate("qaHeldTimers.shift().fn()")
     expect(student.locator("#session-banner")).to_have_text("Live")
     expect(student.locator("#cards .card")).to_have_count(2)
-    assert student.evaluate("state.lastSeq") == 2
+    assert student.evaluate("state.captionRecovery.lastSeq") == 2
 
     teacher.locator("#record-toggle").uncheck()
     expect(student.locator("#record-indicator")).to_be_hidden()
@@ -1215,12 +1215,12 @@ def replay_backpressure(screens):
         # test-induced starvation from releasing held timers too quickly.
         assert next_stats(teacher)["mt_queue_depth"] == 0
         student.evaluate("qaHeldTimers.shift().fn()")
-        student.wait_for_function("state.lastSeq===5 || qaHeldTimers.length>0", timeout=5000)
-        if student.evaluate("state.lastSeq") == 5:
+        student.wait_for_function("state.captionRecovery.lastSeq===5 || qaHeldTimers.length>0", timeout=5000)
+        if student.evaluate("state.captionRecovery.lastSeq") == 5:
             break
     expect(student.locator("#session-banner")).to_have_text("Live")
     assert student.locator("#cards .card").evaluate_all("xs=>xs.map(x=>+x.dataset.seq)") == [1,2,3,4,5]
-    assert student.evaluate("state.lastSeq") == 5
+    assert student.evaluate("state.captionRecovery.lastSeq") == 5
     return {"close_codes": student.evaluate("qaNativeClosed"), "last_seq": 5,
             "translation_order": screens.mt.calls}
 
@@ -1240,10 +1240,12 @@ def cached_large_gap(screens):
     for _ in range(3):
         assert next_stats(teacher)["mt_queue_depth"] == 0
         student.evaluate("qaHeldTimers.shift().fn()")
-        student.wait_for_function("state.lastSeq===36 || qaHeldTimers.length>0", timeout=5000)
-        if student.evaluate("state.lastSeq") == 36:
+        student.wait_for_function("state.captionRecovery.lastSeq===36 || qaHeldTimers.length>0", timeout=5000)
+        if student.evaluate("state.captionRecovery.lastSeq") == 36:
             break
-    actual = student.evaluate("({last_seq:state.lastSeq,codes:qaNativeClosed,cards:el.cards.children.length})")
+    actual = student.evaluate(
+        "({last_seq:state.captionRecovery.lastSeq,codes:qaNativeClosed,cards:el.cards.children.length})"
+    )
     assert actual["last_seq"] == 36, f"翻訳済み35件・MT待ち0でも復元が進まない: {actual}"
     assert actual["cards"] == 36
     return actual

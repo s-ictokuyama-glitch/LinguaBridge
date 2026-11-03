@@ -28,10 +28,12 @@ const sandbox = {
   document: stub, localStorage: stub, navigator: stub, window: stub,
   location: __LOCATION__,
   WebSocket: class { constructor(url) { opened.push(url); } addEventListener() {} },
+  fetch: () => new Promise(() => {}),
   setTimeout, clearTimeout, setInterval, clearInterval, URLSearchParams, console,
 };
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(__FILE__, "utf8").replace(/init\(\);\s*$/, ""), sandbox);
+vm.runInContext(fs.readFileSync("web/caption-recovery.js", "utf8"), sandbox);
+vm.runInContext(fs.readFileSync(__FILE__, "utf8"), sandbox);
 vm.runInContext(__CALL__, sandbox);
 console.log(JSON.stringify(opened));
 '''

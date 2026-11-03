@@ -705,34 +705,69 @@ def test_student_retry(page):
 @case("CONN-03", "continuous_watermark_and_history_floor")
 def test_watermark(page):
     join(page)
-    caption(page,1); caption(page,3)
-    assert page.evaluate("state.lastSeq")==1
-    page.evaluate("qa.sockets.at(-1).close(); qa.timers.shift().fn()")
-    assert page.evaluate("qa.sent.at(-1).last_seq")==1
-    caption(page,2)
-    assert page.evaluate("state.lastSeq")==3
-    emit(page,{"type":"joined","history_from":9,"session_state":"live","recording":False,"speaking":False})
-    assert page.evaluate("state.lastSeq")==8
+    cards = page.locator("#cards .card")
+
+    def reconnect_cursor():
+        page.evaluate("qa.sockets.at(-1).close(); qa.timers.shift().fn()")
+        return page.evaluate("qa.sent.at(-1).last_seq")
+
+    caption(page, 1)
+    caption(page, 3, text="First copy")
+    caption(page, 3, text="Duplicate")
+    caption(page, 2, text="Other language", lang="zh")
+    expect(cards).to_have_count(2)
+    expect(cards.last.locator(".text")).to_have_text("First copy")
+    assert reconnect_cursor() == 1
+
+    caption(page, 2)
+    assert reconnect_cursor() == 3
+    caption(page, 6)
+    caption(page, 8)
+    emit(page, {"type": "joined", "history_from": 6, "session_state": "live"})
+    assert reconnect_cursor() == 6
+
+    caption(page, 7)
+    assert reconnect_cursor() == 8
+    seqs = cards.evaluate_all("nodes => nodes.map(node => Number(node.dataset.seq))")
+    assert seqs == [1, 2, 3, 6, 7, 8]
+    return {"cards": seqs, "reconnect_cursors": [1, 3, 6, 8]}
 
 
 @case("CONN-05", "new_server_does_not_reuse_old_cards")
 def test_new_session(page):
-    join(page); caption(page,1,text="Old lesson")
-    emit(page,{"type":"join_rejected","reason":"bad_code"})
+    join(page)
+    caption(page, 1, text="Old lesson")
+    caption(page, 2)
+    emit(page, {"type": "join_rejected", "reason": "bad_code"})
     page.evaluate("qa.code='1234'")
     page.locator("#code-input").fill("1234")
     page.locator("#join-btn").click()
-    caption(page,1,text="New lesson")
-    expect(page.locator("#cards")).to_contain_text("New lesson")
+    caption(page, 1, text="New lesson")
+    expect(page.locator("#cards .text")).to_have_text(["New lesson"])
+    page.evaluate("qa.sockets.at(-1).close(); qa.timers.shift().fn()")
+    assert page.evaluate("qa.sent.at(-1).last_seq") == 1
 
 
 @case("TEACH-05", "restarted_lesson_can_reconnect")
 def test_restart(page):
     join(page)
-    emit(page,{"type":"session","state":"ended"})
-    emit(page,{"type":"session","state":"live"})
+    emit(page, {"type": "session", "state": "ended"})
     page.evaluate("qa.sockets.at(-1).close()")
-    assert page.evaluate("qa.timers.length")>0, "No reconnect scheduled after ended -> live"
+    assert page.evaluate("qa.timers.length") == 0
+
+    for resume in (
+        {"type": "session", "state": "live"},
+        {"type": "joined", "session_state": "live", "history_from": 1},
+    ):
+        page.reload()
+        join(page)
+        caption(page, 1)
+        emit(page, {"type": "session", "state": "ended"})
+        emit(page, resume)
+        caption(page, 3)
+        caption(page, 2)
+        page.evaluate("qa.sockets.at(-1).close(); qa.timers.shift().fn()")
+        assert page.evaluate("qa.sent.at(-1).last_seq") == 3
 
 
 @case("TEACH-01", "start_with_media_permission", "teacher", complete=False)
@@ -1245,7 +1280,7 @@ def test_narrow_screen(page):
     assert "l" in touch_targets, touch_targets
     assert "latest-btn" in touch_targets, touch_targets
 
-    last_seq_before_background = page.evaluate("state.lastSeq")
+    last_seq_before_background = page.evaluate("state.captionRecovery.lastSeq")
     socket_count = page.evaluate("qa.sockets.length")
     visibility_simulation = page.evaluate(
         """() => {
@@ -1302,7 +1337,7 @@ def test_narrow_screen(page):
     caption(page, seq=last_seq_before_background + 1, text="Recovered caption 7")
     expected_seqs = list(range(1, last_seq_before_background + 3))
     page.wait_for_function(
-        "expected => state.lastSeq === expected",
+        "expected => state.captionRecovery.lastSeq === expected",
         arg=expected_seqs[-1],
     )
     actual_seqs = page.locator("#cards .card").evaluate_all(
