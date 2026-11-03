@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from cryptography import x509
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 import uvicorn
 
 import scripts.make_cert as make_cert

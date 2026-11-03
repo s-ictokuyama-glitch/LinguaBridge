@@ -8,7 +8,7 @@ import wave
 
 import numpy as np
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.config import AppConfig, AsrConfig, MtConfig, VadConfig
 from server.main import build_asr_engine, build_mt_engine, create_app

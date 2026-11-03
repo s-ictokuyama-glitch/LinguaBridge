@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication

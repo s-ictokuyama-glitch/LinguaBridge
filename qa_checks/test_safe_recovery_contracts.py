@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.delivery import ClientSender

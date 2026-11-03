@@ -10,7 +10,7 @@ from typing import get_args
 import pytest
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server import ws_protocol as proto
 from tests.helpers import RecordingSocket, wait_for

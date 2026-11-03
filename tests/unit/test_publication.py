@@ -1,7 +1,7 @@
 from dataclasses import FrozenInstanceError
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.config import ServerConfig
 from server.network import InterfaceAddress

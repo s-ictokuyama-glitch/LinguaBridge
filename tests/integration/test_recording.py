@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 import websockets
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server import event_loop, main
 from server.publication import Publication

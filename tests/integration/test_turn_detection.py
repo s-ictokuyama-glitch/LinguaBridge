@@ -14,7 +14,7 @@ morph では check_silence_ms(320) 以上・force_silence_ms(640) 未満なの�
 from __future__ import annotations
 
 import numpy as np
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication

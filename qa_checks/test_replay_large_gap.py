@@ -1,7 +1,7 @@
 """Shipped defaults and explicitly reduced replay-watermark boundaries."""
 
 import pytest
-from starlette.testclient import TestClient
+from tests.helpers import TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app
