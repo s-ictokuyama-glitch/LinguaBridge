@@ -8,7 +8,7 @@ import wave
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.config import AppConfig, AsrConfig, MtConfig, VadConfig
 from server.main import build_asr_engine, build_mt_engine, create_app
@@ -81,7 +81,7 @@ def test_ops06_all_real_engine_combinations_deliver_en_and_zh() -> None:
                     config,
                     asr_engine=asr_engine,
                     mt_engine=mt_engine,
-                    join_code=JOIN_CODE,
+                    join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
                 )
                 with TestClient(app) as client:
                     with (
@@ -108,7 +108,7 @@ def test_ops06_all_real_engine_combinations_deliver_en_and_zh() -> None:
                         )
                         assert chinese.receive_json()["type"] == "joined"
                         teacher.send_json(
-                            {"type": "join", "role": "teacher", "code": JOIN_CODE}
+                            {"type": "join", "role": "teacher", "code": TEACHER_CODE}
                         )
                         assert teacher.receive_json()["type"] == "joined"
                         teacher.send_json({"type": "control", "action": "start"})

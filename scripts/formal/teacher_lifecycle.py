@@ -94,7 +94,7 @@ async def scenario(operations, *, overlap=False):
     })
     roster = Roster(config.limits)
     pipeline = Pipeline(roster, config, FakeASREngine(), FakeTranslationEngine())
-    lesson = Lesson(pipeline, config, join_code="1234")
+    lesson = Lesson(pipeline, config, join_code="1234", teacher_code="601234")
     worker = asyncio.create_task(pipeline._asr_worker())
     expected = Expected()
     clients, sockets = {}, []
@@ -107,7 +107,7 @@ async def scenario(operations, *, overlap=False):
         socket = Socket(name)
         sockets.append(socket)
         client = await lesson.join(socket, None, proto.JoinMessage(
-            type="join", role="teacher", code="1234",
+            type="join", role="teacher", code="601234",
         ), f"formal-{name}")
         if client is None:
             raise RuntimeError("valid teacher join was rejected")

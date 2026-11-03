@@ -252,7 +252,7 @@ def _import_code_is_current() -> bool:
     )
 
 MOCK = r"""
-window.qa = {sockets: [], sent: [], timers: [], code: '4831', current: 'idle',
+window.qa = {sockets: [], sent: [], timers: [], code: '4831', teacherCode: '604831', current: 'idle',
  recording: false, failConnect: false, failMic: false, failDevice: false,
  micPermissionGranted: false, deferNextMic: false, pendingMic: null,
  streams: [], sources: [], micCalls: [], devices: [{kind:'audioinput', deviceId:'default', label:'Default'},
@@ -266,7 +266,7 @@ class FakeSocket extends EventTarget {
  send(value) { qa.sent.push(value instanceof ArrayBuffer ? {audioBytes:value.byteLength} : JSON.parse(value));
    if (value instanceof ArrayBuffer) return;
    const msg=JSON.parse(value);
-   if (msg.type==='join') this.emit(msg.code===qa.code ? {type:'joined',seq_head:0,history_from:1,
+   if (msg.type==='join') this.emit(msg.code===(msg.role==='teacher' ? qa.teacherCode : qa.code) ? {type:'joined',seq_head:0,history_from:1,
      languages:[{code:'en',label:'English'},{code:'zh',label:'中文（简体）'}],session_state:qa.current,recording:qa.recording,speaking:false}
      : {type:'join_rejected',reason:'bad_code'});
    if(msg.type==='control') { qa.current={start:'live',pause:'paused',end:'ended'}[msg.action]; this.emit({type:'session',state:qa.current}); }
@@ -324,6 +324,7 @@ window.AudioWorkletNode=class { constructor(){this.port={};} connect(){} };
 
 CASES = []
 DEFAULT_SCOPE = "実Edge DOM。WS・マイクは決定的代替。LAN/実音声/モデル品質は未検証"
+STUDENT_JOIN_INFO = {"code": "4831", "join_url": "http://127.0.0.1:18765/?code=4831", "languages": []}
 
 
 class EvidenceAssertionError(AssertionError):
@@ -1039,18 +1040,77 @@ def test_record(page):
 
 @case("CONN-08", "teacher_retries_after_failed_retry", "teacher")
 def test_teacher_retry(page):
+    assert page.evaluate("qa.sent.filter(msg => msg.type === 'join')") == [
+        {"type": "join", "role": "teacher", "code": "604831"},
+    ]
+    expect(page.locator("#teacher-join-form")).to_be_hidden()
     page.evaluate("qa.sockets.at(-1).close(); qa.failConnect=true")
     expect(page.locator("#start-btn")).to_be_disabled()
-    assert page.evaluate("qa.timers.length")==1
-    page.evaluate("qa.timers.shift().fn()")
-    assert page.evaluate("qa.timers.length")==1, "First retry failed; no further retry was scheduled"
+    expect(page.locator("#session-state")).to_contain_text("再接続中")
+    page.evaluate("qa.timers.splice(qa.timers.findIndex(timer => timer.delay === 2000), 1)[0].fn()")
+    page.wait_for_function("qa.timers.some(timer => timer.delay === 2000)")
+    page.evaluate("qa.failConnect=false; qa.timers.find(timer => timer.delay === 2000).fn()")
+    expect(page.locator("#start-btn")).to_be_enabled()
+    expect(page.locator("#session-state")).to_have_text("未開始")
+
+
+@case("CONN-08", "teacher_reveals_local_code", "teacher")
+def test_teacher_reveals_local_code(page):
+    display = page.locator("#local-teacher-code")
+    toggle = page.locator("#toggle-local-teacher-code")
+    expect(display).to_be_visible()
+    expect(display).to_have_text("••••••")
+    expect(page.locator("main")).not_to_contain_text("604831")
+    toggle.click()
+    expect(display).to_have_text("604831")
+    toggle.press("Enter")
+    expect(display).to_have_text("••••••")
+    expect(page.locator("main")).not_to_contain_text("604831")
+
+
+@case("CONN-08", "teacher_enters_code_and_reconnects", "teacher")
+def test_teacher_manual_code(page):
+    page.route("**/api/teacher-info", lambda route: route.fulfill(json=STUDENT_JOIN_INFO))
+    page.reload()
+    field = page.locator("#teacher-code")
+    submit = page.locator("#teacher-join-btn")
+    error = page.locator("#teacher-join-error")
+    expect(field).to_have_attribute("type", "password")
+    expect(field).to_be_visible()
+    expect(page.locator("#local-teacher-code-panel")).to_be_hidden()
+    expect(page.locator("main")).not_to_contain_text("604831")
+    expect(page.locator("#start-btn")).to_be_disabled()
+    expect(page.locator("#join-code")).to_have_text(STUDENT_JOIN_INFO["code"])
+    expect(page.locator("#join-url")).to_have_text(STUDENT_JOIN_INFO["join_url"])
+    expect(page.locator("#qr")).to_have_attribute("title", STUDENT_JOIN_INFO["join_url"])
+    assert page.evaluate("qa.sent.length") == 0
+
+    field.fill(STUDENT_JOIN_INFO["code"])
+    submit.click()
+    expect(error).to_contain_text("半角数字6桁")
+    assert page.evaluate("qa.sent.length") == 0
+    field.fill("104831")
+    submit.click()
+    expect(error).to_contain_text("先生コードが違います")
+    expect(page.locator("#start-btn")).to_be_disabled()
+
+    field.fill("604831")
+    field.press("Enter")
+    expect(page.locator("#start-btn")).to_be_enabled()
+    expect(field).to_have_value("")
+    expect(field).to_be_hidden()
+    page.evaluate("qa.sockets.at(-1).close(); qa.timers.find(timer => timer.delay === 2000).fn()")
+    expect(page.locator("#start-btn")).to_be_enabled()
+    assert page.evaluate("qa.sent.filter(msg => msg.type === 'join').map(msg => msg.code)") == [
+        "104831", "604831", "604831",
+    ]
 
 
 @case("CONN-09", "replaced_teacher_does_not_reconnect", "teacher", complete=False)
 def test_replaced(page):
     page.evaluate("qa.sockets.at(-1).close(4000)")
     expect(page.locator("#page-error")).to_contain_text("別のタブ")
-    assert page.evaluate("qa.timers.length")==0
+    assert not page.evaluate("qa.timers.some(timer => timer.delay === 2000)")
 
 
 @case(
@@ -1578,7 +1638,7 @@ def main():
                         if path=="/api/config":
                             request.fulfill(json={"languages":[{"code":"en","label":"English"},{"code":"zh","label":"中文（简体）"}]})
                         elif path=="/api/teacher-info":
-                            request.fulfill(json={"code":"4831","join_url":"http://127.0.0.1:18765/?code=4831","languages":[]})
+                            request.fulfill(json={**STUDENT_JOIN_INFO, "teacher_code": "604831"})
                         else:
                             relative="teacher.html" if path=="/teacher" else "index.html" if path=="/" else path.removeprefix("/static/")
                             file=(ROOT/"web"/relative).resolve()

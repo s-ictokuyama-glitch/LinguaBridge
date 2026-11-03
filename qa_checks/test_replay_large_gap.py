@@ -1,7 +1,7 @@
 """Shipped defaults and explicitly reduced replay-watermark boundaries."""
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app
@@ -17,7 +17,7 @@ def test_conn04_cached_history_recovers_at_configured_watermark(watermark, missi
     assert config.history_resend == 50
     assert config.limits.mt_replay_watermark == 128
     config.limits.mt_replay_watermark = watermark
-    app = create_app(config, asr_engine=FakeASREngine(), mt_engine=FakeTranslationEngine(), join_code=JOIN_CODE)
+    app = create_app(config, asr_engine=FakeASREngine(), mt_engine=FakeTranslationEngine(), join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
     with TestClient(app) as client:
         with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as observer:
             join_teacher(teacher)

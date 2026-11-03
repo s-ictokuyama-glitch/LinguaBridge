@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -43,7 +43,7 @@ def make_app(*, enabled: bool = True, speaking_indicator: bool = True):
     )
     asr = FakeASREngine()
     mt = FakeTranslationEngine(["en"])
-    app = create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE)
+    app = create_app(config, Publication(config.server), asr_engine=asr, mt_engine=mt, join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
     return app, asr, mt
 
 

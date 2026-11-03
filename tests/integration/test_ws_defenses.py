@@ -8,7 +8,7 @@ LAN内の正規の使い方（ブラウザ・replay_client）が巻き添えで�
 from __future__ import annotations
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from server import ws_protocol as proto
@@ -31,7 +31,7 @@ def make_app(**limit_overrides):
         config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

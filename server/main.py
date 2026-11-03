@@ -37,15 +37,11 @@ from server.pipeline import Pipeline
 from server.rate_limit import JoinRateLimiter
 from server.lesson import Lesson, generate_join_code
 from server.roster import Roster
-from server.source_access import SourceAccess
+from server.source_access import SourceAccess, socket_ip
 
 logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
-
-# 平文HTTP から参加コードを取れる送信元（先生がこのPCの localhost で開く場合）。
-# HTTPS からは常に許可する（先生ページの正規経路）。"testclient" は TestClient の固定値。
-_TEACHER_INFO_HOSTS = {"127.0.0.1", "::1", "testclient"}
 
 
 def build_asr_engine(config: AppConfig) -> ASREngine:
@@ -153,6 +149,7 @@ def create_app(
     asr_engine: ASREngine | None = None,
     mt_engine: TranslationEngine | None = None,
     join_code: str | None = None,
+    teacher_code: str | None = None,
     join_limiter: JoinRateLimiter | None = None,
     diagnostics_command: str | None = None,
     recording_wait_s: float = 30,
@@ -166,6 +163,7 @@ def create_app(
     )
 
     lesson = Lesson(pipeline, config, join_code=join_code or generate_join_code(),
+                    teacher_code=teacher_code,
                     limiter=join_limiter, recording_wait_s=recording_wait_s)
 
     @asynccontextmanager
@@ -242,26 +240,23 @@ def create_app(
 
     @app.get("/api/teacher-info")
     def teacher_info(request: Request) -> JSONResponse:
-        # 参加コードを晒す口。先生ページは HTTPS(8443) 側で開く運用なので https は許可、
-        # 平文HTTP(生徒用)からはループバックのみ許可し部外者のコード取得を抑止（R-10）
-        host = request.client.host if request.client else None
-        if request.url.scheme != "https" and host not in _TEACHER_INFO_HOSTS:
-            return JSONResponse({"detail": "forbidden"}, status_code=403)
         try:
             publication.current()
         except ValueError as exc:
             logger.warning("公開接続先を利用できません: %s", exc)
             return JSONResponse({"detail": str(exc)}, status_code=503,
                                 headers={"Cache-Control": "no-store"})
-        return JSONResponse(
-            {
-                "code": lesson.join_code,
-                "join_url": publication.join_url(lesson.join_code),
-                "teacher_url": publication.teacher_url,
-                "tls": publication.tls,
-                "languages": [lang.model_dump() for lang in config.languages],
-            }, headers={"Cache-Control": "no-store"}
-        )
+        info = {
+            "code": lesson.join_code,
+            "join_url": publication.join_url(lesson.join_code),
+            "teacher_url": publication.teacher_url,
+            "tls": publication.tls,
+            "languages": [lang.model_dump() for lang in config.languages],
+        }
+        peer = socket_ip(request.scope.get("client"))
+        if peer is not None and (peer.is_loopback or peer == socket_ip(request.scope.get("server"))):
+            info["teacher_code"] = lesson.teacher_code
+        return JSONResponse(info, headers={"Cache-Control": "no-store"})
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
@@ -363,6 +358,7 @@ def main() -> None:
     print(f"  公開IP     : {ip}（変更時は再起動して再選択）")
     print(f"  一時選択時 : 診断・証明書生成にも --advertise-ip {ip} を渡してください。")
     print(f"  参加コード : {lesson.join_code}")
+    print(f"  先生コード : {lesson.teacher_code}")
     print(f"  生徒用URL  : {publication.join_url(lesson.join_code)}")
     print(f"  先生ページ : {teacher_line}")
     print("  接続診断   : 別のターミナルで start.bat --diagnose（読み取り専用）")

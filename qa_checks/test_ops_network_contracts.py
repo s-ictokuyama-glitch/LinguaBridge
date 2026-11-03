@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from cryptography import x509
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 import uvicorn
 
 import scripts.make_cert as make_cert
@@ -143,7 +143,7 @@ def test_ops08_does_not_advertise_https_lan_url_when_certificate_san_is_stale(
         )
     )
     app = SimpleNamespace(
-        state=SimpleNamespace(lesson=SimpleNamespace(join_code=JOIN_CODE))
+        state=SimpleNamespace(lesson=SimpleNamespace(join_code=JOIN_CODE, teacher_code=TEACHER_CODE))
     )
 
     async def fake_serve(

@@ -143,6 +143,7 @@ def test_startup_api_and_diagnostics_publish_same_selected_ip(tmp_path, monkeypa
     monkeypatch.setattr(main, "_serve", serve)
     main.main()
     startup = capsys.readouterr().out
+    assert f'先生コード : {urls["teacher_code"]}' in startup
     assert urls["join_url"] in startup
     assert urls["teacher_url"] == "https://10.53.64.130:8443/teacher"
     assert urls["teacher_url"] in startup

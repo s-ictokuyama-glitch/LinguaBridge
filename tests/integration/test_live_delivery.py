@@ -8,18 +8,61 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
+import ssl
+from ipaddress import IPv4Address
 
 import httpx
+import psutil
 import pytest
 from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
+from server.network import InterfaceAddress
+from server.serving import ListenerSpec, TLSFiles, start_listeners
 from tests.conftest import JOIN_CODE
-from tests.helpers import utterance_bytes
+from tests.helpers import TEACHER_CODE, utterance_bytes
 from tests.listeners import receive, run_in_worker, wait_until
 from tests.integration.test_ws_boundary import PHRASE_1000, PHRASE_2000, PHRASE_3000
 
 UTTERANCES = [(1000, PHRASE_1000), (2000, PHRASE_2000), (3000, PHRASE_3000)]
+
+
+def test_server_pc_receives_teacher_code_over_its_advertised_https_ip(
+    tmp_path, monkeypatch,
+):
+    from tests.listeners import Launcher
+
+    local_ips = [
+        item.address
+        for addresses in psutil.net_if_addrs().values()
+        for item in addresses
+        if item.family == socket.AF_INET
+        and not IPv4Address(item.address).is_global
+        and InterfaceAddress("", item.address, True, "physical").usable
+    ]
+    if not local_ips:
+        pytest.skip("非ループバックのローカルIPv4が必要")
+    ip = local_ips[0]
+    monkeypatch.setattr("server.network.list_addresses", lambda: [
+        InterfaceAddress("LAN", ip, True, "physical"),
+    ])
+    launcher = Launcher(tmp_path)
+    tls = TLSFiles(launcher.publication.cert_path, launcher.publication.key_path)
+
+    async def scenario():
+        async with start_listeners(
+            launcher.app, [ListenerSpec("0.0.0.0", 0, lifespan=True, tls=tls)],
+            install_signals=False,
+        ) as running:
+            (port,) = running.ports
+            verify = ssl.create_default_context(cafile=str(tls.cert))
+            async with httpx.AsyncClient(verify=verify, trust_env=False, timeout=3) as client:
+                response = await client.get(f"https://{ip}:{port}/api/teacher-info")
+            assert response.status_code == 200
+            assert response.json()["teacher_code"] == TEACHER_CODE
+
+    run_in_worker(scenario, timeout=10)
 
 
 def urls(scheme: str, port: int) -> tuple[str, str]:
@@ -67,7 +110,7 @@ def test_pages_handshake_join_and_three_captions_are_separately_confirmed(
 
                 # 3. 参加
                 await teacher.send(json.dumps({"type": "join", "role": "teacher",
-                                               "code": JOIN_CODE}))
+                                               "code": TEACHER_CODE}))
                 await receive(teacher, "joined")
                 for ws, lang in ((student_en, "en"), (student_zh, "zh")):
                     await ws.send(json.dumps({"type": "join", "role": "student",

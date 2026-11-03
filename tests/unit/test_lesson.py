@@ -11,7 +11,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
-from tests.helpers import RecordingSocket, speech_pcm, utterance_bytes, wait_for
+from tests.helpers import TEACHER_CODE, RecordingSocket, speech_pcm, utterance_bytes, wait_for
 from tests.unit.test_rate_limit import FakeClock
 
 
@@ -27,7 +27,7 @@ async def classroom(config=None, **kwargs):
     config = config or make_ws_test_config()
     pipeline = Pipeline(Roster(config.limits), config, FakeASREngine(),
                         FakeTranslationEngine(config.language_codes))
-    lesson = Lesson(pipeline, config, join_code=JOIN_CODE, **kwargs)
+    lesson = Lesson(pipeline, config, join_code=JOIN_CODE, teacher_code=TEACHER_CODE, **kwargs)
     await pipeline.start()
     try:
         yield lesson
@@ -37,8 +37,9 @@ async def classroom(config=None, **kwargs):
 
 async def join(lesson, role="student", lang="en", current=None, socket=None, **kwargs):
     socket = socket or RecordingSocket()
+    code = TEACHER_CODE if role == "teacher" else JOIN_CODE
     client = await lesson.join(socket, current, proto.JoinMessage(
-        type="join", role=role, lang=lang, code=kwargs.pop("code", JOIN_CODE), **kwargs
+        type="join", role=role, lang=lang, code=kwargs.pop("code", code), **kwargs
     ), "test-ip")
     return client, socket
 

@@ -17,7 +17,7 @@ import pytest
 from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
-from tests.helpers import JOIN_CODE, utterance_bytes
+from tests.helpers import TEACHER_CODE, JOIN_CODE, utterance_bytes
 from tests.listeners import (LINGER_RST, wait_until, receive, reset_socket,
                              runtime_versions, run_in_worker)
 
@@ -46,7 +46,8 @@ def test_reset_preserves_service_and_releases_resources(
                     ws = await connect(uri, origin=base, proxy=None, open_timeout=3,
                                        close_timeout=1, **options)
                     clients.append(ws)
-                    payload = {"type": "join", "role": client_role, "code": JOIN_CODE}
+                    code = TEACHER_CODE if client_role == "teacher" else JOIN_CODE
+                    payload = {"type": "join", "role": client_role, "code": code}
                     if client_role == "student":
                         payload["lang"] = "en"
                     if last_seq is not None:

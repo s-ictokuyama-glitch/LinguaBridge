@@ -14,7 +14,7 @@ morph では check_silence_ms(320) 以上・force_silence_ms(640) 未満なの�
 from __future__ import annotations
 
 import numpy as np
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -37,7 +37,7 @@ def make_app(strategy: str):
         config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

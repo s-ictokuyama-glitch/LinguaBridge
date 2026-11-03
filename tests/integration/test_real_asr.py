@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -163,7 +163,7 @@ class TestRealAsrOverWebSocket:
         app = create_app(
             config, Publication(config.server),
             mt_engine=FakeTranslationEngine(["en", "zh"]),
-            join_code=JOIN_CODE,
+            join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
         )
         with TestClient(app) as client:
             with (
@@ -174,7 +174,7 @@ class TestRealAsrOverWebSocket:
                     {"type": "join", "role": "student", "code": JOIN_CODE, "lang": "en"}
                 )
                 wait_for(student, proto.Joined)
-                teacher.send_json({"type": "join", "role": "teacher", "code": JOIN_CODE})
+                teacher.send_json({"type": "join", "role": "teacher", "code": TEACHER_CODE})
                 wait_for(teacher, proto.Joined)
                 teacher.send_json({"type": "control", "action": "start"})
                 wait_for(student, proto.SessionStateMsg, state="live")

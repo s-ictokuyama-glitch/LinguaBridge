@@ -11,7 +11,7 @@ import time
 
 from server.ws_protocol import AsrFinal, Caption, Joined, JoinRejected, SessionStateMsg
 from tests.conftest import JOIN_CODE
-from tests.helpers import utterance_bytes, wait_for
+from tests.helpers import TEACHER_CODE, utterance_bytes, wait_for
 
 PHRASE_1000 = "おはようございます。"
 PHRASE_2000 = "光合成には日光が必要です。"
@@ -29,9 +29,31 @@ def join_student(
     return wait_for(ws, expected)
 
 
-def join_teacher(ws, code: str = JOIN_CODE) -> Joined:
+def join_teacher(ws, code: str = TEACHER_CODE) -> Joined:
     ws.send_json({"type": "join", "role": "teacher", "code": code})
     return wait_for(ws, Joined)
+
+
+def test_only_teacher_code_can_join_as_teacher_and_start(client):
+    with client.websocket_connect("/ws") as ws:
+        for role, code in (("teacher", JOIN_CODE), ("student", TEACHER_CODE)):
+            ws.send_json({"type": "join", "role": role, "code": code, "lang": "en"})
+            assert ws.receive_json() == {"type": "join_rejected", "reason": "bad_code"}
+        assert join_teacher(ws).type == "joined"
+        start_session(ws)
+
+
+def test_student_join_cannot_reset_teacher_code_failures(client):
+    for attempt in range(5):
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "join", "role": "teacher", "code": JOIN_CODE})
+            assert ws.receive_json() == {"type": "join_rejected", "reason": "bad_code"}
+        if attempt < 4:
+            with client.websocket_connect("/ws") as ws:
+                assert join_student(ws, "en").type == "joined"
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "join", "role": "teacher", "code": TEACHER_CODE})
+        assert ws.receive_json() == {"type": "join_rejected", "reason": "rate_limited"}
 
 
 def start_session(teacher) -> None:

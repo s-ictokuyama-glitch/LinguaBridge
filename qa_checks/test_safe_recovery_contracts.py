@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.delivery import ClientSender
@@ -101,7 +101,7 @@ def test_invalid_messages_do_not_poison_the_same_websocket() -> None:
         make_ws_test_config(),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
     with TestClient(app) as client:

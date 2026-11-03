@@ -1,7 +1,7 @@
 from threading import Event
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from server.asr.fake_engine import FakeASREngine
@@ -19,7 +19,7 @@ def make_app(mt, *, capacity=8, watermark=1):
     config.limits.mt_replay_watermark = watermark
     return create_app(
         config, Publication(config.server), asr_engine=FakeASREngine(),
-        mt_engine=mt, join_code=JOIN_CODE,
+        mt_engine=mt, join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

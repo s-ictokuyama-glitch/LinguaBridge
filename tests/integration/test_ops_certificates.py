@@ -16,6 +16,7 @@ from server.publication import Publication
 from server.network import InterfaceAddress
 from server.config import AppConfig, ServerConfig
 from tests.certificates import write_pair
+from tests.helpers import TEACHER_CODE
 
 
 def test_startup_without_certificate_prints_local_http_teacher_url(
@@ -28,7 +29,7 @@ def test_startup_without_certificate_prints_local_http_teacher_url(
     config = AppConfig(
         server=ServerConfig(http_port=18009, cert_dir=str(cert_dir))
     )
-    app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234")))
+    app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234", teacher_code=TEACHER_CODE)))
     serve_calls: list[tuple[object, bool]] = []
 
     async def fake_serve(
@@ -121,7 +122,7 @@ def _run_startup_banner(
     cert_path.write_bytes(b"not a certificate")
     key_path.write_bytes(b"not a private key")
     config = AppConfig(server=ServerConfig(cert_dir=str(tmp_path)))
-    app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234")))
+    app = SimpleNamespace(state=SimpleNamespace(lesson=SimpleNamespace(join_code="1234", teacher_code=TEACHER_CODE)))
     serve_calls: list[tuple[object, bool]] = []
     banners_before_serve: list[str] = []
 

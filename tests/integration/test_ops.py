@@ -1,7 +1,7 @@
 """運用パッケージ（イシュー#16）のサーバー側挙動テスト。
 
 - /ready がモデルロード完了まで 503、完了で 200（E-13）。/healthz は liveness で常に200（#25 W-2）
-- /api/teacher-info は HTTPS からは許可、平文HTTPの非ループバックは 403
+- /api/teacher-info はサーバーPC自身にだけ先生コードを返す
 - モデル欠損時に build_*_engine が復旧手順つきで失敗する
 """
 
@@ -11,7 +11,7 @@ import threading
 import time
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
@@ -60,23 +60,39 @@ class TestHealthzReadiness:
 
 
 class TestTeacherInfoAccess:
-    def test_https_scheme_allowed_from_non_loopback(self):
-        # 先生ページは別端末のHTTPSで開くので、非ループバックでも https なら許可
-        app = make_app()
+    @pytest.mark.parametrize("scheme", ["http", "https"])
+    @pytest.mark.parametrize("peer", ["127.0.0.1", "192.168.1.50"])
+    def test_server_pc_receives_teacher_code(self, app, scheme, peer):
         with TestClient(
-            app, base_url="https://192.168.1.50", client=("192.168.1.50", 55000)
+            app, base_url=f"{scheme}://192.168.1.50", client=(peer, 55000)
         ) as client:
             res = client.get("/api/teacher-info")
-            assert res.status_code == 200
-            assert res.json()["code"] == JOIN_CODE
+        assert res.status_code == 200
+        assert res.headers["cache-control"] == "no-store"
+        assert res.json()["teacher_code"] == TEACHER_CODE
 
-    def test_plain_http_non_loopback_forbidden(self):
-        # 平文HTTP（生徒用）の非ループバックからは参加コードを渡さない
-        app = make_app()
+    @pytest.mark.parametrize("scheme", ["http", "https"])
+    def test_other_device_receives_only_student_join_info(self, app, scheme):
         with TestClient(
-            app, base_url="http://192.168.1.50", client=("192.168.1.50", 55000)
+            app, base_url=f"{scheme}://192.168.1.50", client=("192.168.1.51", 55000)
         ) as client:
-            assert client.get("/api/teacher-info").status_code == 403
+            res = client.get("/api/teacher-info", headers={
+                "Host": "192.168.1.51", "X-Forwarded-For": "127.0.0.1",
+            })
+        assert res.status_code == 200
+        info = res.json()
+        assert set(info) == {"code", "join_url", "teacher_url", "tls", "languages"}
+        assert info["code"] == JOIN_CODE
+        assert info["join_url"].endswith(f"/?code={JOIN_CODE}")
+
+    def test_each_app_generates_a_six_digit_teacher_code(self):
+        codes = []
+        for _ in range(3):
+            with TestClient(make_app()) as client:
+                code = client.get("/api/teacher-info").json()["teacher_code"]
+                assert len(code) == 6 and code.isascii() and code.isdecimal()
+                codes.append(code)
+        assert len(set(codes)) > 1
 
 
 class TestModelValidation:

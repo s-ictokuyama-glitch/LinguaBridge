@@ -1,6 +1,6 @@
 from threading import Event
 
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.main import create_app
@@ -37,7 +37,7 @@ def test_language_switch_delivers_pending_caption_only_to_the_switching_student(
         config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=GatedTranslation(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
     def captions_until_recording_off(socket):
