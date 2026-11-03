@@ -60,6 +60,10 @@ class RecordingPendingError(TimeoutError):
         self.provisional_directory = provisional_directory
 
 
+class RecordingSaveError(Exception):
+    pass
+
+
 @dataclass
 class MTJob:
     utterance: Utterance
@@ -742,18 +746,25 @@ class Pipeline:
 
     async def _finish_recording(self) -> Path | None:
         await self.drain(timeout=None)
-        return self._recorder.write()
+        return self._write_recording(final=True)
+
+    def _write_recording(self, *, final: bool) -> Path | None:
+        try:
+            return self._recorder.write(final=final)
+        except OSError as error:
+            logger.exception("授業記録の保存に失敗しました")
+            self.roster.send_teacher(proto.ErrorMsg(
+                code="recording_save_failed",
+                message="授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
+            ).model_dump())
+            raise RecordingSaveError("授業記録の保存に失敗しました") from error
 
     def _recording_finished(self, task: asyncio.Task[Path | None]) -> None:
         if task.cancelled():
             return
         error = task.exception()
-        if error is not None:
-            logger.error("授業記録の確定保存に失敗しました", exc_info=error)
-            self.roster.send_teacher(proto.ErrorMsg(
-                code="recording_save_failed",
-                message="授業記録を保存できませんでした。保存先を確認してから再度操作してください。",
-            ).model_dump())
+        if error is not None and not isinstance(error, RecordingSaveError):
+            logger.error("授業記録の確定処理に失敗しました", exc_info=error)
 
     async def finalize_recording(self) -> Path | None:
         """記録が必要な授業の全キュー排出と確定保存を最大30秒待つ。
@@ -777,7 +788,7 @@ class Pipeline:
         except asyncio.TimeoutError:
             if task.done():
                 return task.result()
-            directory = self._recorder.write(final=False)
+            directory = self._write_recording(final=False)
             raise RecordingPendingError(directory) from None
 
     # ---- モニタリング（#15） ----

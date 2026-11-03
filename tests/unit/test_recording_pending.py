@@ -11,7 +11,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
 from server.recorder import SessionRecorder
 from server.roster import Roster
-from tests.helpers import RecordingSocket, make_ws_test_config, speech_pcm, utterance_bytes
+from tests.helpers import RecordingSocket, make_ws_test_config, speech_pcm, utterance_bytes, wait_for
 
 
 class ControlledExecutor(Executor):
@@ -179,16 +179,16 @@ def test_failed_background_save_notifies_and_retries_same_directory(tmp_path, mo
             await finish(asr, mt, lesson.pipeline)
             await lesson.pipeline.feed_audio(speech_pcm(2000, 0.4).tobytes())
             await lesson.control("end")
+            await wait_for(teacher, "error", code="recording_pending")
             directory = next(iter(recordings(tmp_path)))
             with monkeypatch.context() as patch:
                 def fail_markdown(*args):
                     raise OSError("disk unavailable")
                 patch.setattr(SessionRecorder, "_write_markdown", fail_markdown)
                 await finish(asr, mt, lesson.pipeline)
-                await settle(lambda: any(message.get("code") == "recording_save_failed" for message in teacher.sent))
-                assert any(message.get("code") == "recording_save_failed" for message in teacher.sent)
-                with pytest.raises(OSError, match="disk unavailable"):
-                    await lesson.control("start")
+                await wait_for(teacher, "error", code="recording_save_failed")
+                await lesson.control("start")
+                await wait_for(teacher, "error", code="recording_save_failed")
                 assert lesson.state == "ended"
             await lesson.control("start")
             assert list(recordings(tmp_path)) == [directory]

@@ -12,7 +12,7 @@ from typing import Literal
 
 from server import ws_protocol as proto
 from server.config import AppConfig
-from server.pipeline import Pipeline, RecordingPendingError
+from server.pipeline import Pipeline, RecordingPendingError, RecordingSaveError
 from server.rate_limit import JoinRateLimiter
 from server.roster import Client, ClientSocket
 
@@ -59,6 +59,8 @@ class Lesson:
                 code="recording_pending",
                 message="前の授業の音声・翻訳を処理中です。保存完了後に再開できます。しばらく待ってから再度操作してください。",
             ).model_dump())
+        except RecordingSaveError:
+            return None
         return None
 
     async def leave(self, client: Client) -> None:
