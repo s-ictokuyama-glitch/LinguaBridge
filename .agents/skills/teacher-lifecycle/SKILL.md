@@ -44,11 +44,11 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 
 ## 実装との同期を確認する
 
-最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
+最終同期コミットは `d78968533639ca29108318dd9e572407f26c1c10`。
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/lesson.py` | `join`、`leave`、`control`、`_transition`、`auto_paused`、無音・記録OFF時の終了と再開 |
+| `server/lesson.py` | 正しい先生コードでの `join`、`leave`、`control`、`_transition`、`auto_paused`、無音・記録OFF時の終了と再開 |
 | `server/roster.py` | `add`、`remove`、`_detach`、`_close`、`teacher`、`contains` |
 | `server/delivery.py` | `ClientSender.aclose` からソケット切断までの待機境界 |
 | `server/pipeline.py` | `set_accepting_audio`、`on_teacher_joined`、`_asr_worker`、`drain` |
@@ -57,7 +57,7 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 | `server/config.py`、`server/ws_protocol.py` | 使用設定と参加メッセージの定義 |
 
 ```powershell
-git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/connection.py server/config.py server/ws_protocol.py
+git diff d78968533639ca29108318dd9e572407f26c1c10 -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/connection.py server/config.py server/ws_protocol.py
 ```
 
 待機境界、先生の登録と除去の順序、自動停止の理由、手動操作の認可を照合する。
@@ -71,5 +71,5 @@ Python 実装への有限操作列の全列挙であり、無制限の形式証�
 逐次探索は7操作の長さ0〜4の列、競合探索は固定の先生A・Bの交代待ちに続く6操作の長さ0〜4の列を対象とする。
 先生Cの参加とAの切断解放は各1回までとし、合法な操作の各完了時と末尾の待機解放後を比較する。
 同じ文字の再参加は新しいソケットを作り、逐次探索の退出はその文字の最後に参加した接続を使う。
-空の音声入力、記録OFF、正常な送信、既知の参加コードを使う。ASRワーカーは空のFlushTurnを排出するだけで、推論を実行しない。
+空の音声入力、記録OFF、正常な送信、既知の先生コードを使う。ASRワーカーは空のFlushTurnを排出するだけで、推論を実行しない。
 保持する切断は最大1件で、ネットワーク自体、切断失敗、キャンセル、同一ソケットでの役割変更、生徒、認証、未完了の音声・翻訳・保存、任意の並行control、さらに多い先生や長い操作列は対象外。

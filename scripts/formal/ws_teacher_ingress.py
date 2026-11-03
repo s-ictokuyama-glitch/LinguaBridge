@@ -16,7 +16,7 @@ from unittest.mock import Mock, call, patch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from server import connection
+from server import connection, lesson as lesson_module
 from server.lesson import Lesson
 from server.pipeline import Pipeline
 from server.roster import Roster
@@ -26,9 +26,10 @@ from server.mt.fake_engine import FakeTranslationEngine
 
 JOIN_CODE = "4831"
 TEACHER_CODE = "604831"
-JOIN_EVENTS = tuple(itertools.product(("teacher", "student"), (True, False)))
+CODES = {"teacher": TEACHER_CODE, "student": JOIN_CODE}
+JOIN_EVENTS = tuple(itertools.product(CODES, (*CODES, "unknown")))
 MAX_JOINS = 3
-SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
+SYNC_COMMIT = "d78968533639ca29108318dd9e572407f26c1c10"
 
 
 class Wire:
@@ -54,9 +55,8 @@ def text_frame(**payload):
     return json.dumps(payload)
 
 
-def join_frame(role: str, correct_code: bool):
-    code = TEACHER_CODE if role == "teacher" else JOIN_CODE
-    return text_frame(type="join", role=role, lang="en", code=code if correct_code else "0000")
+def join_frame(role: str, code_kind: str):
+    return text_frame(type="join", role=role, lang="en", code=CODES.get(code_kind, "0000"))
 
 
 def classroom():
@@ -109,10 +109,10 @@ async def check_join_history(connection_type, joins: tuple) -> dict:
     position: Position = "unjoined"
     trace = []
     try:
-        for role, correct_code in joins:
-            await wire.exchange(join_frame(role, correct_code))
-            trace.append(f"join {role} ({'correct' if correct_code else 'wrong'} code)")
-            if correct_code:
+        for role, code_kind in joins:
+            await wire.exchange(join_frame(role, code_kind))
+            trace.append(f"join {role} ({code_kind} code)")
+            if role == code_kind:
                 position = role
         return await check_frames(wire, lesson, limits.max_audio_bytes, position, trace)
     finally:
@@ -125,8 +125,8 @@ async def check_takeover(connection_type) -> dict:
     new = Wire(connection_type, lesson, limits)
     joining = None
     try:
-        await old.exchange(join_frame("teacher", True))
-        joining = asyncio.create_task(new.exchange(join_frame("teacher", True)))
+        await old.exchange(join_frame("teacher", "teacher"))
+        joining = asyncio.create_task(new.exchange(join_frame("teacher", "teacher")))
         await old.closing.wait()
         trace = ["old joins as teacher", "new joins as teacher", "old close has started"]
         violation = await check_frames(old, lesson, limits.max_audio_bytes, "replaced_teacher", trace)
@@ -211,6 +211,26 @@ async def check_mutations() -> dict:
                 and witness.get("actual_effects") == [effect]
             )
             results[name] = dict(detected=detected, **result)
+
+        path = Path(scratch) / "lesson.py"
+        source = Path(lesson_module.__file__).read_text(encoding="utf-8")
+        before = 'self.teacher_code if msg.role == "teacher" else self.join_code'
+        if source.count(before) != 1:
+            raise ValueError("Mutation no longer matches exactly once: student_code_as_teacher")
+        after = 'self.teacher_code if msg.role == "teacher" and msg.code != self.join_code else self.join_code'
+        path.write_text(source.replace(before, after), encoding="utf-8")
+        module = {"__name__": "server.lesson"}
+        exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), module)
+        with patch.object(Lesson, "join", module["Lesson"].join):
+            result = await check(connection.Connection)
+        witness = result.get("violation", {})
+        detected = (
+            witness.get("trace") == ["join teacher (student code)"]
+            and witness.get("probe") == "audio_at_limit"
+            and witness.get("expected_effects") == []
+            and witness.get("actual_effects") == ["feed_audio"]
+        )
+        results["student_code_as_teacher"] = dict(detected=detected, **result)
     return results
 
 
