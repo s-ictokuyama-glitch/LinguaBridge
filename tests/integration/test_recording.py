@@ -14,7 +14,7 @@ from server.asr.fake_engine import FakeASREngine
 from server.config import RecordingConfig
 from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
-from server.ws_protocol import Caption, RecordingState, SessionStateMsg
+from server.ws_protocol import Caption, ErrorMsg, RecordingState, SessionStateMsg
 from tests.conftest import JOIN_CODE, make_ws_test_config
 from tests.helpers import wait_for
 from tests.integration.test_ws_boundary import (
@@ -39,6 +39,46 @@ def make_app(tmp_path, *, default_on=False):
 
 def set_recording(teacher, on: bool) -> None:
     teacher.send_json({"type": "recording", "on": on})
+
+
+def test_save_failure_keeps_teacher_connected_and_end_retries(tmp_path, caplog):
+    destination = tmp_path / "recordings"
+    destination.touch()
+    app = make_app(destination, default_on=True)
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
+            join_student(student, "en")
+            join_teacher(teacher)
+            start_session(teacher)
+            wait_for(student, SessionStateMsg, state="live")
+            send_utterance(teacher, key=2000)
+            wait_for(student, Caption)
+
+            teacher.send_json({"type": "control", "action": "end"})
+            wait_for(student, SessionStateMsg, state="ended")
+            assert wait_for(teacher, ErrorMsg).code == "recording_save_failed"
+            assert any(
+                record.exc_info and isinstance(record.exc_info[1], FileExistsError)
+                for record in caplog.records
+            )
+
+            teacher.send_json({"type": "control", "action": "start"})
+            assert wait_for(teacher, ErrorMsg).code == "recording_save_failed"
+            assert destination.is_file()
+
+            destination.unlink()
+            teacher.send_json({"type": "control", "action": "end"})
+            start_session(teacher)
+            states = []
+            wait_for(student, SessionStateMsg, state="live", received=states)
+            assert [msg.state for msg in states if isinstance(msg, SessionStateMsg)] == [
+                "ended", "live",
+            ]
+
+            (transcript,) = destination.glob("*/transcript.jsonl")
+            (line,) = transcript.read_text(encoding="utf-8").splitlines()
+            assert json.loads(line)["ja"] == PHRASE_2000
 
 
 class TestRecordingFiles:
