@@ -47,7 +47,7 @@ async def make_pipeline(
     asr = FakeASREngine()
     mt = FakeTranslationEngine(codes)
     pipeline = Pipeline(roster, config, asr, mt)
-    await pipeline.on_lesson_state("live")
+    await pipeline.set_accepting_audio(True)
     return pipeline, asr, mt
 
 

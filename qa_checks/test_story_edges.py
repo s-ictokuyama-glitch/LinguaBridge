@@ -4,7 +4,6 @@ These assertions intentionally expose current defects; do not xfail them or
 modify production behavior merely to make an inventory/test task green.
 """
 
-import asyncio
 import json
 from pathlib import Path
 
@@ -14,8 +13,7 @@ from starlette.testclient import TestClient
 from server.config import AppConfig, Language
 from server.recorder import SessionRecorder
 from tests.unit.test_recorder import make_utterance
-from tests.unit.test_backpressure import make_pipeline, segment_of
-from tests.integration.test_recording import make_app
+from tests.integration.test_recording import GatedASR, make_app, transcript
 from tests.integration.test_ws_boundary import join_student, join_teacher, send_utterance
 
 
@@ -28,25 +26,28 @@ def receive_kind(ws, kind, **fields):
 
 
 def test_rec05_first_pending_utterance_is_drained_before_save(tmp_path):
-    async def scenario():
-        pipeline, roster = await make_pipeline()
-        pipeline._recorder = SessionRecorder(tmp_path, ["en"])
-        pipeline.set_recording(True)
-        await pipeline._asr_queue.put(segment_of(1))
-        finalizing = asyncio.create_task(pipeline.finalize_recording())
-        try:
-            await asyncio.sleep(0)
-            prematurely_done = finalizing.done()
-            # Deterministically finish the first queued ASR result.
-            pipeline._recorder.add(make_utterance(1, "最後の説明。", {"en": "Last explanation."}))
-            pipeline._asr_queue.get_nowait()
-            pipeline._asr_queue.task_done()
-            saved = await asyncio.wait_for(finalizing, 2)
-            assert not prematurely_done, "終了処理が最初のASR待ちを排出せず戻った"
-            assert saved and (saved / "transcript.jsonl").exists()
-        finally:
-            await pipeline.stop()
-    asyncio.run(scenario())
+    asr = GatedASR(1000)
+    app = make_app(tmp_path, default_on=True, asr=asr)
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
+            join_student(student, "en")
+            join_teacher(teacher)
+            teacher.send_json({"type": "control", "action": "start"})
+            receive_kind(student, "session", state="live")
+            try:
+                send_utterance(teacher, key=1000)
+                assert asr.gate.entered.wait(2)
+                teacher.send_json({"type": "control", "action": "end"})
+                receive_kind(student, "session", state="ended")
+                assert list(tmp_path.iterdir()) == []
+            finally:
+                asr.gate.release.set()
+            teacher.send_json({"type": "recording", "on": False})
+            receive_kind(student, "recording", on=False)
+            (saved,) = tmp_path.glob("*/transcript.jsonl")
+            (entry,) = transcript(saved)
+            assert entry["ja"] == asr.PHRASES[1000]
+            assert entry["translations"]["en"]["text"] == f"[en] {entry['ja']}"
 
 
 def test_rec07_retry_after_write_error(tmp_path, monkeypatch):

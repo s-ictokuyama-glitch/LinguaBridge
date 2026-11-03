@@ -1,6 +1,6 @@
 ---
 name: lesson-recording
-description: 授業記録の所属・欠落と保存失敗時の保護を実コードの有界探索で確認する。Use when changing Lesson.control, Pipeline.on_lesson_state, finalize_recording, _publish_turn, _process_segment, drain, or SessionRecorder, or investigating recordings across lesson end and restart.
+description: 授業記録の所属・欠落と保存失敗時の保護を実コードの有界探索で確認する。Use when changing Lesson.control, shutdown, its recording finalizer, Pipeline._publish_turn, drain, or SessionRecorder, or investigating recordings across lesson end and restart.
 ---
 
 # 授業記録を授業ごとに保つ
@@ -34,13 +34,12 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 
 ## 変更との同期を確認する
 
-最終同期コミットは `745f36e4e90af0e14fcaccfa2ee71ad64a7d04e2`。
-この値は製品コードを最後に照合したコミットであり、スキルを追加したコミットとは異なる。
+変更前の比較元は `745f36e4e90af0e14fcaccfa2ee71ad64a7d04e2`。
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/lesson.py` | `Lesson.control`、`_transition`、`set_recording` |
-| `server/pipeline.py` | `on_lesson_state`、`finalize_recording`、`_finalize_lesson`、`_finish_recording`、`_recording_finished`、`_publish_turn`、`_process_segment`、`_asr_worker`、`stop`、`feed_audio`、`flush_audio`、`drain` |
+| `server/lesson.py` | `Lesson.control`、`_transition`、`set_recording`、`shutdown`、`_record_utterance`、`_finalize_lesson`、`_finish_recording`、`_recording_finished` |
+| `server/pipeline.py` | `set_accepting_audio`、`_publish_turn`、`_process_segment`、`_asr_worker`、`stop`、`feed_audio`、`flush_audio`、`drain` |
 | `server/recorder.py` | `SessionRecorder.add`、`write`、`_write_markdown` |
 | `server/asr_backlog.py` | `AsrBacklog.next`、`join`、`is_idle` |
 | `server/turn/assembler.py` | simple 戦略の `add_segment` と `flush` |
@@ -49,7 +48,7 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 
 `git diff 745f36e4e90af0e14fcaccfa2ee71ad64a7d04e2 -- server/lesson.py server/pipeline.py server/recorder.py server/asr_backlog.py server/turn/assembler.py server/config.py server/asr/fake_engine.py` を確認する。
 対象処理が変わったら、操作集合、障害注入、時間予算、期待する所属を実装に照らして更新する。
-`--mutation-check` は一時コピーで記録切替と再開前の保存待ちを削除し、暫定保存を誤って封印する破壊も加えて検出を確認する。
+`--mutation-check` は一時コピーで記録器の交換と再開前の保存待ちを削除し、暫定保存を誤って封印する破壊も加えて検出を確認する。
 実行元の製品コードは変更しない。破壊用の置換箇所が見つからなければ、新しい実装に合わせて見直す。
 製品コードとの一致を確認して全探索と破壊検出を実行した後だけ、同期コミットを進める。
 未確認の変更から復旧する場合は `/maintain-formal-verification-skill` を使う。
@@ -64,4 +63,4 @@ ASR 上限は90秒とし、保存完了を待つ30秒の `wait_for` 超過を即
 保存失敗は write 前と最初の Markdown 書込前の OSError を対象とする。
 暫定保存は遅着結果を補うため更新し、最終保存されたファイルだけ不変性を確認する。
 発話順、seq、時刻、翻訳、Markdown の内容、実モデル、通信、クラッシュ、同時 control はこの有界探索の対象外。
-通常の pytest は別途、morph、複数 ASR、遅延翻訳、同じ保存完了を待つ再開呼出し、記録OFF時の停止を確認する。
+通常の pytest は別途、morph、複数 ASR、遅延翻訳、記録OFFでの再開拒否、WebSocket を閉じる前の終了通知と保存を確認する。

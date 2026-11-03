@@ -36,7 +36,7 @@ async def make_pipeline() -> Pipeline:
         FakeASREngine(),
         FakeTranslationEngine([lang.code for lang in config.languages]),
     )
-    await pipeline.on_lesson_state("live")
+    await pipeline.set_accepting_audio(True)
     return pipeline
 
 
@@ -99,7 +99,7 @@ def test_dropped_utterance_does_not_leak_queued_audio() -> None:
             BrokenASR(),
             FakeTranslationEngine([lang.code for lang in config.languages]),
         )
-        await pipeline.on_lesson_state("live")
+        await pipeline.set_accepting_audio(True)
         await pipeline.feed_audio(utterance_bytes())
         assert pipeline.audio_queue_seconds > 0
         await pipeline.start()

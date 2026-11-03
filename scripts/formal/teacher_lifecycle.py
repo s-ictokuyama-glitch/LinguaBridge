@@ -119,7 +119,6 @@ async def scenario(operations, *, overlap=False):
         require("teacher_owner", trace, [] if expected.teacher is None else [expected.teacher], owners)
         require("session_state", trace, expected.state, lesson.state)
         require("pause_reason", trace, expected.auto_paused, lesson.auto_paused)
-        require("pipeline_state", trace, expected.state, pipeline._state)
 
     async def release():
         nonlocal pending
@@ -227,11 +226,9 @@ def mutation_check():
         ("resume_manual_pause", "session_state", "join_A,start,pause,join_B", "lesson.py",
          'if self.auto_paused:', 'if self.auto_paused or self.state == "paused":'),
         ("pause_after_end", "session_state", "join_A,start,end,leave_A", "lesson.py",
-         'and self.state == "live":', 'and self.state in ("live", "ended"):'),
+         'and self.state == "live"):', 'and self.state in ("live", "ended")):'),
         ("forget_auto_resume", "session_state", "join_A,start,leave_A,join_B", "lesson.py",
          'await self._transition("live")', 'await self._transition("paused")'),
-        ("pipeline_ignores_state", "pipeline_state", "join_A,start", "pipeline.py",
-         'self._state = state', 'self._state = previous'),
     )
     results = []
     for name, property_name, case, filename, old, new in mutations:

@@ -3,7 +3,7 @@
 class SpeakingSignal:
     def __init__(self, enabled: bool) -> None:
         self._enabled = enabled
-        self._state = "idle"
+        self._accepting_audio = False
         self._current = False
 
     @property
@@ -18,14 +18,14 @@ class SpeakingSignal:
         return on
 
     def on_vad_activity(self) -> bool | None:
-        return self._change(self._state == "live")
+        return self._change(self._accepting_audio)
 
     def on_asr_settled(self, open: bool, has_pending: bool) -> bool | None:
-        return self._change(self.current and self._state == "live" and (open or has_pending))
+        return self._change(self.current and self._accepting_audio and (open or has_pending))
 
-    def on_lesson_state(self, state: str) -> bool | None:
-        self._state = state
-        return None if state == "live" else self._change(False)
+    def set_accepting_audio(self, accepting: bool) -> bool | None:
+        self._accepting_audio = accepting
+        return None if accepting else self._change(False)
 
     def on_mic_silent(self) -> bool | None:
         return self._change(False)

@@ -16,7 +16,6 @@ from server.main import create_app
 from server.mt.fake_engine import FakeTranslationEngine
 from server.mt.hymt_engine import HyMt2Engine
 from server.pipeline import Pipeline
-from server.recorder import SessionRecorder
 from server.lesson import Lesson
 from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
@@ -62,6 +61,7 @@ class Socket:
 def test_asr05_filtered_result_never_enters_confirmed_path(bad, tmp_path):
     async def scenario():
         config = make_ws_test_config()
+        config.recording.out_dir = str(tmp_path)
         roster = Roster(config.limits)
         teacher, student = Socket(), Socket()
         await roster.add(teacher, "teacher")
@@ -71,7 +71,6 @@ def test_asr05_filtered_result_never_enters_confirmed_path(bad, tmp_path):
         lesson = Lesson(pipeline, config, join_code=JOIN_CODE)
         lesson.set_recording(True)
         await lesson.control("start")
-        pipeline._recorder = SessionRecorder(tmp_path, ["en", "zh"])
         await pipeline.start()
         try:
             await asyncio.wait_for(pipeline._warmup_task, 2)
@@ -85,7 +84,7 @@ def test_asr05_filtered_result_never_enters_confirmed_path(bad, tmp_path):
             assert mt.calls == [(NORMAL, "en")]
             assert [(m["seq"], m["ja"]) for m in teacher.frames if m["type"] == "asr_final"] == [(1, NORMAL)]
             assert [(m["seq"], m["ja"]) for m in student.frames if m["type"] == "caption"] == [(1, NORMAL)]
-            directory = await pipeline.finalize_recording()
+            directory = await lesson.control("end")
             entries = [json.loads(line) for line in (directory / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]
             assert [(entry["seq"], entry["ja"]) for entry in entries] == [(1, NORMAL)]
         finally:

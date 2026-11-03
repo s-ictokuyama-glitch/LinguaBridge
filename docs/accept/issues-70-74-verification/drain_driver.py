@@ -36,7 +36,7 @@ async def main():
     await roster.add(socket, "student", "en")
     asr, mt = GatedASR(), GatedMT()
     pipeline = Pipeline(roster, AppConfig(vad=VadConfig(engine="energy", threshold=300)), asr, mt)
-    await pipeline.on_lesson_state("live")
+    await pipeline.set_accepting_audio(True)
     await pipeline.start()
     try:
         await pipeline.feed_audio(np.concatenate([speech_pcm(2000, .8), silence_pcm(1.2)]).tobytes())
@@ -56,7 +56,8 @@ async def main():
         stats = pipeline.stats_snapshot().model_dump()
         assert stats["asr_calls"] == stats["mt_calls"] == 1
         assert pipeline.queue_depth == stats["audio_queue_seconds"] == 0
-        await pipeline.on_lesson_state("paused")
+        await pipeline.set_accepting_audio(False)
+        await pipeline.flush_audio()
         await pipeline.feed_audio(speech_pcm(2000, .8).tobytes())
         await pipeline.drain(timeout=1)
         assert pipeline.history.seq_head == 1 and not pipeline.speaking

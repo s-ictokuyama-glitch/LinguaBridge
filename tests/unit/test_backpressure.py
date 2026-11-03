@@ -47,7 +47,7 @@ async def make_pipeline(**limit_overrides) -> tuple[Pipeline, Roster]:
         setattr(config.limits, key, value)
     roster = Roster(config.limits)
     pipeline = Pipeline(roster, config, FakeASREngine(), FakeTranslationEngine(["en"]))
-    await pipeline.on_lesson_state("live")
+    await pipeline.set_accepting_audio(True)
     return pipeline, roster
 
 
