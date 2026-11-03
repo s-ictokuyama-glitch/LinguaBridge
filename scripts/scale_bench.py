@@ -207,7 +207,7 @@ from scripts.replay_client import (  # noqa: E402
     _terminate_tree,
     build_stream,
     continuous_delivery_summary,
-    fetch_code,
+    fetch_codes,
     system_info,
     wait_ready,
     write_config,
@@ -296,14 +296,14 @@ def run_point(
         )
         try:
             wait_ready(port, proc)
-            code = fetch_code(port)
+            codes = fetch_codes(port)
             pcm = build_stream(minutes, None, corpus)
             print(
                 f"  言語{len(langs)}（{'/'.join(langs)}） x 生徒{students}名 "
                 f"/ MT={mt_engine} / 音源{pcm.size / SAMPLE_RATE:.0f}s",
                 flush=True,
             )
-            results = asyncio.run(_drive(port, code, pcm, students, drain_s, proc, langs))
+            results = asyncio.run(_drive(port, codes, pcm, students, drain_s, proc, langs))
         finally:
             _terminate_tree(proc)
             log.close()

@@ -20,6 +20,19 @@
   </div>
 
   <main class="page">
+    <section id="local-teacher-code-panel" aria-labelledby="local-teacher-code-label" hidden>
+      <span id="local-teacher-code-label">先生コード</span>
+      <span id="local-teacher-code"></span>
+      <button id="toggle-local-teacher-code" type="button" aria-controls="local-teacher-code">先生コードを表示</button>
+    </section>
+    <form id="teacher-join-form" hidden novalidate>
+      <label for="teacher-code">先生コード</label>
+      <p id="teacher-code-hint">サーバーPCの起動案内に表示された6桁のコードを入力してください。</p>
+      <input id="teacher-code" type="password" inputmode="numeric" autocomplete="off"
+             aria-describedby="teacher-code-hint teacher-join-error">
+      <button id="teacher-join-btn" type="submit">参加</button>
+      <p id="teacher-join-error" class="plate error" role="alert" hidden></p>
+    </form>
     <!-- 開始前だけ見せる参加案内。開始後は状態行の「参加コード」欄が遅れて来る生徒の入口になる -->
     <section id="join-panel" aria-labelledby="join-title">
       <h2 id="join-title" class="sr-only">生徒の参加方法</h2>
@@ -63,7 +76,7 @@
           <option value="">既定のマイク</option>
         </select>
         <label class="record-toggle">
-          <input type="checkbox" id="record-toggle">
+          <input type="checkbox" id="record-toggle" disabled>
           <span>授業を記録する（既定OFF・終了時にこのPCへ保存。生徒情報は含みません）</span>
         </label>
         <p id="mic-status" class="hint">「開始」を押すとマイクの許可を求めます。</p>

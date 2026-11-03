@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 import websockets
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import event_loop, main
 from server.publication import Publication
@@ -47,7 +47,7 @@ def make_app(tmp_path, *, default_on=False, asr=None, mt=None,
         config, Publication(config.server),
         asr_engine=asr or FakeASREngine(),
         mt_engine=mt or FakeTranslationEngine(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
         recording_wait_s=recording_wait_s,
     )
 
@@ -332,7 +332,7 @@ def test_listener_shutdown_flushes_records_and_delivers_before_socket_close(
             teacher_port, student_port = running.ports
             async with (websockets.connect(f"ws://127.0.0.1:{teacher_port}/ws") as teacher,
                         websockets.connect(f"ws://127.0.0.1:{student_port}/ws") as student):
-                await teacher.send(json.dumps({"type": "join", "role": "teacher", "code": JOIN_CODE}))
+                await teacher.send(json.dumps({"type": "join", "role": "teacher", "code": TEACHER_CODE}))
                 await student.send(json.dumps({"type": "join", "role": "student", "code": JOIN_CODE, "lang": "en"}))
                 await receive(teacher, "joined")
                 await receive(student, "joined")

@@ -22,7 +22,7 @@ from server.asr.fake_engine import FakeASREngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.publication import Publication
 from server.serving import ListenerSpec, TLSFiles, start_listeners
-from tests.helpers import JOIN_CODE, make_ws_test_config
+from tests.helpers import TEACHER_CODE, JOIN_CODE, make_ws_test_config
 
 LINGER_RST = struct.pack("HH" if os.name == "nt" else "ii", 1, 0)
 
@@ -80,7 +80,7 @@ class Launcher:
         generate(config.server.cert_path(), config.server.key_path(), ip=self.publication.ip)
         self.publication = Publication(config.server)
         self.app = main.create_app(config, self.publication, asr_engine=FakeASREngine(),
-            mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE)
+            mt_engine=FakeTranslationEngine(["en", "zh"]), join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
         self.exceptions = []
         self.running = None
 

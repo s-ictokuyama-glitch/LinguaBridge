@@ -11,7 +11,7 @@ from __future__ import annotations
 import wave
 from pathlib import Path
 
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -37,7 +37,7 @@ def make_app(out_dir: Path, *, default_on: bool):
         config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=FakeTranslationEngine(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

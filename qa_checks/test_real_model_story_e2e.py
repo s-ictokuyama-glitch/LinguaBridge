@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.config import AppConfig, AsrConfig, MtConfig, SherpaConfig, VadConfig
 from server.main import build_asr_engine, create_app
@@ -63,7 +63,7 @@ def test_asr01_real_japanese_audio_reaches_selected_languages_locally() -> None:
     pcm = np.concatenate([_load_pcm(ASR_STORY_WAV), silence_pcm(0.8)])
 
     with guard_network() as network:
-        app = create_app(config, join_code=JOIN_CODE)
+        app = create_app(config, join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
         with TestClient(app) as client:
             with (
                 client.websocket_connect("/ws") as teacher,

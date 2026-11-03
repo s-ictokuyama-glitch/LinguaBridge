@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from threading import Event
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.asr.fake_engine import FakeASREngine
 from server.config import Language
@@ -42,7 +42,7 @@ def classroom(tmp_path, mt, *, watermark=128):
     config.monitoring.stats_interval_s = 0.05
     app = create_app(
         config, Publication(config.server), asr_engine=FakeASREngine(),
-        mt_engine=mt, join_code=JOIN_CODE,
+        mt_engine=mt, join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
     with (
         TestClient(app) as client,

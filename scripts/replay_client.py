@@ -1066,7 +1066,7 @@ def _timing_coverage(samples: list[dict], measurement_s: float) -> dict[str, flo
 
 async def _drive(
     port: int,
-    code: str,
+    codes: JoinCodes,
     pcm: np.ndarray,
     n_students: int,
     drain_s: float,
@@ -1077,7 +1077,7 @@ async def _drive(
     results = Results()
     langs = langs or ["en", "zh"]
     students = [
-        asyncio.create_task(run_student(port, code, langs[i % len(langs)], results, f"s{i}"))
+        asyncio.create_task(run_student(port, codes.student, langs[i % len(langs)], results, f"s{i}"))
         for i in range(n_students)
     ]
     sampler = asyncio.create_task(sample_rss(proc, results))
@@ -1104,7 +1104,7 @@ async def _drive(
     results.measurement_students = len(results.live_ws)
     results.measurement_langs = observed_langs
     started = time.monotonic()
-    teacher = asyncio.create_task(run_teacher(port, code, pcm, results, drain_s))
+    teacher = asyncio.create_task(run_teacher(port, codes.teacher, pcm, results, drain_s))
     await results.measurement_started.wait()
     if (
         disconnect_every_s
@@ -1187,9 +1187,16 @@ def wait_ready(port: int, proc: subprocess.Popen, timeout_s: float = 300) -> Non
     raise TimeoutError(f"サーバーが {timeout_s}s 以内に ready になりませんでした")
 
 
-def fetch_code(port: int) -> str:
+@dataclass(frozen=True, repr=False)
+class JoinCodes:
+    student: str
+    teacher: str
+
+
+def fetch_codes(port: int) -> JoinCodes:
     with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/teacher-info", timeout=5) as res:
-        return str(json.load(res)["code"])
+        info = json.load(res)
+    return JoinCodes(student=info["code"], teacher=info["teacher_code"])
 
 
 def _terminate_tree(proc: subprocess.Popen) -> None:
@@ -1248,13 +1255,13 @@ def run_engine_test(
         )
         try:
             wait_ready(args.port, proc)
-            code = fetch_code(args.port)
+            codes = fetch_codes(args.port)
             pcm = build_stream(args.minutes, args.audio, getattr(args, "corpus", "ja"))
-            print(f"    参加コード {code} / 音源 {pcm.size / SAMPLE_RATE:.0f}s / 生徒{args.students}名", flush=True)
+            print(f"    参加コード {codes.student} / 音源 {pcm.size / SAMPLE_RATE:.0f}s / 生徒{args.students}名", flush=True)
             results = asyncio.run(
                 _drive(
                     args.port,
-                    code,
+                    codes,
                     pcm,
                     args.students,
                     args.drain_seconds,

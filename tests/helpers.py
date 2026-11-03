@@ -17,6 +17,7 @@ from server.config import AppConfig, VadConfig
 from server.ws_protocol import ServerMessage, parse_server_message
 
 JOIN_CODE = "4831"
+TEACHER_CODE = "604831"
 TestClient = partial(StarletteTestClient, client=("127.0.0.1", 50000))
 
 SAMPLE_RATE = 16000

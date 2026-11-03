@@ -20,7 +20,7 @@ import time
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -82,7 +82,7 @@ def make_app(*, asr_engine=None, mt_engine=None):
         config, Publication(config.server),
         asr_engine=asr_engine or FakeASREngine(),
         mt_engine=mt_engine or FakeTranslationEngine(["en", "zh"]),
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

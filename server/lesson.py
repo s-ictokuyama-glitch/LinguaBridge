@@ -32,12 +32,16 @@ class RecordingSaveError(Exception):
 
 class Lesson:
     def __init__(self, pipeline: Pipeline, config: AppConfig, *, join_code: str,
+                 teacher_code: str | None = None,
                  limiter: JoinRateLimiter | None = None,
                  clock: Callable[[], float] = time.monotonic,
                  recording_wait_s: float = 30) -> None:
         self.pipeline = pipeline
         self.roster = pipeline.roster
         self.join_code = join_code
+        self.teacher_code = (
+            teacher_code if teacher_code is not None else f"{secrets.randbelow(1_000_000):06d}"
+        )
         self._config = config
         self._limiter = limiter or JoinRateLimiter(clock=clock)
         self.state: proto.SessionState = "idle"
@@ -179,13 +183,14 @@ class Lesson:
         if self._shutdown_task is not None:
             return current
         reason: proto.JoinRejectReason | None = None
+        expected_code = self.teacher_code if msg.role == "teacher" else self.join_code
         if self._limiter.is_blocked(client_ip):
             reason = "rate_limited"
-        elif msg.code != self.join_code:
-            self._limiter.record_failure(client_ip)
+        elif not msg.code.isascii() or not secrets.compare_digest(msg.code, expected_code):
+            self._limiter.record_failure(client_ip, role=msg.role)
             reason = "bad_code"
         else:
-            self._limiter.record_success(client_ip)
+            self._limiter.record_success(client_ip, role=msg.role)
             if msg.role == "student" and msg.lang not in self._config.language_codes:
                 reason = "bad_lang"
             elif (msg.role == "student"

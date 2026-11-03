@@ -25,6 +25,7 @@ from server.config import AppConfig, TurnConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
 
 JOIN_CODE = "4831"
+TEACHER_CODE = "604831"
 JOIN_EVENTS = tuple(itertools.product(("teacher", "student"), (True, False)))
 MAX_JOINS = 3
 SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
@@ -54,14 +55,15 @@ def text_frame(**payload):
 
 
 def join_frame(role: str, correct_code: bool):
-    return text_frame(type="join", role=role, lang="en", code=JOIN_CODE if correct_code else "0000")
+    code = TEACHER_CODE if role == "teacher" else JOIN_CODE
+    return text_frame(type="join", role=role, lang="en", code=code if correct_code else "0000")
 
 
 def classroom():
     config = AppConfig(vad=VadConfig(engine="energy", threshold=300),
                        turn=TurnConfig(strategy="simple"))
     pipeline = Pipeline(Roster(config.limits), config, FakeASREngine(), FakeTranslationEngine())
-    return Lesson(pipeline, config, join_code=JOIN_CODE), config.limits
+    return Lesson(pipeline, config, join_code=JOIN_CODE, teacher_code=TEACHER_CODE), config.limits
 
 
 Position = Literal["unjoined", "student", "teacher", "replaced_teacher"]

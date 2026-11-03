@@ -13,6 +13,13 @@ footer.page { padding-bottom: 28px; font-size: 0.9rem; }
 footer a { color: var(--ink-2); }
 body > .plate.error { padding-left: 20px; padding-right: 20px; }
 
+#teacher-join-form, #local-teacher-code-panel { border: 2px solid var(--ink); border-radius: 6px; padding: 12px; }
+#teacher-join-form label, #local-teacher-code-label { font-weight: 800; }
+#local-teacher-code { margin: 0 8px; font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+#teacher-code-hint { margin: 4px 0 8px; }
+#teacher-code { width: 8em; max-width: 100%; padding: 8px; }
+#teacher-join-error { margin: 8px 0 0; }
+
 /* 参加案内：開始前の2手順 */
 #join-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
 body:not([data-state="idle"]) #join-panel { display: none; }
@@ -36,9 +43,9 @@ body:not([data-state="idle"]) #join-panel { display: none; }
 .cell-delay.slow small { color: var(--sign-ink); }
 .live-code { letter-spacing: 0.12em; }
 
-.controls button { padding: 10px 18px; font-size: 1rem; font-weight: 800; border-radius: 6px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.controls button, #teacher-join-btn, #toggle-local-teacher-code { padding: 10px 18px; font-size: 1rem; font-weight: 800; border-radius: 6px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; white-space: nowrap; }
 #start-btn { background: var(--ink); color: var(--paper); }
-.controls button:disabled { opacity: 0.4; cursor: default; }
+.controls button:disabled, #teacher-join-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* 注意板は表示板の下辺にぶら下げる（枠を共有し、上辺の罫線は持たない） */
 .plate.hang { margin: 0; border: 2px solid var(--ink); border-top: 0; border-radius: 0 0 4px 4px; }

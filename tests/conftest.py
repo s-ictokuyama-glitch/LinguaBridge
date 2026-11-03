@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.publication import Publication
 from server.asr.fake_engine import FakeASREngine
@@ -38,7 +38,7 @@ def app(asr_engine: FakeASREngine, mt_engine: FakeTranslationEngine):
         config, Publication(config.server),
         asr_engine=asr_engine,
         mt_engine=mt_engine,
-        join_code=JOIN_CODE,
+        join_code=JOIN_CODE, teacher_code=TEACHER_CODE,
     )
 
 

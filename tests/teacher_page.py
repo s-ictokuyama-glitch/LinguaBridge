@@ -1,4 +1,4 @@
-"""先生画面 web/teacher.js をNode.jsのvmで読み込み、DOMとfetchの境界だけ差し替えて動かす。
+"""先生画面 web/teacher.js をNode.jsのvmで読み込み、ブラウザーの境界を差し替えて動かす。
 
 QRライブラリは渡された文字列を要素へ書くだけの代役にする（QR画像の読取りは行わない）。
 """
@@ -20,11 +20,35 @@ const vm = require("node:vm");
 const assert = require("node:assert/strict");
 const elements = new Map();
 const replies = __REPLIES__;
+const sockets = [];
+const sent = [];
+const timers = [];
 const sandbox = {
-  document: {getElementById(id) {
-    if (!elements.has(id)) elements.set(id, {textContent: "", hidden: true});
-    return elements.get(id);
-  }},
+  document: {
+    body: {dataset: {}},
+    getElementById(id) {
+      if (!elements.has(id)) {
+        elements.set(id, Object.assign(new EventTarget(), {
+          textContent: "", hidden: true, classList: {remove() {}},
+        }));
+      }
+      return elements.get(id);
+    },
+  },
+  location: {protocol: "https:", host: "teacher.test"},
+  navigator: {},
+  setTimeout(fn, delay) { timers.push({fn, delay}); },
+  WebSocket: class extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send(data) { sent.push(JSON.parse(data)); }
+    emit(message) {
+      this.dispatchEvent(new MessageEvent("message", {data: JSON.stringify(message)}));
+    }
+    close() { this.dispatchEvent(new Event("close")); }
+  },
   fetch: async () => {
     const reply = replies.shift();
     return {ok: reply.status === 200, status: reply.status, json: async () => reply.body};
@@ -33,7 +57,7 @@ const sandbox = {
   QRCode: function(element, options) { element.textContent = options.text; },
 };
 vm.createContext(sandbox);
-// 起動イベントは呼ばず、画面が利用する情報更新入口を実行する。
+// テストから必要な入口を呼ぶため、スクリプト末尾の自動起動を外す。
 vm.runInContext(fs.readFileSync("web/teacher.js", "utf8").replace(/init\(\);\s*$/, ""), sandbox);
 (async () => {
 __BODY__

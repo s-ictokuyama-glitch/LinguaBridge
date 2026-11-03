@@ -6,10 +6,13 @@
 const MIC_LEVEL_FULL_SCALE = 3000; // このRMS(int16)でメーター満杯とみなす
 const DELAY_NOTICE_MS = 5000; // 生徒側 student.js の DELAY_NOTICE_MS と揃える。これ以上で遅延欄を黄にする
 const STORAGE_MIC_DEVICE = "lb_mic_device_id"; // 選んだマイク（#30）。生徒側の作法に揃える
+const TEACHER_CODE_MASK = "••••••";
 
 const state = {
   ws: null,
   joined: false,
+  acceptedTeacherCode: null,
+  localTeacherCode: null,
   sessionState: "idle",
   micReady: false,
   audioCtx: null,
@@ -22,6 +25,13 @@ const state = {
 const el = {
   pageError: document.getElementById("page-error"),
   networkError: document.getElementById("network-error"),
+  localTeacherCodePanel: document.getElementById("local-teacher-code-panel"),
+  localTeacherCode: document.getElementById("local-teacher-code"),
+  toggleLocalTeacherCode: document.getElementById("toggle-local-teacher-code"),
+  teacherJoinForm: document.getElementById("teacher-join-form"),
+  teacherCode: document.getElementById("teacher-code"),
+  teacherJoinBtn: document.getElementById("teacher-join-btn"),
+  teacherJoinError: document.getElementById("teacher-join-error"),
   qr: document.getElementById("qr"),
   joinCode: document.getElementById("join-code"),
   joinCodeLive: document.getElementById("join-code-live"),
@@ -79,9 +89,9 @@ const STATE_LABELS = {
 };
 
 // ページの状態は body[data-state] の1属性だけで持つ。帯の色・記号・区画の表示は CSS が決める
-function setPageState(key) {
+function setPageState(key, label = STATE_LABELS[key] || key) {
   document.body.dataset.state = key;
-  el.sessionState.textContent = STATE_LABELS[key] || key;
+  el.sessionState.textContent = label;
 }
 
 // ---- マイク選択（#30。再読み込み後も保持する: 生徒側 F-06 と同じ作法） ----
@@ -195,6 +205,18 @@ async function onMicSelected() {
   }
 }
 
+function renderLocalTeacherCode(revealed) {
+  el.localTeacherCode.textContent = revealed ? state.localTeacherCode : TEACHER_CODE_MASK;
+  el.toggleLocalTeacherCode.textContent = revealed ? "先生コードを隠す" : "先生コードを表示";
+}
+
+function setLocalTeacherCode(code = null) {
+  if (code === state.localTeacherCode) return;
+  state.localTeacherCode = code;
+  el.localTeacherCodePanel.hidden = !code;
+  renderLocalTeacherCode(false);
+}
+
 async function refreshJoinInfo() {
   try {
     const res = await fetch("/api/teacher-info", {
@@ -212,9 +234,11 @@ async function refreshJoinInfo() {
     el.joinCode.textContent = info.code;
     el.joinCodeLive.textContent = info.code; // 開始後に遅れて来る生徒のため
     el.joinUrl.textContent = info.join_url;
+    setLocalTeacherCode(info.teacher_code);
     el.networkError.hidden = true;
     return info;
   } catch (err) {
+    setLocalTeacherCode();
     el.qr.textContent = "";
     el.joinUrl.textContent = "";
     el.joinCode.textContent = "";
@@ -230,12 +254,39 @@ async function monitorJoinInfo() {
   setTimeout(monitorJoinInfo, 5000);
 }
 
+function showTeacherJoinForm(message = "") {
+  el.teacherJoinError.textContent = message;
+  el.teacherJoinError.hidden = !message;
+  el.teacherCode.disabled = false;
+  el.teacherJoinBtn.disabled = false;
+  el.teacherJoinForm.hidden = false;
+}
+
 async function init() {
   const info = await refreshJoinInfo();
   if (!info) return;
   setTimeout(monitorJoinInfo, 5000);
 
-  connect(info.code);
+  el.toggleLocalTeacherCode.addEventListener("click", () => {
+    if (state.localTeacherCode) {
+      renderLocalTeacherCode(el.localTeacherCode.textContent === TEACHER_CODE_MASK);
+    }
+  });
+  el.teacherJoinForm.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    if (state.ws) return;
+    const code = el.teacherCode.value;
+    if (!/^[0-9]{6}$/.test(code)) {
+      showTeacherJoinForm("先生コードを半角数字6桁で入力してください。");
+      return;
+    }
+    el.teacherCode.disabled = true;
+    el.teacherJoinBtn.disabled = true;
+    el.teacherJoinError.hidden = true;
+    connect(code);
+  });
+  if (info.teacher_code) connect(info.teacher_code);
+  else showTeacherJoinForm();
 
   el.startBtn.addEventListener("click", async () => {
     try {
@@ -249,7 +300,7 @@ async function init() {
   el.pauseBtn.addEventListener("click", () => sendControl("pause"));
   el.endBtn.addEventListener("click", () => sendControl("end"));
   el.recordToggle.addEventListener("change", () => {
-    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+    if (state.joined && state.ws.readyState === WebSocket.OPEN) {
       state.ws.send(JSON.stringify({ type: "recording", on: el.recordToggle.checked }));
     }
   });
@@ -272,40 +323,59 @@ function connect(code) {
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
   state.ws = ws;
   ws.addEventListener("open", () => {
+    if (state.ws !== ws) return;
     ws.send(JSON.stringify({ type: "join", role: "teacher", code }));
   });
-  ws.addEventListener("message", (ev) => handleMessage(JSON.parse(ev.data)));
+  ws.addEventListener("message", (ev) => {
+    if (state.ws !== ws) return;
+    const msg = JSON.parse(ev.data);
+    if (state.joined || msg.type === "joined" || msg.type === "join_rejected") {
+      handleMessage(msg, ws, code);
+    }
+  });
   ws.addEventListener("close", (ev) => {
-    if (!state.joined) return;
-    state.joined = false; // 再接続の "joined" で立て直す。切断中は操作させない
+    if (state.ws !== ws) return;
+    state.ws = null;
+    state.joined = false;
     setButtons(false);
     if (ev.code === 4000) {
       // 後勝ち接続に置き換えられた（E-08）。再接続すると互いにキックし合うので止まる
+      state.acceptedTeacherCode = null;
       el.pageError.textContent =
         "別のタブ・端末で先生ページが接続されたため、この接続は終了しました。";
       el.pageError.hidden = false;
       return;
     }
-    setPageState("disconnected");
-    el.micStatus.textContent = "サーバーとの接続が切れました。再接続中…";
-    setTimeout(() => connect(code), 2000);
+    if (!state.acceptedTeacherCode) {
+      showTeacherJoinForm("サーバーに接続できませんでした。接続先を確認してやり直してください。");
+      return;
+    }
+    setPageState("disconnected", "サーバーとの接続が切れました。再接続中…");
+    setTimeout(() => connect(state.acceptedTeacherCode), 2000);
   });
 }
 
-function handleMessage(msg) {
+function handleMessage(msg, ws, code) {
   switch (msg.type) {
     case "joined":
+      state.acceptedTeacherCode = code;
       state.joined = true;
-      applySessionState(msg.session_state); // ボタンの活性・ラベルもここで決まる
+      el.teacherCode.value = "";
+      el.teacherJoinForm.hidden = true;
+      applySessionState(msg.session_state);
       applyRecording(msg.recording);
+      break;
+    case "join_rejected":
+      if (state.acceptedTeacherCode) setPageState("disconnected");
+      state.acceptedTeacherCode = null;
+      state.ws = null;
+      ws.close();
+      showTeacherJoinForm(msg.reason === "rate_limited"
+        ? "参加を一時的に制限しています。しばらく待ってからやり直してください。"
+        : "先生コードが違います。サーバーPCの起動案内を確認してください。");
       break;
     case "recording":
       applyRecording(msg.on);
-      break;
-    case "join_rejected":
-      el.pageError.textContent =
-        "サーバーへの参加が拒否されました。サーバーを再起動してページを開き直してください。";
-      el.pageError.hidden = false;
       break;
     case "session":
       applySessionState(msg.state);
@@ -389,10 +459,11 @@ function setButtons(connected) {
   el.startBtn.disabled = !connected || s === "live";
   el.pauseBtn.disabled = !connected || s !== "live";
   el.endBtn.disabled = !connected || (s !== "live" && s !== "paused");
+  el.recordToggle.disabled = !connected;
 }
 
 function sendControl(action) {
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+  if (state.joined && state.ws.readyState === WebSocket.OPEN) {
     state.ws.send(JSON.stringify({ type: "control", action }));
   }
 }
@@ -440,7 +511,7 @@ async function ensureMic() {
       // サーバー側でも live 以外は破棄するが、無駄な送信を避ける
       if (
         state.sessionState === "live" &&
-        state.ws &&
+        state.joined &&
         state.ws.readyState === WebSocket.OPEN
       ) {
         state.ws.send(ev.data);

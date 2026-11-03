@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server.asr.base import ASREngine, ASRResult
 from server.asr.fake_engine import FakeASREngine
@@ -68,7 +68,7 @@ def test_asr05_filtered_result_never_enters_confirmed_path(bad, tmp_path):
         await roster.add(student, "student", "en")
         mt = FakeTranslationEngine()
         pipeline = Pipeline(roster, config, ScriptedASR([bad, ASRResult(NORMAL)]), mt)
-        lesson = Lesson(pipeline, config, join_code=JOIN_CODE)
+        lesson = Lesson(pipeline, config, join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
         lesson.set_recording(True)
         await lesson.control("start")
         await pipeline.start()
@@ -104,7 +104,7 @@ def test_turn02_controls_flush_pending_morph_turn(action, state):
     config = make_ws_test_config()
     config.turn = load_config(ROOT / "config.yaml").turn
     assert config.turn.strategy == "morph"
-    app = create_app(config, asr_engine=FakeASREngine(), mt_engine=FakeTranslationEngine(), join_code=JOIN_CODE)
+    app = create_app(config, asr_engine=FakeASREngine(), mt_engine=FakeTranslationEngine(), join_code=JOIN_CODE, teacher_code=TEACHER_CODE)
     with TestClient(app) as client:
         with client.websocket_connect("/ws") as teacher, client.websocket_connect("/ws") as student:
             join_student(student, "en")

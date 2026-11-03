@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import threading
 
-from tests.helpers import TestClient
+from tests.helpers import TEACHER_CODE, TestClient
 
 from server import ws_protocol as proto
 from server.publication import Publication
@@ -31,14 +31,14 @@ FAST_MONITORING = MonitoringConfig(
 )
 
 
-def make_app(*, mt_engine=None, monitoring=FAST_MONITORING, join_code=JOIN_CODE):
+def make_app(*, mt_engine=None, monitoring=FAST_MONITORING, join_code=JOIN_CODE, teacher_code=TEACHER_CODE):
     config = make_ws_test_config()
     config.monitoring = monitoring
     return create_app(
         config, Publication(config.server),
         asr_engine=FakeASREngine(),
         mt_engine=mt_engine or FakeTranslationEngine(["en", "zh"]),
-        join_code=join_code,
+        join_code=join_code, teacher_code=TEACHER_CODE,
     )
 
 
