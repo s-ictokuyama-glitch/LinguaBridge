@@ -24,7 +24,7 @@ Windows の制限環境で asyncio の socketpair 生成に停止したら、実
 
 Issue #130 の修正後は、全探索が `PASS` となり、反例は0件になる。
 [検証範囲と結果](../../../scripts/formal/caption_recovery.md) と [修正前の基準結果](../../../scripts/formal/caption_recovery_baseline.json) を比較する。
-`witnesses` の4件は `PASS`、破壊6件は `detected: true` である。
+`witnesses` の4件は `PASS`、破壊7件は `detected: true` である。
 正常な専用ケースに破壊を加えてから予想した違反を確認するため、既存の失敗だけを破壊検出に数えることはない。
 
 ## 反例を判断する
@@ -42,27 +42,27 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 
 ## 実装との同期を確認する
 
-修正前の比較基準は `f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4`。
-この値は修正前の基準結果を採取したコミットで、結果 JSON の `sync_commit` に出る。
+最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。結果 JSON の `sync_commit` に出る。
+修正前の基準結果は `f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4` のまま比較に使う。
 
 | ファイル | 照合する処理 |
 |---|---|
-| `server/caption_delivery.py` | `confirm`、`publish`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`replay_history`、`set_language` |
+| `server/caption_delivery.py` | `confirm`、`publish`、`_enqueue_mt`、`_mt_worker`、`_process_mt_job`、`replay_history`、`set_language`。言語切替後の履歴更新は操作列で通る範囲のみ |
 | `server/lesson.py` | `join`、`set_lang` |
 | `server/roster.py` | `add`、`remove`、`retry`、`contains`、`send`、`send_language`、`active_langs` |
 | `server/delivery.py` | `ClientSender.send`、`_run`、`aclose` |
 | `server/caption_history.py` | `append`、`since` |
 | `server/config.py` | MT水位・容量、言語、記録OFF、履歴保持数 |
-| `server/mt/fake_engine.py` | 決定的な訳文と正常完了 |
+| `server/mt/fake_engine.py`、`server/inference.py` | 決定的な訳文と正常完了、最初の翻訳の待機境界 |
+| `web/caption-recovery.js`、`web/student.js` | 字幕の受理、履歴開始位置、連続受信位置。`student.js` は呼出し側の照合のみ |
 
 ```powershell
-git diff f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4 -- server/caption_delivery.py server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py
+git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/caption_delivery.py server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py server/inference.py web/caption-recovery.js web/student.js
 ```
 
 対象処理が変わったら、MTの待機境界、復元対象、切断条件、操作集合を照合して検証器を更新する。
 `--mutation-check` は一時コピーの製品コードだけを壊す。置換箇所が変わると実行エラーになるので、新実装に合う破壊へ更新する。
-比較基準を更新する場合は、製品コードとの一致、全探索、全破壊の検出を確認し、ここに記すコミットと検証器の `SYNC_COMMIT` をそろえる。
-基準結果を更新する場合は、消えた反例と新しい反例の理由を記録する。
+製品コードとの一致、全探索、全破壊の検出を確認した後に、最終同期コミットと検証器の `SYNC_COMMIT` をそろえる。
 未確認の変更から復旧する場合は `/maintain-formal-verification-skill` を使う。
 
 ## 保証の限界を守る
@@ -71,5 +71,5 @@ Python実装を実行する有限入力列の全列挙であり、無制限の�
 対象生徒1人と復元を要求しない生徒2人、2言語、最初の未完了MT1件を扱う。
 5操作の長さ0〜4の全列を水位1と2で探索する。MT容量8、履歴は最大5件で失効しない。
 最初のMT結果を最後に解放し、その後の翻訳を成功させて排出する。全await順序の探索ではない。
-キャッシュを無効にし、実翻訳モデル、翻訳失敗、タイムアウト、送信障害、履歴失効、ブラウザーの DOM 描画、授業終了・記録は対象外とする。復元規則は Node.js で実行し、DOM は Edge QA で確認する。
+キャッシュを無効にし、実翻訳モデル、翻訳失敗、タイムアウト、送信障害、履歴失効、ブラウザーの DOM 描画、授業終了・記録は対象外とする。復元規則は Node.js で実行する。接続をまたぐ画面状態、表示中の言語切替、DOM は Edge QA で確認する。
 操作・原子性・判定の詳細は [検証範囲と反例](../../../scripts/formal/caption_recovery.md) を読む。

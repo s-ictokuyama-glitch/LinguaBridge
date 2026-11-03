@@ -13,8 +13,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "3fca00804afb058ea4ad9836121c721e92d11148"
-OPERATIONS = ("send", "dispatch", "success", "error", "timeout", "close", "abort")
+SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
+OPERATIONS = ("send", "send_history", "dispatch", "success", "error", "timeout", "close", "abort")
 
 
 class Violation(Exception):
@@ -84,7 +84,7 @@ async def scenario(operations, capacity):
             require("capacity", trace, len(queued), sender.pending)
         if killed:
             await pump()
-            require("retry_close", trace, [1013], socket.closed)
+        require("retry_close", trace, [1013] if killed else [], socket.closed)
 
     async def drain():
         nonlocal active, alive
@@ -105,15 +105,21 @@ async def scenario(operations, capacity):
             if operation == "dispatch" and not alive:
                 return False
             trace.append(operation)
-            if operation == "send":
+            if operation in ("send", "send_history"):
                 serial += 1
-                accepted = alive and len(queued) < capacity
-                actual = sender.send({"type": "caption", "seq": serial})
-                require("admission" if not alive else "capacity", trace, accepted, actual)
+                history = operation == "send_history"
+                required_slots = 2 if history else 1
+                accepted = alive and capacity - len(queued) >= required_slots
+                payload = {"type": "caption", "seq": serial}
+                actual = sender.send(payload, drop_if_full=True) if history else sender.send(payload)
+                property_name = "history_reservation" if history else "capacity"
+                require(property_name if alive else "admission", trace, accepted, actual)
                 if accepted:
                     queued.append(serial)
-                elif alive:
+                elif alive and not history:
                     alive, killed = False, True
+                if history:
+                    require("history_reservation", trace, alive, sender.alive)
             elif operation == "dispatch":
                 if active is None and queued:
                     active = queued.pop(0)
@@ -230,6 +236,12 @@ def mutation_check():
     mutations = (
         ("unbounded_queue", "capacity", ("--case", "send,send,send"),
          "delivery.py", "asyncio.Queue(maxsize=maxsize)", "asyncio.Queue(maxsize=0)"),
+        ("fill_reserved_slot", "history_reservation", ("--case", "send_history,send"),
+         "delivery.py", "self._queue.qsize() >= self._queue.maxsize - 1",
+         "self._queue.qsize() >= self._queue.maxsize"),
+        ("disconnect_on_history_drop", "history_reservation", ("--case", "send_history,send"),
+         "delivery.py", "self._queue.maxsize - 1:\n            return False",
+         "self._queue.maxsize - 1:\n            self._kill()\n            return False"),
         ("reverse_queue", "fifo", ("--case", "send,send,dispatch"),
          "delivery.py", "asyncio.Queue(maxsize=maxsize)", "asyncio.LifoQueue(maxsize=maxsize)"),
         ("accept_after_close", "admission", ("--case", "close,send"),

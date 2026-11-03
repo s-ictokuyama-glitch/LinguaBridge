@@ -34,17 +34,18 @@ reset だけは未確定断片を捨てる操作である。`discard_reserved` �
 
 ## 実装との同期を確認する
 
-最終同期コミットは `5e97453303cacd166f7944b5442881ac2f9e362d`。
+最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
 
 | ファイル | 照合する処理 |
 |---|---|
 | `server/turn/assembler.py` | `TurnPart`、`Turn`、`_Pending`、`TurnAssembler` の全メソッドとプロパティ |
 | `server/turn/boundary.py` | `SurfaceBoundaryClassifier.classify`、`BoundaryClass.ends_turn`。実行するのは入力表の代表語尾のみ |
-| `server/pipeline.py` | `_asr_worker`、`_process_interim`、`_process_segment`、`_close_pending_turn`、`on_lesson_state` の呼出し契約のみ。実行対象外 |
+| `server/pipeline.py` | `_asr_worker`、`_process_interim`、`_process_segment`、`_close_pending_turn`、`flush_audio` の呼出し契約のみ。実行対象外 |
+| `server/lesson.py` | `_transition` が live を離れるときに `flush_audio` を呼ぶ契約のみ。実行対象外 |
 | `server/config.py` | `TurnMorphConfig` の個数・時間上限との対応のみ。実行対象外 |
 
 ```powershell
-git diff 5e97453303cacd166f7944b5442881ac2f9e362d -- server/turn/assembler.py server/turn/boundary.py server/pipeline.py server/config.py
+git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/turn/assembler.py server/turn/boundary.py server/pipeline.py server/lesson.py server/config.py
 ```
 
 保留の所有権、確定と破棄の条件、ID の寿命、版番号、時間幅と音声長の違い、単一ワーカー契約を照合する。

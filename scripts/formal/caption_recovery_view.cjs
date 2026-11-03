@@ -1,7 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
-const { CaptionRecovery } = require("../../web/caption-recovery.js");
+const { CaptionRecovery } = require(process.argv[2]);
 
 const cases = JSON.parse(fs.readFileSync(0, "utf8"));
 const observations = cases.map(({ language, frames }) => {

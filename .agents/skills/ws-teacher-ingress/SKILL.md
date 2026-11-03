@@ -12,7 +12,7 @@ description: 現在の先生だけが WebSocket から音声・授業操作・�
 リポジトリ直下で実行する。Connection.receive にテキストと音声を渡し、Lesson と参加者名簿を通る認可を確認する。WebSocket アダプターは pytest の境界テストで確かめる。
 
 ```powershell
-uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt --with fastapi==0.141.1 --with starlette==1.7.0 --with psutil==7.2.2 python -X utf8 -B scripts/formal/ws_teacher_ingress.py --mutation-check
+uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirements.txt python -X utf8 -B scripts/formal/ws_teacher_ingress.py --mutation-check
 ```
 
 同じ版の依存がある環境では `.venv/Scripts/python.exe -X utf8 -B scripts/formal/ws_teacher_ingress.py --mutation-check` も使える。Windows の制限環境で asyncio が起動時に停止する場合は、内部 socketpair の実行権限を確認する。
@@ -30,11 +30,12 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 ## 実装との対応
 
-同期コミットは `0194bc1b0973cc6ab1fdb16def022d78f2e6a9fa`。
+同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
 
 - [server/connection.py](../../../server/connection.py) の `Connection.receive` が各受信フレームのサイズ、役割、在籍を確認して処理へ渡す。
 - [server/lesson.py](../../../server/lesson.py) の `Lesson.join` が参加コードを検査し、拒否時は接続の役割を保持する。
 - [server/roster.py](../../../server/roster.py) の `Roster.add` が交代済みの先生を `_detach` してから `_close` を待つ。`Roster.contains` が現在の在籍を判定する。
+- [server/main.py](../../../server/main.py) は受信したフレームを `Connection.receive` に直列に渡す。呼出し側の照合のみ。
 - [server/ws_protocol.py](../../../server/ws_protocol.py) の `parse_client_message` が JSON を参加・操作メッセージへ変換する。
 
 対応する実装が変わったら、フレームの入力位置と期待する処理を照合する。通常版と破壊版の結果が意図どおりになった時点で、このファイルと [検証スクリプト](../../../scripts/formal/ws_teacher_ingress.py) の同期コミットを更新する。変更後の同期には `/maintain-formal-verification-skill` を使える。

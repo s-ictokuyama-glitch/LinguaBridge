@@ -16,7 +16,7 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4"
+SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
 OPERATIONS = ("set_en", "set_zh", "live_turn", "disconnect", "rejoin")
 WITNESSES = ("retarget", "isolation", "language", "admission")
 
@@ -177,8 +177,9 @@ async def scenario(operations, watermark, *, admission=False):
         await pipeline.stop()
 
 
-def check_screens(screens):
-    command = ["node", str(ROOT / "scripts/formal/caption_recovery_view.cjs")]
+def check_screens(screens, source_root):
+    command = ["node", str(ROOT / "scripts/formal/caption_recovery_view.cjs"),
+               str(source_root / "web/caption-recovery.js")]
     rendered = subprocess.run(
         command, input=json.dumps(screens), capture_output=True,
         encoding="utf-8", check=True, timeout=30,
@@ -238,7 +239,8 @@ async def check(args):
         cases.append((*await scenario(operations, 1, admission=name == "admission"), name))
         counts["witnesses"] += 1
     screens = [screen for _, screen, _ in cases]
-    for (violations, screen, name), rendered in zip(cases, check_screens(screens), strict=True):
+    rendered_screens = check_screens(screens, args.source_root)
+    for (violations, screen, name), rendered in zip(cases, rendered_screens, strict=True):
         violation = screen_violation(screen, rendered)
         if violation is not None:
             violations.append(violation)
@@ -255,30 +257,36 @@ async def check(args):
 
 
 def mutation_check(args):
+    delivery = "server/caption_delivery.py"
+    view = "web/caption-recovery.js"
     mutations = (
-        ("drop_retarget", "retarget", "replay_recoverable",
+        ("drop_retarget", "retarget", "replay_recoverable", delivery,
          'elif selected not in attempted:', 'elif False:'),
-        ("broadcast_replay", "isolation", "replay_isolation",
+        ("broadcast_replay", "isolation", "replay_isolation", delivery,
          'self.roster.send(client, captions[selected])',
          'self.roster.send_language(selected, captions[selected])'),
-        ("send_old_language", "language", "replay_language",
+        ("send_old_language", "language", "replay_language", delivery,
          'selected = client.lang', 'selected = job.lang'),
-        ("duplicate_caption", "isolation", "replay_duplicate",
+        ("duplicate_caption", "isolation", "replay_duplicate", delivery,
          'if self.roster.send(client, captions[selected]):',
          'self.roster.send(client, captions[selected])\n'
          '                    if self.roster.send(client, captions[selected]):'),
-        ("skip_admission_retry", "admission", "replay_recoverable",
+        ("skip_admission_retry", "admission", "replay_recoverable", delivery,
          'await self.roster.retry(client)', 'pass'),
-        ("remove_without_retry_close", "admission", "replay_recoverable",
+        ("remove_without_retry_close", "admission", "replay_recoverable", delivery,
          'await self.roster.retry(client)', 'await self.roster.remove(client)'),
+        ("leave_cursor_behind", "isolation", "screen_recovery", view,
+         "    this.#advance(index);", ""),
     )
     results = []
-    for name, case, property_name, old, new in mutations:
+    for name, case, property_name, filename, old, new in mutations:
         with tempfile.TemporaryDirectory(prefix="caption-recovery-") as directory:
             source = Path(directory)
             shutil.copytree(args.source_root / "server", source / "server",
                             ignore=shutil.ignore_patterns("__pycache__"))
-            path = source / "server" / "caption_delivery.py"
+            (source / "web").mkdir()
+            shutil.copy2(args.source_root / view, source / view)
+            path = source / filename
             original = path.read_text(encoding="utf-8")
             if original.count(old) != 1:
                 raise RuntimeError(f"mutation anchor changed: {name}")

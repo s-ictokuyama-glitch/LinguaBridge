@@ -30,16 +30,16 @@ Windows の制限環境で asyncio の内部 socketpair 生成が停止する場
 
 ## 実装との同期を確認する
 
-最終同期コミットは `de64334ed3071c53a1a71f3d7509da9557ffdecf`。
+最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
 
 | ファイル | 照合する処理 |
 |---|---|
 | `server/asr_backlog.py` | `AsrBacklog` の全メソッドとプロパティ、`OfferResult`、`FlushTurn` |
 | `server/audio/vad.py` | `Segment`、`InterimSegment`、`TurnBoundary` の定義 |
-| `server/pipeline.py` | `_enqueue_asr`、`_asr_worker`、`drain` の呼出し・単一コンシューマー契約のみ |
+| `server/pipeline.py` | `start`、`_enqueue_asr`、`_asr_worker`、`drain` の ASR 側。呼出し順と単一コンシューマー契約のみ |
 
 ```powershell
-git diff de64334ed3071c53a1a71f3d7509da9557ffdecf -- server/asr_backlog.py server/audio/vad.py server/pipeline.py
+git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/asr_backlog.py server/audio/vad.py server/pipeline.py
 ```
 
 対象が変わったら、容量の規則、イベントの種類、`next` の待機境界、ワーカー数、`join` の意味を照合する。

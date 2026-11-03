@@ -38,7 +38,7 @@ Python で実際の `VoiceSegmenter` と `EnergyVAD` を実行し、確定 PCM �
 
 ## 実装との同期を確認する
 
-最終同期コミットは `517f0bba8c48d8a040c909b31684ddfc54983c38`。
+最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -46,7 +46,7 @@ Python で実際の `VoiceSegmenter` と `EnergyVAD` を実行し、確定 PCM �
 | `server/pipeline.py` | `feed_audio` と `flush_audio` が確定 Segment を ASR へ渡す契約。呼び出し側の照合のみ |
 
 ```powershell
-git diff 517f0bba8c48d8a040c909b31684ddfc54983c38 -- server/audio/vad.py server/pipeline.py
+git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/audio/vad.py server/pipeline.py
 ```
 
 フレームの端数、無音確定の境界、持ち越す PCM と開始時刻、プリロール、`flush` の契約を照合する。破壊の置換箇所が変わった場合は、同じ性質を壊す変更へ更新する。

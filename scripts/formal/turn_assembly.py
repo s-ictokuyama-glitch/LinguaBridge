@@ -12,7 +12,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "5e97453303cacd166f7944b5442881ac2f9e362d"
+SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
 PARTS = {
     "normal": ("教科書", None, .5),
     "weak": ("この部分がですね。", None, .5),
