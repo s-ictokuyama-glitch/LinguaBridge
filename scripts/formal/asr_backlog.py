@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "de64334ed3071c53a1a71f3d7509da9557ffdecf"
+SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
 OPERATIONS = ("seg1", "seg2", "seg4", "short", "interim", "boundary", "flush",
               "take", "finish", "error", "cancel", "wait_cancel")
 SAMPLE_RATE = 16000

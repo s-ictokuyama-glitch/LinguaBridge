@@ -44,7 +44,7 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 
 ## 実装との同期を確認する
 
-修正前の製品コードとの同期コミットは `2a1c1f68ae2c372e03b0bc1a50820cf793f73586`。
+最終同期コミットは `8c6228b15d1db0230529f097eb9a498be0be95f6`。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -52,11 +52,12 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 | `server/roster.py` | `add`、`remove`、`_detach`、`_close`、`teacher`、`contains` |
 | `server/delivery.py` | `ClientSender.aclose` からソケット切断までの待機境界 |
 | `server/pipeline.py` | `set_accepting_audio`、`on_teacher_joined`、`_asr_worker`、`drain` |
-| `server/main.py` | `ws_endpoint` の join 完了前は次の受信へ進まない制約と先生操作の認可。実行対象外 |
+| `server/main.py` | `ws_endpoint` が受信を直列化する制約。実行対象外 |
+| `server/connection.py` | `receive` が join 完了を待ち、在籍中の先生の操作を通す制約。実行対象外 |
 | `server/config.py`、`server/ws_protocol.py` | 使用設定と参加メッセージの定義 |
 
 ```powershell
-git diff 2a1c1f68ae2c372e03b0bc1a50820cf793f73586 -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/config.py server/ws_protocol.py
+git diff 8c6228b15d1db0230529f097eb9a498be0be95f6 -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/connection.py server/config.py server/ws_protocol.py
 ```
 
 待機境界、先生の登録と除去の順序、自動停止の理由、手動操作の認可を照合する。

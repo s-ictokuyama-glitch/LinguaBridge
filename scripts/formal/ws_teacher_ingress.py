@@ -27,7 +27,7 @@ from server.mt.fake_engine import FakeTranslationEngine
 JOIN_CODE = "4831"
 JOIN_EVENTS = tuple(itertools.product(("teacher", "student"), (True, False)))
 MAX_JOINS = 3
-SYNC_COMMIT = "0194bc1b0973cc6ab1fdb16def022d78f2e6a9fa"
+SYNC_COMMIT = "8c6228b15d1db0230529f097eb9a498be0be95f6"
 
 
 class Wire:
