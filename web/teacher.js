@@ -329,23 +329,8 @@ function connect(code) {
   ws.addEventListener("message", (ev) => {
     if (state.ws !== ws) return;
     const msg = JSON.parse(ev.data);
-    if (msg.type === "joined") {
-      state.acceptedTeacherCode = code;
-      state.joined = true;
-      el.teacherCode.value = "";
-      el.teacherJoinForm.hidden = true;
-      applySessionState(msg.session_state);
-      applyRecording(msg.recording);
-    } else if (msg.type === "join_rejected") {
-      if (state.acceptedTeacherCode) setPageState("disconnected");
-      state.acceptedTeacherCode = null;
-      state.ws = null;
-      ws.close();
-      showTeacherJoinForm(msg.reason === "rate_limited"
-        ? "参加を一時的に制限しています。しばらく待ってからやり直してください。"
-        : "先生コードが違います。サーバーPCの起動案内を確認してください。");
-    } else if (state.joined) {
-      handleMessage(msg);
+    if (state.joined || msg.type === "joined" || msg.type === "join_rejected") {
+      handleMessage(msg, ws, code);
     }
   });
   ws.addEventListener("close", (ev) => {
@@ -370,8 +355,25 @@ function connect(code) {
   });
 }
 
-function handleMessage(msg) {
+function handleMessage(msg, ws, code) {
   switch (msg.type) {
+    case "joined":
+      state.acceptedTeacherCode = code;
+      state.joined = true;
+      el.teacherCode.value = "";
+      el.teacherJoinForm.hidden = true;
+      applySessionState(msg.session_state);
+      applyRecording(msg.recording);
+      break;
+    case "join_rejected":
+      if (state.acceptedTeacherCode) setPageState("disconnected");
+      state.acceptedTeacherCode = null;
+      state.ws = null;
+      ws.close();
+      showTeacherJoinForm(msg.reason === "rate_limited"
+        ? "参加を一時的に制限しています。しばらく待ってからやり直してください。"
+        : "先生コードが違います。サーバーPCの起動案内を確認してください。");
+      break;
     case "recording":
       applyRecording(msg.on);
       break;
