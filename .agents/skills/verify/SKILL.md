@@ -33,7 +33,7 @@ New-Item -ItemType Directory -Path $verifyRun | Out-Null
 `instance.json` の `url` を操作対象にする。起動ヘルパーはOS割当ての空きポート、専用 `tmp/data`、空の証明書領域を使う。
 `server.main` はHTTPを `0.0.0.0` にbindするため同じLANにも公開される。先生のマイクが使えるloopback HTTPをブラウザーから使う。
 実NICの自動選択が曖昧なら `server.network.list_addresses()` の `usable` 候補を読み、`--advertise-ip` に実在IPv4を指定して新しいrunを作る。
-ready条件は所有プロセスの待受け、`/ready` の200、`/api/config` のen/zh、`/api/teacher-info` の4桁コードが揃うこと。
+ready条件は所有プロセスの待受け、`/ready` の200、`/api/config` のen/zh、`/api/teacher-info` の生徒用参加コード（4桁）が揃うこと。
 60秒で揃わなければログを保存して起動を失敗させる。モデルのロード時間を推測で成功扱いしない。
 Windowsのサンドボックスで `GetExtendedTcpTable failed` が出た場合は、同じコマンドを承認された通常ユーザー環境で実行する。
 Edgeにも同じ制約が出る場合がある。所有確認や実ブラウザーを省略して続行しない。
@@ -74,6 +74,7 @@ Edge と Playwright を使う。既存 `.qa-tools` にPlaywrightがある。無�
 証拠は `artifacts/verify/<run>/` に残す。ヘルパーの `student-preferences/result.json` は操作履歴、URL、観測値、成功・失敗、例外を保存する。
 `*.aria.txt`、`*.png`、Playwright `0-trace.zip` と `1-trace.zip` を合わせて確認する。traceは開始前から記録し、操作と変化を追えるようにする。
 スクリーンショットだけで合格としない。参加は先生の生徒数、設定保持は再読み込み後の画面、記録は保存ファイルも照合する。
+証拠を公開する際は参加コード、先生コード、QRを伏せる。ブラウザーのtraceには通信内容も含まれる。
 字幕は先生側の原文と生徒側の訳文、選択言語、順序、終了状態を合わせて証明する。
 録音を扱う場合は検証用音声を使い、許可のない授業音声を収集しない。
 物理マイクの代わりに検証用WAVを使う場合はEdgeの `--use-file-for-fake-audio-capture=<絶対パス>%noloop` とmedia streamフラグを使う。

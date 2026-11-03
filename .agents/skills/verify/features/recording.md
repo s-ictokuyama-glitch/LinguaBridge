@@ -1,6 +1,6 @@
 # 授業記録
 
-先生が記録をONにした間の発話を保存する。先生・生徒双方に記録中を表示し、終了時にローカルのJSONLと言語別Markdownへ書き出す。
+記録がONのときに確定した発話を保存する。先生・生徒双方に記録中を表示し、終了時にローカルのJSONLと言語別Markdownへ書き出す。
 
 ## Sub-features
 
@@ -27,7 +27,7 @@ Preconditions:
 
 ## Gotchas
 
-- 全設定言語が常に翻訳されるわけではない。誰も選択しなかった言語のMarkdownは作られない。
+- 言語別Markdownは保存対象に訳文がある言語について生成される。
 - 0発話では保存ファイルが無い。音声が無い場合は `record-files` の前提不足として報告する。
 - 記録ファイルは `tmp/data` 以下なので、cleanup前に `artifacts/verify/<run>/recording-evidence/` へコピーする。
 - 既存native QAの通常記録ケースはrepo既定の `sessions/` を参照する。記録内容の試験は上記の専用製品CLIで行う。
