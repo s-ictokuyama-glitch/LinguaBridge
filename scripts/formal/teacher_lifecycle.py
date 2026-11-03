@@ -183,9 +183,7 @@ async def scenario(operations, *, overlap=False):
         worker.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker
-        await roster.aclose()
-        pipeline._asr_executor.shutdown(wait=True)
-        pipeline._mt_executor.shutdown(wait=True)
+        await pipeline.stop()
 
 
 async def check(depth, *, case=None, overlap=False):

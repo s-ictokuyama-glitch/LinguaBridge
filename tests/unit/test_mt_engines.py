@@ -260,7 +260,7 @@ def test_only_expected_translation_errors_hide_tracebacks(app, mt_engine, caplog
             else:
                 utterance = pipeline.history.append(t_start=0, t_end=1, text_ja="こんにちは", asr_ms=1)
                 loop = asyncio.get_running_loop()
-                await pipeline._process_mt_job(loop, MTJob(utterance, "en", loop.time()))
+                await pipeline._process_mt_job(MTJob(utterance, "en", loop.time()))
                 assert utterance.translations == {}
         finally:
             await pipeline.stop()

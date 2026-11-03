@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from server.asr.base import ASRResult
+from server.asr_backlog import FlushTurn
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, PartialConfig, VadConfig
 from server.mt.fake_engine import FakeTranslationEngine
@@ -84,15 +85,26 @@ def test_one_batch_opens_closes_and_hallucination_settles_off():
 def test_drain_gives_each_stage_the_full_timeout(monkeypatch):
     async def scenario():
         pipeline = make_pipeline()
-        timeouts = []
-        original = asyncio.wait_for
-        async def observe(awaitable, timeout):
-            timeouts.append(timeout)
-            return await original(awaitable, timeout)
-        monkeypatch.setattr(asyncio, "wait_for", observe)
-        await pipeline.drain(timeout=0.25)
-        assert timeouts == [0.25, 0.25]
-        await pipeline.stop()
+        loop = asyncio.get_running_loop()
+        now = loop.time()
+        monkeypatch.setattr(loop, "time", lambda: now)
+        pipeline._asr_backlog.offer(FlushTurn(closed_at=now))
+        pipeline._mt_idle.clear()
+        draining = asyncio.create_task(pipeline.drain(timeout=1))
+        await asyncio.sleep(0)
+        try:
+            now += 0.75
+            async with pipeline._asr_backlog.next():
+                pass
+            await asyncio.sleep(0)
+            now += 0.75
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            pipeline._mt_idle.set()
+            await draining
+        finally:
+            await pipeline.stop()
+
     asyncio.run(scenario())
 
 

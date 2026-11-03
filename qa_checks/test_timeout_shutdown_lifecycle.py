@@ -17,6 +17,7 @@ from server.mt.base import TranslationEngine
 from server.mt.fake_engine import FakeTranslationEngine
 from server.caption_history import Utterance
 from server.pipeline import MTJob, Pipeline, _LIVE_PRIORITY
+from server.publication import Publication
 from server.lesson import Lesson
 from server.roster import Roster
 from tests.conftest import JOIN_CODE, make_ws_test_config
@@ -197,10 +198,11 @@ def test_lifespan_shutdown_closes_workers_and_senders_with_pending_mt() -> None:
         config = make_ws_test_config()
         config.limits.mt_timeout_s = 60.0
         app = create_app(
-            config,
+            config, Publication(config.server),
             asr_engine=FakeASREngine(),
             mt_engine=mt,
             join_code=JOIN_CODE,
+            recording_wait_s=0,
         )
         lifespan = app.router.lifespan_context(app)
         pipeline = app.state.pipeline
