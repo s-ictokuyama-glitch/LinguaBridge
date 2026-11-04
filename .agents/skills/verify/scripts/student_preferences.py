@@ -24,6 +24,9 @@ state = json.loads((run / "instance.json").read_text(encoding="utf-8"))
 out = run / "student-preferences"
 out.mkdir(exist_ok=False)
 result = {"feature": "student-preferences", "status": "fail", "url": state["url"], "actions": [], "scope": "real production CLI, HTTP/WS, Edge, real configured models; no microphone or inference exercised"}
+if "package" in state:
+    result["artifact"] = {key: state["package"][key] for key in ("archive", "sha256", "version")}
+    result["scope"] = "extracted identified distribution ZIP, packaged Python/dependencies/models readiness, real HTTP/WS and Edge joins/preferences; no audio capture or inference exercised"
 contexts = []
 pages = []
 errors = []
