@@ -234,20 +234,33 @@ async def check_mutations() -> dict:
     return results
 
 
-async def run(mutation_check: bool) -> dict:
+async def run(mutation_check: bool, join_limit_check: bool = False) -> dict:
     result = await check(connection.Connection)
     if mutation_check and result["status"] == "PASS":
         result["mutations"] = await check_mutations()
         if not all(mutation["detected"] for mutation in result["mutations"].values()):
             result["status"] = "FAIL"
+    if join_limit_check:
+        from scripts.formal.school_access import check as check_access
+        for group in ("limits", "join-wiring"):
+            result[group] = await check_access(group)
+            if result[group]["status"] != "PASS":
+                result["status"] = "FAIL"
+        if mutation_check:
+            from scripts.formal.school_access_mutations import run_mutations
+            result["join_limit_mutations"] = {
+                **run_mutations("limits"), **run_mutations("join-wiring")}
+            if not all(m["detected"] for m in result["join_limit_mutations"].values()):
+                result["status"] = "FAIL"
     return dict(sync_commit=SYNC_COMMIT, **result)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mutation-check", action="store_true")
+    parser.add_argument("--join-limit-check", action="store_true")
     args = parser.parse_args()
     logging.getLogger("server.connection").setLevel(logging.ERROR)
-    report = asyncio.run(run(args.mutation_check))
+    report = asyncio.run(run(args.mutation_check, args.join_limit_check))
     print(json.dumps(report, indent=2))
     sys.exit(report["status"] != "PASS")

@@ -1,0 +1,991 @@
+{
+  "status": "PASS",
+  "checks": {
+    "source": {
+      "cases": 3703,
+      "peer_values": 161
+    },
+    "disclosure": {
+      "cases": 10626
+    },
+    "limits": {
+      "depth": 8,
+      "states": 4891,
+      "transitions": 28586,
+      "states_by_shortest_depth": {
+        "0": 1,
+        "1": 9,
+        "2": 39,
+        "3": 115,
+        "4": 270,
+        "5": 535,
+        "6": 903,
+        "7": 1317,
+        "8": 1702
+      },
+      "times": [
+        0.0,
+        59.9,
+        60.0,
+        60.1,
+        120.1
+      ],
+      "deadline_boundary_cases": 960
+    },
+    "join-wiring": {
+      "cases": 13
+    },
+    "listeners": {
+      "listeners": 2,
+      "requests": 6
+    }
+  },
+  "mutations": {
+    "source_guard_removed": {
+      "detected": true,
+      "expected_property": "source_gate",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_gate",
+        "trace": [
+          null,
+          "http",
+          []
+        ],
+        "expected": false,
+        "actual": true
+      }
+    },
+    "source_global_reversed": {
+      "detected": true,
+      "expected_property": "source_gate",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_gate",
+        "trace": [
+          "0.0.0.0",
+          "http",
+          []
+        ],
+        "expected": true,
+        "actual": false
+      }
+    },
+    "missing_source_allowed": {
+      "detected": true,
+      "expected_property": "source_gate",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_gate",
+        "trace": [
+          null,
+          "http",
+          []
+        ],
+        "expected": false,
+        "actual": true
+      }
+    },
+    "forwarded_source_trusted": {
+      "detected": true,
+      "expected_property": "source_gate",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_gate",
+        "trace": [
+          null,
+          "http",
+          [
+            [
+              "host",
+              "localhost"
+            ],
+            [
+              "forwarded",
+              "for=127.0.0.1;host=localhost;proto=https"
+            ],
+            [
+              "x-forwarded-for",
+              "127.0.0.1"
+            ],
+            [
+              "x-real-ip",
+              "127.0.0.1"
+            ],
+            [
+              "x-forwarded-host",
+              "localhost"
+            ],
+            [
+              "x-forwarded-proto",
+              "https"
+            ]
+          ]
+        ],
+        "expected": false,
+        "actual": true
+      }
+    },
+    "websocket_gate_removed": {
+      "detected": true,
+      "expected_property": "source_gate",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_gate",
+        "trace": [
+          null,
+          "websocket",
+          []
+        ],
+        "expected": false,
+        "actual": true
+      }
+    },
+    "app_middleware_removed": {
+      "detected": true,
+      "expected_property": "source_wiring",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_wiring",
+        "trace": [
+          null,
+          "/healthz",
+          []
+        ],
+        "expected": 403,
+        "actual": 200
+      }
+    },
+    "static_gate_bypassed": {
+      "detected": true,
+      "expected_property": "source_wiring",
+      "status": "FAIL",
+      "violation": {
+        "property": "source_wiring",
+        "trace": [
+          null,
+          "/static/teacher.js",
+          []
+        ],
+        "expected": 403,
+        "actual": 200
+      }
+    },
+    "proxy_headers_enabled": {
+      "detected": true,
+      "expected_property": "listener_proxy",
+      "status": "FAIL",
+      "violation": {
+        "property": "listener_proxy",
+        "trace": [],
+        "expected": false,
+        "actual": true
+      }
+    },
+    "disclosure_guard_removed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "disclosure_condition_reversed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "remote_private_disclosed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "https_disclosed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "https",
+          [
+            [
+              "host",
+              "localhost"
+            ],
+            [
+              "forwarded",
+              "for=127.0.0.1;host=localhost;proto=https"
+            ],
+            [
+              "x-forwarded-for",
+              "127.0.0.1"
+            ],
+            [
+              "x-real-ip",
+              "127.0.0.1"
+            ],
+            [
+              "x-forwarded-host",
+              "localhost"
+            ],
+            [
+              "x-forwarded-proto",
+              "https"
+            ]
+          ]
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "host_disclosed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "http",
+          [
+            [
+              "host",
+              "localhost"
+            ],
+            [
+              "forwarded",
+              "for=127.0.0.1;host=localhost;proto=https"
+            ],
+            [
+              "x-forwarded-for",
+              "127.0.0.1"
+            ],
+            [
+              "x-real-ip",
+              "127.0.0.1"
+            ],
+            [
+              "x-forwarded-host",
+              "localhost"
+            ],
+            [
+              "x-forwarded-proto",
+              "https"
+            ]
+          ]
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "forwarded_disclosed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          null,
+          "http",
+          [
+            [
+              "host",
+              "localhost"
+            ],
+            [
+              "forwarded",
+              "for=127.0.0.1;host=localhost;proto=https"
+            ],
+            [
+              "x-forwarded-for",
+              "127.0.0.1"
+            ],
+            [
+              "x-real-ip",
+              "127.0.0.1"
+            ],
+            [
+              "x-forwarded-host",
+              "localhost"
+            ],
+            [
+              "x-forwarded-proto",
+              "https"
+            ]
+          ]
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": true
+        }
+      }
+    },
+    "loopback_removed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "127.0.0.0",
+          null,
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": true
+        },
+        "actual": {
+          "status": 200,
+          "disclose": false
+        }
+      }
+    },
+    "equal_socket_removed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          "0.0.0.0",
+          "0.0.0.0",
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 200,
+          "disclose": true
+        },
+        "actual": {
+          "status": 200,
+          "disclose": false
+        }
+      }
+    },
+    "public_equal_disclosed": {
+      "detected": true,
+      "expected_property": "teacher_disclosure",
+      "status": "FAIL",
+      "violation": {
+        "property": "teacher_disclosure",
+        "trace": [
+          null,
+          null,
+          "http",
+          []
+        ],
+        "expected": {
+          "status": 403,
+          "disclose": false
+        },
+        "actual": {
+          "status": 200,
+          "disclose": false
+        }
+      }
+    },
+    "failure_not_counted": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "roles_not_summed": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join teacher wrong"
+        ],
+        "expected": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            60.0,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              4,
+              1
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "threshold_late": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            60.0,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              5,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "success_clears_both_roles": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join teacher correct"
+        ],
+        "expected": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "success_clears_neither": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student correct"
+        ],
+        "expected": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "expiry_late": {
+      "detected": true,
+      "expected_property": "join_outcome",
+      "status": "FAIL",
+      "violation": {
+        "property": "join_outcome",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "time=59.9",
+          "time=60.0",
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": "bad_code",
+        "actual": "rate_limited"
+      }
+    },
+    "expiry_early": {
+      "detected": true,
+      "expected_property": "join_outcome",
+      "status": "FAIL",
+      "violation": {
+        "property": "join_outcome",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "time=59.9",
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": "rate_limited",
+        "actual": "bad_code"
+      }
+    },
+    "deadline_shortened": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            60.0,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            59.0,
+            null
+          ]
+        ]
+      }
+    },
+    "blocked_guard_removed": {
+      "detected": true,
+      "expected_property": "join_outcome",
+      "status": "FAIL",
+      "violation": {
+        "property": "join_outcome",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": "rate_limited",
+        "actual": "bad_code"
+      }
+    },
+    "success_wrong_role": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong",
+          "192.168.5.10 join teacher correct"
+        ],
+        "expected": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "failure_wrong_role": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join teacher wrong"
+        ],
+        "expected": [
+          [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "shared_ip_key": {
+      "detected": true,
+      "expected_property": "limit_accounting",
+      "status": "FAIL",
+      "violation": {
+        "property": "limit_accounting",
+        "trace": [
+          "192.168.5.10 join student wrong"
+        ],
+        "expected": [
+          [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "actual": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "ws_ip_shared": {
+      "detected": true,
+      "expected_property": "join_wiring",
+      "status": "FAIL",
+      "violation": {
+        "property": "join_wiring",
+        "trace": [
+          "192.168.5.11",
+          59.9
+        ],
+        "expected": "joined",
+        "actual": [
+          "rate_limited"
+        ]
+      }
+    }
+  },
+  "after_mutations": {
+    "status": "PASS",
+    "checks": {
+      "source": {
+        "cases": 3703,
+        "peer_values": 161
+      },
+      "disclosure": {
+        "cases": 10626
+      },
+      "limits": {
+        "depth": 8,
+        "states": 4891,
+        "transitions": 28586,
+        "states_by_shortest_depth": {
+          "0": 1,
+          "1": 9,
+          "2": 39,
+          "3": 115,
+          "4": 270,
+          "5": 535,
+          "6": 903,
+          "7": 1317,
+          "8": 1702
+        },
+        "times": [
+          0.0,
+          59.9,
+          60.0,
+          60.1,
+          120.1
+        ],
+        "deadline_boundary_cases": 960
+      },
+      "join-wiring": {
+        "cases": 13
+      },
+      "listeners": {
+        "listeners": 2,
+        "requests": 6
+      }
+    }
+  },
+  "sync_commit": "a9d1d82b86db138c7235ea47b4d6d8a3a98f76a7",
+  "product_root": "C:\\Users\\esesm\\OneDrive\\\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\\GitHub\\LinguaBridge",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "dependencies": {
+    "fastapi": "0.141.1",
+    "starlette": "1.7.0",
+    "uvicorn": "0.50.2",
+    "httpx": "0.28.1",
+    "numpy": "2.5.4",
+    "pydantic": "2.13.5",
+    "PyYAML": "6.0.3",
+    "cryptography": "50.0.1",
+    "psutil": "7.2.2"
+  }
+}
