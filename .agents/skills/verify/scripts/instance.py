@@ -13,6 +13,7 @@ import re
 from urllib.request import ProxyHandler, build_opener
 
 import psutil
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from package import check_links, prepare_package, sha256, verify_package, write_json
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -81,18 +82,30 @@ def identity(owned, prefix=""):
 
 def stop_owned():
     processes = {}
+    identities = {}
     for prefix in ("", "launcher_"):
         pid = state.get(prefix + "pid")
         if pid is not None and psutil.pid_exists(pid):
             owned = psutil.Process(pid)
-            if owned.create_time() != state[prefix + "created"] or owned.cmdline() != state[prefix + "command"]:
+            snapshot = identity(owned)
+            if snapshot["created"] != state[prefix + "created"] or snapshot["command"] != state[prefix + "command"]:
                 raise RuntimeError("Process identity changed; refusing to terminate it")
             processes[pid] = owned
+            identities[pid] = snapshot
     for owned in list(processes.values()):
-        for child in owned.children(recursive=True):
-            if child.cmdline()[1:] == state["launcher_command"][1:]:
-                processes[child.pid] = child
-    identities = {pid: identity(owned) for pid, owned in processes.items()}
+        try:
+            children = owned.children(recursive=True)
+        except psutil.Error:
+            continue
+        for child in children:
+            try:
+                child_identity = identity(child)
+                if child_identity["command"][1:] == state["command"][1:]:
+                    processes[child.pid] = child
+                    identities[child.pid] = child_identity
+            except psutil.Error:
+                continue
+    errors = []
     for pid, owned in reversed(list(processes.items())):
         try:
             if identity(owned) != identities[pid]:
@@ -100,8 +113,15 @@ def stop_owned():
             owned.terminate()
         except psutil.NoSuchProcess:
             pass
+        except (psutil.Error, RuntimeError) as error:
+            errors.append(str(error))
     for owned in processes.values():
-        owned.wait(timeout=15)
+        try:
+            owned.wait(timeout=15)
+        except psutil.Error as error:
+            errors.append(str(error))
+    if errors:
+        raise RuntimeError("Could not stop all owned processes: " + "; ".join(errors))
     return sorted(processes)
 
 try:
@@ -127,6 +147,8 @@ try:
                 prepared["command"], cwd=prepared["cwd"], env=prepared["env"], stdout=stdout, stderr=stderr,
                 stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
+        state["pid"] = process.pid
+        write_json(manifest, state)
         state.update(identity(psutil.Process(process.pid)))
         state.update(identity(psutil.Process(process.pid), "launcher_"))
         write_json(manifest, state)
@@ -200,8 +222,22 @@ except Exception as error:
             failure["stopped_pids"] = stop_owned()
         except Exception as stop_error:
             failure["stop_error"] = str(stop_error)
+        try:
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=15)
+        except (OSError, subprocess.SubprocessError) as stop_error:
+            failure["handle_stop_error"] = str(stop_error)
     if state is not None:
         run.mkdir(parents=True, exist_ok=True)
+        if process is None and args.action == "launch":
+            try:
+                tmp = run / "tmp"
+                if tmp.exists():
+                    check_links(tmp)
+                    shutil.rmtree(tmp)
+            except OSError as cleanup_error:
+                failure["cleanup_error"] = str(cleanup_error)
         write_json(run / ("doctor-failure.json" if args.action == "doctor" else "failure.json"), failure)
     print(f"{args.action} failed: {error}; logs: {run}", file=sys.stderr)
     raise SystemExit(1)

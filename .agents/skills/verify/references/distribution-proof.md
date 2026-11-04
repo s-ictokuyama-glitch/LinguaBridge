@@ -51,6 +51,11 @@
 既存の開発版起動も [development regression](../../../../artifacts/verify/20261104-distribution-dev-regression/) で実行した。外部モデル指定のlaunch、doctor、cleanupがすべて0で終了し、サーバーと.venvランチャーの両方を停止してtmpを削除した。
 全Pythonヘルパーの構文、SKILLのfrontmatter、機能ページの四つのH2、Markdownリンクを検証した。
 
+PR #158のマージ前レビューで、子プロセス調査の失敗と、Popen直後の所有情報取得失敗でプロセスが残る条件を再現した。
+`tests/unit/test_verify_instance_cleanup.py` の4ケースは修正前に実プロセスが生存して失敗し、修正後に終了を確認した。
+所有済みPIDの停止を子の調査失敗から分離し、所有情報取得前にも起動PIDを記録した。起動失敗時は保持したPopenハンドルからも終了を確認する。
+既存 `test_verify_instance_config.py` と合わせて7テストが成功した。runpy経由の補助モジュールimportと、起動前の設定失敗時の一時領域削除も確認した。
+
 ## 検証範囲
 
 開発機にはVC++ランタイム、検証制御用の.venv・psutil・Playwright・Edgeがあった。サーバーは配布のPythonと依存を使った。
