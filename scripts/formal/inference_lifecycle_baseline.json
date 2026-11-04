@@ -1,0 +1,105 @@
+{
+  "status": "PASS",
+  "sync_commit": "ef580e255ba51d9f5a174ad8c78d5d19607073b3",
+  "depth": 5,
+  "max_calls": 2,
+  "attempted": 111111,
+  "legal": 1850,
+  "native_witnesses": 4,
+  "violations": [],
+  "mutations": [
+    {
+      "name": "parallel_workers",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "serial_execution",
+        "trace": [
+          "native_ok"
+        ],
+        "expected": [
+          0
+        ],
+        "actual": [
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "name": "keep_queued_on_stop",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "queued_cancellation",
+        "trace": [
+          "ok",
+          "ok",
+          "stop"
+        ],
+        "expected": true,
+        "actual": false
+      }
+    },
+    {
+      "name": "swallow_cancel",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "caller_outcome",
+        "trace": [
+          "ok",
+          "cancel0"
+        ],
+        "expected": "cancelled",
+        "actual": "failure:RuntimeError"
+      }
+    },
+    {
+      "name": "operation_timeout_as_deadline",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "caller_outcome",
+        "trace": [
+          "timeout_error",
+          "finish"
+        ],
+        "expected": "failure:TimeoutError",
+        "actual": "InferenceTimedOut"
+      }
+    },
+    {
+      "name": "duplicate_execution",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "execution_order",
+        "trace": [
+          "ok",
+          "finish"
+        ],
+        "expected": [
+          0
+        ],
+        "actual": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "blocking_stop",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "nonblocking_stop",
+        "trace": [
+          "native_stop"
+        ],
+        "expected": true,
+        "actual": false
+      }
+    }
+  ]
+}
