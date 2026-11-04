@@ -1,14 +1,20 @@
 ---
 name: verify
-description: LinguaBridge の先生・生徒Web画面を起動し、実ブラウザーで参加・字幕・授業操作・表示設定・記録を検証する。画面変更や配信経路の動作確認、再現手順と証拠の保存に使う。
+description: LinguaBridge の先生・生徒Web画面と配布ZIPを検証する。ZIPの新規展開、同梱Python・依存・モデルでの起動、実ブラウザーでの参加・字幕・授業操作・表示設定・記録の動作確認と証拠保存に使う。
 ---
 
 # LinguaBridge を検証する
 
 リポジトリルートで操作する。最初に [機能マップ](features/README.md) を読み、依頼対象の機能を選ぶ。
-主な操作面は `/teacher` と生徒用 `/`。配布版の初回導入、学校LAN、物理端末の試験は [現地チェックリスト](../../../docs/field-verification-checklist.md) を使う。
+主な操作面は `/teacher` と生徒用 `/`。
+配布版の利用可否を確かめる依頼やパッケージ変更では、[配布パッケージ](features/distribution-package.md) のZIP展開経路を実行する。
+同梱Pythonで起動した同じrunを、下記のDoctor、Drive、Cleanupで操作できる。
+初回 `start.bat` は同ページの別入口を使う。学校LAN、物理端末の試験は [現地チェックリスト](../../../docs/field-verification-checklist.md) も参照する。
 
 ## Launch
+
+配布ZIPの指定、期待するSHA-256とコミット、展開から片付けまでのコマンドは [配布パッケージ](features/distribution-package.md) を使う。
+以下は開発版の起動手順。配布ZIPの検証を開発版の成功で代用しない。
 
 既存 `.venv` の Python 3.12 とモデルを使う。空の作業領域に検証設定を作り、製品CLIを別ポートで起動する。
 依存が無い場合は README の開発セットアップを行う。モデルを無断でダウンロードせず、欠けたファイルを報告する。
@@ -47,6 +53,7 @@ Edgeにも同じ制約が出る場合がある。所有確認や実ブラウザ�
 ```
 
 PIDと生成時刻、起動引数、待受けの所有者、設定とモデルの場所、現在のserver/webソース、readiness、参加情報を照合する。
+配布runでは、入力ZIPのSHA-256と展開した全ファイルのハッシュを照合する。開発checkoutのserver/webは照合対象にならない。
 失敗したらそのインスタンスを操作せず、`server.stdout.log` と `server.stderr.log` を読む。
 生徒がまだ0人なのは起動直後の正常状態。授業は未開始から始める。DB、ログイン、事前の授業データは不要。
 
@@ -62,6 +69,7 @@ Edge と Playwright を使う。既存 `.qa-tools` にPlaywrightがある。無�
 ```
 
 このコマンドはdoctorを通した所有インスタンスだけを操作する。独立した先生・生徒contextを開き、先生画面のコードを生徒画面で入力する。
+配布runでも同じコマンドを使う。ZIP内の実モデルはロードするが、この操作だけでは音声認識・翻訳推論を通さない。
 参加、英語選択、文字サイズ大、原文非表示、ページ再読み込みと再参加、設定保持、QR用クエリ経由の中国語参加を確認する。
 マイクを取得しないため、この経路だけなら物理マイクは不要。
 
@@ -72,6 +80,9 @@ Edge と Playwright を使う。既存 `.qa-tools` にPlaywrightがある。無�
 ## Evidence
 
 証拠は `artifacts/verify/<run>/` に残す。ヘルパーの `student-preferences/result.json` は操作履歴、URL、観測値、成功・失敗、例外を保存する。
+配布runは `package-archive.json`、`package-version.json`、`package-files.json`、`package-runtime.json`、`package-environment.json`、`effective-config.json`、probeとサーバーのログも残す。
+同梱Pythonの実体、import元、sys.path、モデル入力が展開したapp内にあることを `package-runtime.json` で確認する。
+入力ZIPの版だけを検証済みとして報告する。現在のcheckoutも同じと述べる場合は、配布元コミットとの製品コード差分も確認する。
 `*.aria.txt`、`*.png`、Playwright `0-trace.zip` と `1-trace.zip` を合わせて確認する。traceは開始前から記録し、操作と変化を追えるようにする。
 スクリーンショットだけで合格としない。参加は先生の生徒数、設定保持は再読み込み後の画面、記録は保存ファイルも照合する。
 証拠を公開する際は参加コード、先生コード、QRを伏せる。ブラウザーのtraceには通信内容も含まれる。
@@ -105,4 +116,6 @@ Windowsの `.venv` ランチャーと実サーバーが別PIDの場合は両方�
 
 - [instance.py](scripts/instance.py) の `launch`、`doctor`、`cleanup` は上記コマンドで使う。
 - [student_preferences.py](scripts/student_preferences.py) は参加と表示設定の証拠を保存する。
+- [package.py](scripts/package.py) は `instance.py launch --distribution-zip` が使う配布準備と整合性照合を持つ。単独起動しない。
+- ZIP展開からブラウザー・音声・記録を通した結果は [配布ZIPの検証記録](references/distribution-proof.md) を参照する。
 - 開発機での過去の実行結果は [検証記録](references/proof.md) を参照する。機能マップの保守には `/maintain-verification-skill` を使う。

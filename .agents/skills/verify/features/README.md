@@ -8,6 +8,7 @@
 - SKILL.md のlaunchで作った所有runに対してdoctorが成功している。
 - 先生は `/teacher`、生徒は `/`。言語はen/zh。生徒の参加コードは先生画面から読む。
 - 空データ、記録OFF、未開始から始める。サーバーPCのloopbackでは先生として自動参加する。別端末の入口は[先生の授業操作](lesson-control.md)を参照する。
+- 配布runは指定ZIPを新規展開し、同梱Python・設定・モデルを使う。[配布パッケージ](distribution-package.md) の前提と起動コマンドを使い、以後は同じdoctorとブラウザー操作を使う。
 - 先生用contextは1つ。別の先生タブが参加すると既存の先生が切断される。
 - HTTPとWebSocketは、実際の接続元IPがグローバルまたは判別不能の場合に拒否される。
 - 別runは別ポート、データ領域、browser contextを使う。
@@ -38,6 +39,7 @@ cleanupでデータを消す前に記録ファイルを証拠側へコピーす�
 
 ## Features
 
+- [配布パッケージ](distribution-package.md) はZIPの同定、新規展開、同梱実行環境での実操作、初回導入、再起動・更新を扱う。
 - [授業への参加](join.md) は手入力、URLクエリ、言語選択、誤コードを扱う。
 - [生徒の表示設定](student-preferences.md) は原文、文字サイズ、言語変更、保持を扱う。
 - [先生の授業操作](lesson-control.md) は先生コード、開始、一時停止、再開、終了、マイク、狭い画面の操作欄を扱う。
