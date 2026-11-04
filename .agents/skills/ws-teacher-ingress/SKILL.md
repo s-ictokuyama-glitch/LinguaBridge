@@ -1,6 +1,6 @@
 ---
 name: ws-teacher-ingress
-description: 現在の先生だけが WebSocket から音声・授業操作・記録切替を入力できることを実コードの有界探索で確認する。Use when changing Connection.receive, its audio byte limit, Lesson.join role changes, or Roster.add detachment during teacher replacement.
+description: 現在の先生だけが WebSocket から音声・授業操作・記録切替を入力できることを実コードの有界探索で確認する。Use when changing Connection.receive, its audio byte limit, Lesson.join role changes or join rate limits, or Roster.add detachment during teacher replacement.
 ---
 
 # 現在の先生だけに WebSocket 入力を許可する
@@ -20,6 +20,14 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 終了コード 0、`status: PASS`、`complete_scenarios: 260`、7 件の破壊すべての `detected: true` を確認する。破壊版は `connection.py` と `lesson.py` の一時コピーを使う。`student_code_as_teacher` では、生徒用の参加コードで先生として参加を試みた直後に音声を渡すと `feed_audio` が呼ばれる。
 
 送信元の制限、役割違いのコードに対する応答、参加制限をまたぐ再試行を変更したときは、境界テストも実行する。
+
+参加の失敗回数・制限時間・役割別消去・IPの引渡しを変更したときは、次の拡張検査を実行する。認可の260シナリオに加え、実 `Lesson.join` と `JoinRateLimiter` の4,891状態・28,586遷移、解除時刻の960ケース、実WebSocketの13ケース、参加制限に対する13件の破壊検出を確認する。参加制限部分の同期コミットは `a9d1d82b86db138c7235ea47b4d6d8a3a98f76a7`。
+
+```powershell
+uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_access_requirements.txt python -X utf8 -B scripts/formal/ws_teacher_ingress.py --mutation-check --join-limit-check
+```
+
+既存の短い履歴だけでは失敗上限に達しない。拡張の性質・時刻・原子性・代替する後段は [学校ネットワーク入口と参加制限](../../../scripts/formal/school_access.md) を参照する。送信元制限と先生コード公開条件を変えた場合は [school-access](../school-access/SKILL.md) も実行する。
 
 ```powershell
 .venv/Scripts/python.exe -m pytest -q tests/integration/test_ws_boundary.py tests/integration/test_source_access.py

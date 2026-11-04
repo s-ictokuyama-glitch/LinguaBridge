@@ -8,6 +8,7 @@ ASR待ち行列の容量・順序・キャンセル後の排出は [asr-backlog 
 音声の強制分割・受信チャンクの端数・flush をまたぐ PCM の保持は [vad-segmentation スキル](../../.agents/skills/vad-segmentation/SKILL.md) を使う。
 WebSocket での先生の音声入力・授業操作・記録切替の権限は [ws-teacher-ingress スキル](../../.agents/skills/ws-teacher-ingress/SKILL.md) を使う。
 推論の期限切れ・キャンセル・停止後の直列性と呼出結果は [inference-lifecycle 検証](inference_lifecycle.md) と [スキル](../../.agents/skills/inference-lifecycle/SKILL.md) を使う。
+送信元制限、先生コードの公開条件、役割別の参加失敗回数と参加制限は [school-access 検証](school_access.md) と [スキル](../../.agents/skills/school-access/SKILL.md) を使う。参加制限は既存の ws-teacher-ingress の `--join-limit-check` からも検査できる。
 
 `lesson_recording.py` は実際の `Lesson`、`Pipeline`、`SessionRecorder` に入力を与え、JSONL の発話を授業ごとに比較する。
 Python の asyncio とファイル書込を含む実装への忠実さを優先し、別言語への手書きモデル化を避けた。
