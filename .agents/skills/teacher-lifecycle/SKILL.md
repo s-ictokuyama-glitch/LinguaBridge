@@ -44,7 +44,7 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 
 ## 実装との同期を確認する
 
-最終同期コミットは `d78968533639ca29108318dd9e572407f26c1c10`。
+最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -57,7 +57,7 @@ Bの参加処理中にBの操作を実行せず、在籍中かつ参加完了済
 | `server/config.py`、`server/ws_protocol.py` | 使用設定と参加メッセージの定義 |
 
 ```powershell
-git diff d78968533639ca29108318dd9e572407f26c1c10 -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/connection.py server/config.py server/ws_protocol.py
+git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/lesson.py server/roster.py server/delivery.py server/pipeline.py server/main.py server/connection.py server/config.py server/ws_protocol.py
 ```
 
 待機境界、先生の登録と除去の順序、自動停止の理由、手動操作の認可を照合する。

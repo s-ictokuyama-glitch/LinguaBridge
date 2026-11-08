@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "d78968533639ca29108318dd9e572407f26c1c10"
+SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--depth", type=int, default=4, choices=range(0, 7))
 parser.add_argument("--suite", choices=("all", "commands", "pending", "save"), default="all")
