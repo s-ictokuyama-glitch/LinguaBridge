@@ -4542,7 +4542,7 @@ def _audit_soak_report(report: dict, manifest: dict) -> list[dict]:
             raise SystemExit("acceptance reportのlangsがmanifest引数と一致しません。")
         if args.get("asr") is not None and result.get("asr_engine") != args["asr"]:
             raise SystemExit("acceptance reportのASR engineがmanifest引数と一致しません。")
-        real_asr = result.get("asr_engine") in {"sherpa", "faster-whisper"}
+        real_asr = result.get("asr_engine") in {"haas-onnx", "sherpa", "faster-whisper"}
 
         minutes = float(result["minutes"])
         target_s = minutes * 60
@@ -5175,7 +5175,7 @@ def _audit_scale_report(report: dict, manifest: dict) -> dict:
         }) == 1
         for langs in required_langs
     )
-    asr_real = len(asr_engines) == 1 and asr_engines <= {"sherpa", "faster-whisper"}
+    asr_real = len(asr_engines) == 1 and asr_engines <= {"haas-onnx", "sherpa", "faster-whisper"}
     passed = qualified and modes_ok and asr_real and healthy and asr_constant and mt_constant
     return {
         "qualified": qualified,

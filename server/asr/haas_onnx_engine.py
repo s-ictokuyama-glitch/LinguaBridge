@@ -33,23 +33,29 @@ def _chunks(audio: np.ndarray) -> Iterator[np.ndarray]:
     yield audio
 
 
-def _model_paths(model_dir: Path, fmt: str) -> dict[str, Path]:
-    manifest_bytes = (model_dir / "manifest.json").read_bytes()
-    if hashlib.sha256(manifest_bytes).hexdigest() != MANIFEST_SHA256:
-        raise ValueError(f"Haas-ja の manifest が固定版と一致しません: {model_dir}")
-    manifest = json.loads(manifest_bytes)
-    encoder = manifest["formats"][fmt]["encoder"]
-    files = {"encoder": encoder, "weights": f"{encoder}.data", **manifest["common"]}
-    paths = {key: model_dir / name for key, name in files.items()}
-    for key, path in paths.items():
-        expected = manifest["files"][files[key]]
-        if path.stat().st_size != expected["bytes"]:
-            raise ValueError(f"Haas-ja モデルのサイズが一致しません: {path}")
-        with path.open("rb") as stream:
-            sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
-        if sha256 != expected["sha256"]:
-            raise ValueError(f"Haas-ja モデルの SHA256 が一致しません: {path}")
-    return paths
+def verified_model_paths(
+    model_dir: Path, quantization: Literal["int4", "int8"], *, additional_files: tuple[str, ...] = (),
+) -> dict[str, Path]:
+    manifest_path = model_dir / "manifest.json"
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        if hashlib.sha256(manifest_bytes).hexdigest() != MANIFEST_SHA256:
+            raise ValueError(f"Haas-ja の manifest が固定版と一致しません: {manifest_path}")
+        manifest = json.loads(manifest_bytes)
+        encoder = manifest["formats"][FORMATS[quantization]]["encoder"]
+        files = {"encoder": encoder, "weights": f"{encoder}.data", **manifest["common"]}
+        for name in (*files.values(), *additional_files):
+            path = model_dir / name
+            expected = manifest["files"][name]
+            if path.stat().st_size != expected["bytes"]:
+                raise ValueError(f"Haas-ja モデルのサイズが一致しません: {path}")
+            with path.open("rb") as stream:
+                sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+            if sha256 != expected["sha256"]:
+                raise ValueError(f"Haas-ja モデルの SHA256 が一致しません: {path}")
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Haas-ja の必須ファイルが見つかりません: {exc.filename}") from exc
+    return {key: model_dir / name for key, name in files.items()}
 
 
 class _HaasDecoder:
@@ -162,13 +168,14 @@ class HaasOnnxEngine(ASREngine):
         self, model_dir: Path, *, quantization: Literal["int4", "int8"] = "int4", num_threads: int = 4,
     ) -> None:
         self._model_dir = model_dir
-        self._format = FORMATS[quantization]
+        self._quantization = quantization
         self._num_threads = num_threads or 4
         self._decoder: _HaasDecoder | None = None
 
     def warmup(self) -> None:
         if self._decoder is None:
-            decoder = _HaasDecoder(_model_paths(self._model_dir, self._format), self._num_threads)
+            paths = verified_model_paths(self._model_dir, self._quantization)
+            decoder = _HaasDecoder(paths, self._num_threads)
             decoder.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32))
             self._decoder = decoder
 

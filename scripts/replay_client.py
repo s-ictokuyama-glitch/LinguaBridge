@@ -1765,7 +1765,7 @@ def main() -> int:
     )
     parser.add_argument("--engine", default=None, choices=["hy-mt2", "nllb"], help="エンジン固定")
     parser.add_argument(
-        "--asr", default=None, choices=["faster-whisper", "sherpa"],
+        "--asr", default=None, choices=["haas-onnx", "faster-whisper", "sherpa"],
         help="ASRエンジン固定（#28 の A/B 用。既定は config.yaml の値）",
     )
     parser.add_argument(

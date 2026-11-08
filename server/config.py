@@ -126,6 +126,7 @@ class HaasSherpaConfig(BaseModel):
 class HaasOnnxConfig(BaseModel):
     model: str = "haas-ja-onecompression"
     quantization: Literal["int4", "int8"] = "int4"
+    cpu_threads: int | None = Field(default=None, ge=0)
 
 
 class AsrConfig(BaseModel):

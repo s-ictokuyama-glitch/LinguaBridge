@@ -28,7 +28,7 @@ from scripts.performance_evidence import (  # noqa: E402
 )
 
 
-REAL_ASR_ENGINES = {"sherpa", "faster-whisper"}
+REAL_ASR_ENGINES = {"haas-onnx", "sherpa", "faster-whisper"}
 REAL_MT_ENGINES = {"hy-mt2", "nllb"}
 RESOURCE_INTERVAL_SECONDS = 2.0
 FIELD_VALIDATION_SCHEMA = 2

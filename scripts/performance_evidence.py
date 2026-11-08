@@ -406,6 +406,7 @@ _ASR_DISTRIBUTIONS = {
     "fake": set(),
     "faster-whisper": {"ctranslate2", "faster-whisper", "onnxruntime"},
     "sherpa": {"onnxruntime", "sherpa-onnx", "sherpa-onnx-core"},
+    "haas-onnx": {"onnxruntime"},
 }
 _MT_DISTRIBUTIONS = {
     "fake": set(),
@@ -1711,6 +1712,14 @@ def _runtime_assets(
             hotwords = Path(config.asr.sherpa.hotwords_file)
             hotwords = hotwords if hotwords.is_absolute() else root / hotwords
             files.extend(_tree_files(hotwords, "Sherpa hotwords", read_set=read_set))
+    elif asr_engine == "haas-onnx":
+        files.extend(
+            _tree_files(
+                config.models.resolve(config.asr.haas_onnx.model),
+                "Haas-ja ASRモデル",
+                read_set=read_set,
+            )
+        )
 
     if mt_engine == "hy-mt2":
         files.extend(

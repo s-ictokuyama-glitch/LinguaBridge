@@ -6,18 +6,13 @@
 - 起動案内・QRの接続先: [Wi-Fi選択と復元の手順](docs/network-selection.md)
 - PRD・実装スライス: [GitHub Issues](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues)（PRD は #8）
 
-## 現在の状態（イシュー #18 完了時点）
+## 現在の状態
 
-**ASR・翻訳とも実エンジンで動作する**: マイクの日本語発話が **ReazonSpeech K2 v2**
-（既定・sherpa-onnx、`asr.engine: faster-whisper` で whisper small / kotoba へ切替可）で
-文字起こしされ、**Hy-MT2-1.8B**（既定・GGUF/llama.cpp）または **NLLB-200 600M**
-（CTranslate2、`mt.engine: nllb` で切替）で英語・中国語（簡体字）へ実翻訳されて
-生徒カードに届く。実測遅延は発話終了→表示で中央値 0.65秒・最大 1.76秒
-（開発機、docs/bench/2026-08-24-asr-gate.md）。
-
-ASR の既定は判断ゲート②（#28）で確定した。ReazonSpeech は日本語 CER で
-whisper small(9.62%) / kotoba(3.94%) を上回り（**2.09%**）、デコードは 10倍速い。
-ただし**句読点を出力しない**（訳文には付くので生徒の字幕は影響を受けない）。
+先生の日本語音声を **Haas-ja Kizuna int8**（ONNX Runtime）で文字起こしし、
+**Hy-MT2-1.8B**（GGUF/llama.cpp）で英語・中国語（簡体字）に翻訳して生徒端末に表示する。
+標準の配布 ZIP には切替用の ReazonSpeech K2 v2 も入る。採用の根拠は
+[授業動画での ASR 採用評価](docs/bench/2026-11-08-asr-adoption.md)を参照。
+学校の i5 では未計測のため、導入前に学校の実機で字幕の遅延を確認する。
 
 「今日は植物」を「共和植物」と認識する既知音源には、任意の
 [`config.accuracy.yaml`](config.accuracy.yaml) を用意している。
@@ -27,7 +22,7 @@ whisper small(9.62%) / kotoba(3.94%) を上回り（**2.09%**）、デコード�
 CPU処理時間が増えるため、授業環境で字幕遅延を確認してから使う。
 Kotobaは標準配布モデルに含まれない。全発話の精度向上を保証する設定ではない。
 [原因・実ブラウザーでの検証結果](.agents/skills/verify/references/asr-opening-fix-proof.md) を参照。
-[HuBERT・ZipformerのCPU速度・精度・容量比較](docs/bench/2026-10-21-asr-family-comparison.md) も記録している。速度重視の既定ASRは維持している。
+[HuBERT・ZipformerのCPU速度・精度・容量比較](docs/bench/2026-10-21-asr-family-comparison.md) も記録している。
 
 - 先生ページ（QR・参加コード表示、マイク→16kHz PCM16 のWS送信、開始/一時停止/終了、
   文字起こしライブ表示、**モニタリング**（2秒ごとの統計＝接続数・言語内訳・キュー深度・
@@ -67,7 +62,7 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
 ## 導入（配布パッケージ・このPCで1回だけ）
 
 1. **ダウンロード**: 担当者から案内されたクラウドの共有リンクから、
-   `LiveTranslation-<日時>-<英数字>.zip`（約2.5GB）を1つだけダウンロードします。
+   `LiveTranslation-<日時>-<英数字>.zip` を1つだけダウンロードします。
 2. **展開する前に「ブロックの解除」**: ダウンロードした zip を右クリック →「プロパティ」→「全般」タブの
    いちばん下の「セキュリティ」にある **「ブロックの解除」**（「許可する」と表示される場合もあります）に
    チェックを入れて「OK」。**必ず展開の前に**行ってください（展開した後では、中のファイルに印が残ります）。
@@ -100,6 +95,20 @@ ITに詳しくなくても、**配布パッケージ（zip）を展開して `st
    **`C:\LiveTranslation\data` は消さずにそのまま**残します。
 4. `start.bat` をダブルクリック。管理者の確認は出ず、前と同じ証明書で起動します
    （生徒端末での警告の承認をやり直す必要はありません）。
+
+## 音声認識を ReazonSpeech に切り替える
+
+1. サーバーのウィンドウを閉じます。
+2. `C:\LiveTranslation\data\config.yaml` を開きます。ファイルがなければ作成します。
+3. 次の1行を追加して保存します。すでに `asr` がある場合は、その中の `engine` を `sherpa` に設定します。
+
+   ```yaml
+   asr: { engine: sherpa }
+   ```
+
+4. `start.bat` をダブルクリックします。標準の配布 ZIP に入っている ReazonSpeech で音声認識が始まります。
+
+Haas-ja に戻すには、追加した1行または `asr` 内の `engine` 設定を消して再起動します。
 
 ## 翻訳が遅いとき（NLLB への切替）
 
@@ -238,15 +247,24 @@ powershell -ExecutionPolicy Bypass -File scripts\make_fixture_audio.ps1  # ベ�
 ```
 
 モデルは OneDrive 同期を避けるため `%LOCALAPPDATA%\LinguaBridge\models` に置かれる
-（`config.yaml` の `models.dir`）。判断ゲート①の結果と既定エンジンの根拠は
-[docs/bench/2026-07-07-bench.md](docs/bench/2026-07-07-bench.md) を参照。
-**学校の実機（i5）へ導入する前に同コマンドで再計測すること。**
+（`config.yaml` の `models.dir`）。標準の配布 ZIP に必要なモデルだけを取得する場合は次のコマンドを実行する。
+
+```powershell
+.venv\Scripts\python scripts\download_models.py --only haas-ja-int8 --only reazonspeech --only hy-mt2
+```
+
+`haas-ja-int8` は Kizuna Intelligence が公開した Apache-2.0 のモデルを固定リビジョン
+`e46a4b107ffba60336eb3de9745da6f628cfae35` から取得する。必要なファイルは合計 663,886,563 バイト。
+`manifest.json` の SHA-256 は `93a64b20a6270fc6a75a897a869aa8d24594580321fb7e0ec814e2a5fe09e83d`。
+起動時に manifest と照合して、選択したエンコーダーと共通ファイルのサイズおよび SHA-256 を検証する。
+[固定リビジョンの manifest.json](https://huggingface.co/kizuna-intelligence/Haas-ja-v1.0-OneCompression-ONNX/blob/e46a4b107ffba60336eb3de9745da6f628cfae35/manifest.json)
 
 ## 配布パッケージのビルド（イシュー #46、ADR 0001）
 
 開発環境の無いサーバーPC向けに、埋め込み版 Python 3.12・依存・コード・Web・配布用の既定の設定・
-有効なASR/MTのモデル（既定は reazonspeech-k2-v2 / hy-mt2）・`vc_redist.x64.exe`・版情報（`app\version.json`）を
-まとめた zip を開発機で作る。
+ASR・翻訳モデル・`vc_redist.x64.exe`・版情報（`app\version.json`）をまとめた ZIP を開発機で作る。
+標準の ZIP は Haas-ja Kizuna int8 と Hy-MT2 で起動し、切替用の ReazonSpeech K2 v2 も含む。
+Haas-ja の同梱ファイルは int8 のエンコーダーと外部重み、共通ファイル、manifest、`LICENSE`、`NOTICE`。
 
 `build.bat` をダブルクリックすると、日本語で音声認識、翻訳、追加同梱、出力フォルダーを選べる。
 Enter は現在の起動設定を維持し、追加同梱は既定なし。Kotoba を選ぶと `config.accuracy.yaml` の
@@ -278,14 +296,16 @@ VAD pre-roll を適用する。CPUでの認識は ReazonSpeech より遅い。NL
 ```
 
 予備のNLLBは明示追加するとtokenizerも同梱する。`--include-model NAME` と `--exclude-model NAME` は複数指定できる。
-モデル名は `reazonspeech`、`kotoba`、`whisper-small`、`hy-mt2`、`nllb`、`nllb-tokenizer`。`--help` でも確認できる。
+モデル名は `haas-ja-int8`、`reazonspeech`、`kotoba`、`whisper-small`、`hy-mt2`、`nllb`、`nllb-tokenizer`。`--help` でも確認できる。
 有効設定や依存が必要とするモデルの除外はエラーになる。エンジンを変えるには `--config PATH` で基底設定、
 または `--config-override PATH` で部分上書きを指定する。明示した設定ファイルの欠落はエラーになる。
 配布設定には上書き後の全実効値を保存し、`models.dir` だけを `app/models` 相対へ変える。
 外部モデルパス・モデル内リンクは配布できない。sherpaのhotwordsファイルは `server/` 配下の既存ファイルだけを指定できる（本体と一緒に同梱される）。
 
-最後に自己検証（ネイティブDLLの依存先の検査・実エンジンの import・llama.cpp の CPU 対応・選択ASR/MTのロードとwarmupと翻訳・
-同梱の Python でのサーバー起動と `/ready` 200）を行い、1つでも失敗したら zip を作らない。依存の版は開発機の `.venv` に揃える。
+ビルドはネイティブ DLL の依存先、実エンジンの import、llama.cpp の CPU 対応を検証する。
+同梱 Python で ASR と翻訳エンジンをロードしてウォームアップし、翻訳とサーバーの `/ready` 200 を確認する。
+Haas-ja で起動する構成では、切替用の ReazonSpeech もロードしてウォームアップする。
+検証に失敗すると ZIP の作成を中止する。依存の版は開発機の `.venv` に揃える。
 
 ### llama.cpp（llama-cpp-python）の入れ方と対象 CPU（イシュー #52）
 

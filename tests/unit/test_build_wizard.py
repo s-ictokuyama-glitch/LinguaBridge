@@ -6,6 +6,9 @@ import yaml
 
 from scripts import build_package as package
 
+pytestmark = pytest.mark.usefixtures("small_package_model")
+DEFAULT_MODELS = {package.HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2"}
+
 
 def populate_model(root, spec):
     names = spec.allow_patterns or ("model.bin", "config.json")
@@ -63,7 +66,8 @@ def names(plan):
 
 
 @pytest.mark.parametrize(("asr", "mt", "expected", "engines"), [
-    ("", "", {"reazonspeech", "hy-mt2"}, ("sherpa", "hy-mt2")),
+    ("", "", DEFAULT_MODELS, ("haas-onnx", "hy-mt2")),
+    ("4", "1", DEFAULT_MODELS, ("haas-onnx", "hy-mt2")),
     ("1", "1", {"reazonspeech", "hy-mt2"}, ("sherpa", "hy-mt2")),
     ("2", "1", {"kotoba", "hy-mt2"}, ("faster-whisper", "hy-mt2")),
     ("3", "2", {"whisper-small", "nllb", "nllb-tokenizer"}, ("faster-whisper", "nllb")),
@@ -78,6 +82,16 @@ def test_selected_engines_match_payload(monkeypatch, tmp_path, models, built, as
     if asr == "2":
         profile = package._load_build_config(package.ROOT / "config.yaml", package.ROOT / "config.accuracy.yaml")
         assert config["vad"]["pre_roll_ms"] == profile.vad.pre_roll_ms
+
+
+def test_explicit_haas_selection_converts_a_legacy_int4_profile(monkeypatch, tmp_path, models, built):
+    override = tmp_path / "legacy.yaml"
+    override.write_text("asr: {haas_onnx: {quantization: int4}}\n", encoding="utf-8")
+    assert run_wizard(monkeypatch, tmp_path, models, ["4", "", "", "", "y"],
+                      "--config-override", str(override)) == 0
+    asr = yaml.safe_load(built[0][2].config_yaml)["asr"]
+    assert asr["haas_onnx"]["quantization"] == "int8"
+    assert names(built[0][2]) == DEFAULT_MODELS
 
 
 def test_defaults_preserve_custom_config_and_exact_gguf(monkeypatch, tmp_path, models, built):
@@ -100,8 +114,8 @@ def test_invalid_choices_retry_and_extras_keep_active_engines(monkeypatch, tmp_p
                       ["99", "bad", "", "1,2", "", "0", "1,99", "1,3,3", "", "maybe", "y"]) == 0
     plan = built[0][2]
     config = yaml.safe_load(plan.config_yaml)
-    assert names(plan) == {"reazonspeech", "hy-mt2", "kotoba", "nllb", "nllb-tokenizer"}
-    assert (config["asr"]["engine"], config["mt"]["engine"]) == ("sherpa", "hy-mt2")
+    assert names(plan) == DEFAULT_MODELS | {"kotoba", "nllb", "nllb-tokenizer"}
+    assert (config["asr"]["engine"], config["mt"]["engine"]) == ("haas-onnx", "hy-mt2")
     output = capsys.readouterr().out
     assert "#53" in output and "CC-BY-NC-4.0" in output
     assert "reazonspeech（起動設定で同梱必須）" in output
@@ -162,7 +176,7 @@ def test_download_only_missing_selected_dependencies_then_replan(monkeypatch, tm
     assert run_wizard(monkeypatch, tmp_path, models, ["", "", "3", "", "y", "y"]) == 0
     assert set(downloads) == {"nllb", "nllb-tokenizer"}
     assert len(downloads) == 2
-    assert names(built[0][2]) == {"reazonspeech", "hy-mt2", "nllb", "nllb-tokenizer"}
+    assert names(built[0][2]) == DEFAULT_MODELS | {"nllb", "nllb-tokenizer"}
     assert not (models / "manifest.json").exists()
 
 

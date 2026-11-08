@@ -30,7 +30,9 @@ doctor = subprocess.run([sys.executable, str(helper), 'doctor', '--run-dir', str
 assert doctor.returncode == 0, doctor.stderr
 state = json.loads((RUN / 'instance.json').read_text(encoding='utf-8'))
 effective = json.loads((RUN / 'effective-config.json').read_text(encoding='utf-8'))
-assert effective['asr']['engine'] == 'sherpa'
+asr = effective['asr']['engine']
+asr_labels = {'haas-onnx': 'Haas-ja Kizuna', 'sherpa': 'ReazonSpeech K2 v2'}
+assert asr in asr_labels, asr
 assert effective['mt']['engine'] == 'hy-mt2'
 assert effective['vad']['engine'] == 'silero'
 out = RUN / 'audio-recording'
@@ -54,7 +56,7 @@ with wave.open(str(capture), 'wb') as writer:
         cursor += duration + 12
     writer.writeframes(b'\0\0' * 16000 * 20)
 
-result = {'status': 'fail', 'scope': 'Production CLI, real Edge getUserMedia/AudioWorklet/HTTP/WS, Silero VAD, ReazonSpeech K2 v2, Hy-MT2. Hardware microphone replaced by fixture WAV capture.', 'inputs': inputs, 'capture_sha256': hashlib.sha256(capture.read_bytes()).hexdigest(), 'actions': [], 'snapshots': {}}
+result = {'status': 'fail', 'scope': f'Production CLI, real Edge getUserMedia/AudioWorklet/HTTP/WS, Silero VAD, {asr_labels[asr]}, Hy-MT2. Hardware microphone replaced by fixture WAV capture.', 'inputs': inputs, 'capture_sha256': hashlib.sha256(capture.read_bytes()).hexdigest(), 'actions': [], 'snapshots': {}}
 frames = []
 sent_pcm = bytearray()
 page_errors = []

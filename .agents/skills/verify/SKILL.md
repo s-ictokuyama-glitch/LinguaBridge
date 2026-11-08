@@ -33,7 +33,7 @@ New-Item -ItemType Directory -Path $verifyRun | Out-Null
 
 `config.accuracy.yaml` はこの開発機にある未追跡の任意設定で、スキルには同梱しない。無い場合は既定設定を使うか、検証対象の実在する設定ファイルを指定する。
 任意の設定で検証する場合はlaunchに `--config-override config.accuracy.yaml` を追加する。
-このプロファイルはKotobaと長めのプリロールを使う。既存Kotobaモデルが必要で、既定ReazonSpeechよりCPU処理が遅くなる。
+このプロファイルはKotobaと長めのプリロールを使う。Kotobaモデルを用意してから実行する。
 ヘルパーは指定プロファイルを読み込み、実効設定全体を保存してから専用ポート・記録先へ隔離する。明示した設定ファイルが無ければ失敗する。
 
 `instance.json` の `url` を操作対象にする。起動ヘルパーはOS割当ての空きポート、専用 `tmp/data`、空の証明書領域を使う。

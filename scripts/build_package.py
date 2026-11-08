@@ -51,7 +51,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scripts.download_models import SPECS, ModelSpec, download_one  # noqa: E402
+from scripts.download_models import HAAS_PACKAGE_NAME, SPECS, ModelSpec, download_one  # noqa: E402
 from server.config import AppConfig, load_config  # noqa: E402
 
 EMBED_PYTHON_VERSION = "3.12.10"
@@ -143,6 +143,9 @@ ENGINE_CHOICES = (
                  (ModelBinding("kotoba", "asr.model"),)),
     EngineChoice("asr", "faster-whisper", "Whisper small（多言語）",
                  (ModelBinding("whisper-small", "asr.model"),)),
+    EngineChoice("asr", "haas-onnx", "Haas-ja Kizuna int8（既定・ReazonSpeech 同梱）",
+                 (ModelBinding(HAAS_PACKAGE_NAME, "asr.haas_onnx.model"),
+                  ModelBinding("reazonspeech", "asr.sherpa.model"))),
     EngineChoice("mt", "hy-mt2", "Hy-MT2（品質重視）",
                  (ModelBinding("hy-mt2", "mt.hy_mt2.gguf_path", gguf=True),)),
     EngineChoice("mt", "nllb", "NLLB（翻訳品質の既知課題 #53・非商用限定）",
@@ -267,6 +270,8 @@ def _spec_files(spec: ModelSpec, directory: Path) -> tuple[list[Path], str | Non
         if not matches:
             return [], f"{pattern} がありません"
         chosen.extend(matches)
+    if spec.min_bytes is not None and sum(file.stat().st_size for file in chosen) < spec.min_bytes:
+        return [], f"ファイルの合計サイズが {spec.min_bytes} bytes 未満です"
     return chosen, None
 
 
@@ -326,6 +331,8 @@ def _check_model_links(directory: Path) -> None:
 
 
 def _configured_choices(config: AppConfig) -> tuple[EngineChoice, ...]:
+    if config.asr.engine == "haas-onnx" and config.asr.haas_onnx.quantization != "int8":
+        raise BuildError("Haas-ja の配布には asr.haas_onnx.quantization: int8 を指定してください")
     choices = []
     for section in ("asr", "mt"):
         engine = getattr(config, section).engine
@@ -373,7 +380,7 @@ def _inspect_bundle(
                 exact_gguf = root / Path(relative)
             required.setdefault(binding.name, []).append(binding.field)
     hotwords = config.asr.sherpa.resolved_hotwords_file()
-    if config.asr.engine == "sherpa" and hotwords is not None:
+    if "reazonspeech" in required and hotwords is not None:
         # copy_code が運ぶのは server/ 以下だけ。それ以外を指す設定は配布先で見つからない
         if not hotwords.resolve().is_relative_to((ROOT / "server").resolve()) or not hotwords.is_file():
             raise BuildError(f"asr.sherpa.hotwords_file は server/ 配下の既存ファイルにしてください: {hotwords}")
@@ -473,6 +480,10 @@ def _interactive_config(config: AppConfig) -> tuple[AppConfig, tuple[str, ...]]:
                 continue
             parent, _, field = binding.field.rpartition(".")
             setattr(_config_field(selected, parent), field, SPECS_BY_NAME[binding.name].subdir)
+        if choice.engine == "haas-onnx":
+            selected.asr.haas_onnx.quantization = "int8"
+            if selected.asr.haas_onnx.cpu_threads is None:
+                selected.asr.haas_onnx.cpu_threads = 6
         if choice.models[0].name == "kotoba":
             profile = _load_build_config(ROOT / "config.yaml", ROOT / "config.accuracy.yaml")
             selected.vad.pre_roll_ms = profile.vad.pre_roll_ms
@@ -726,6 +737,7 @@ def copy_models(plan: BundlePlan, dest: Path) -> None:
             "note": model.spec.note, "path": model.spec.subdir,
             "files": [file.relative.as_posix() for file in model.files],
             "bytes": sum(file.bytes for file in model.files),
+            **model.spec.provenance(),
         }
         for model in plan.models
     }
@@ -867,6 +879,13 @@ config = load_config(sys.argv[1])
 asr = build_asr_engine(config)
 asr.warmup()
 del asr
+active_asr = config.asr.engine
+if active_asr == "haas-onnx":
+    config.asr.engine = "sherpa"
+    reazon = build_asr_engine(config)
+    reazon.warmup()
+    del reazon
+    config.asr.engine = active_asr
 mt = build_mt_engine(config)
 mt.warmup()
 translation = mt.translate(sys.argv[2], config.language_codes[0])

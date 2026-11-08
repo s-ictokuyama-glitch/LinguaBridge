@@ -94,7 +94,7 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
         return HaasOnnxEngine(
             config.models.resolve(onnx.model),
             quantization=onnx.quantization,
-            num_threads=config.asr.cpu_threads,
+            num_threads=onnx.cpu_threads if onnx.cpu_threads is not None else config.asr.cpu_threads,
         )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
