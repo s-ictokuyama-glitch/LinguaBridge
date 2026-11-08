@@ -1,0 +1,1180 @@
+{
+  "baseline_cer": 0.15290611028315945,
+  "candidates": {
+    "haas-fp32": {
+      "cer": 0.03427719821162444,
+      "package_growth_bytes": 2505118160,
+      "median_delay_ms": 3811.5,
+      "max_delay_ms": 12702,
+      "peak_rss_bytes": 5232087040
+    },
+    "haas-int4": {
+      "cer": 0.03546944858420268,
+      "package_growth_bytes": 380327304,
+      "median_delay_ms": 3234.0,
+      "max_delay_ms": 9110,
+      "peak_rss_bytes": 3108478976
+    },
+    "haas-int8": {
+      "cer": 0.028315946348733235,
+      "package_growth_bytes": 663886563,
+      "median_delay_ms": 2984.0,
+      "max_delay_ms": 7985,
+      "peak_rss_bytes": 3371597824
+    },
+    "speech-q4_k": {
+      "cer": 0.029806259314456036,
+      "package_growth_bytes": 398882848,
+      "median_delay_ms": 3445.0,
+      "max_delay_ms": 10358,
+      "peak_rss_bytes": 2841223168
+    },
+    "speech-q8_0": {
+      "cer": 0.024143070044709388,
+      "package_growth_bytes": 703363104,
+      "median_delay_ms": 3897.5,
+      "max_delay_ms": 10172,
+      "peak_rss_bytes": 3146461184
+    }
+  },
+  "package_growth_is_estimate": true,
+  "inputs": {
+    "reference_sha256": "e098ff913a399a87e2e83dcde492c16a55523877ae21b4d09b188a336944e916",
+    "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060"
+  },
+  "profiles": {
+    "reazon": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.2315946348733234,
+          "substitutions": 149,
+          "deletions": 588,
+          "insertions": 40,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 81,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.15290611028315945,
+          "substitutions": 171,
+          "deletions": 270,
+          "insertions": 72,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 100,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 20,
+          "deletions": 17,
+          "insertions": 2,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 2
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 1,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {},
+        "payload_bytes": 0
+      },
+      "runtime_status": "measured",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "1d492896bebe793da0d902043031b29134d03a69648cb952bdebdfad7818d40d",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 15.5,
+            "available_memory_bytes_before": 6237904896
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.406999999992,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 34,
+            "zh": 34
+          },
+          "published_turns": 34,
+          "asr_calls": 50,
+          "mt_calls": 68,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2959.5,
+          "max_delay_ms": 9312,
+          "peak_rss_bytes": 2890637312,
+          "rss_interval_s": 2.0,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 1.938,
+            "measurement_last_at_s": 614.813,
+            "last_at_s": 635.329,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 2959.5,
+        "max_delay_ms": 9312,
+        "peak_rss_bytes": 2890637312
+      }
+    },
+    "haas-fp32": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.03636363636363636,
+          "substitutions": 65,
+          "deletions": 26,
+          "insertions": 31,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 71,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.03427719821162444,
+          "substitutions": 62,
+          "deletions": 25,
+          "insertions": 28,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 97,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 22,
+          "deletions": 10,
+          "insertions": 0,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 0
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {
+          "encoder.onnx": 41836973,
+          "encoder.data": 2435420160,
+          "decoder.onnx": 15661602,
+          "joiner.onnx": 12158641,
+          "tokens.txt": 28704,
+          "LICENSE": 11358,
+          "NOTICE": 722
+        },
+        "payload_bytes": 2505118160
+      },
+      "runtime_status": "delivery_failed",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "f035cce5d1d6f321dbd3e0cf16f89bab895e9b6fc34a8a0fa7d0f024fbf6fab0",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 5.5,
+            "available_memory_bytes_before": 6168035328
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 48,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {
+            "audio_dropped": 2
+          },
+          "dropped": {
+            "segments": 2,
+            "seconds": 4.48,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 3811.5,
+          "max_delay_ms": 12702,
+          "peak_rss_bytes": 5232087040,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": false,
+          "valid": false,
+          "resource_coverage": {
+            "measurement_samples": 298,
+            "first_at_s": 1.922,
+            "measurement_last_at_s": 613.406,
+            "last_at_s": 633.922,
+            "max_gap_s": 2.109
+          },
+          "filtered_segments": 0,
+          "failed_checks": [
+            "delivery",
+            "live/offline text mismatch"
+          ]
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 3811.5,
+        "max_delay_ms": 12702,
+        "peak_rss_bytes": 5232087040
+      }
+    },
+    "haas-int4": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.03546944858420268,
+          "substitutions": 73,
+          "deletions": 24,
+          "insertions": 22,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 69,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.03546944858420268,
+          "substitutions": 73,
+          "deletions": 24,
+          "insertions": 22,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 69,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 32,
+          "deletions": 10,
+          "insertions": 0,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 0
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {
+          "manifest.json": 5422,
+          "encoder.onnx": 1114166,
+          "encoder.onnx.data": 353733120,
+          "prediction.onnx": 17155566,
+          "joint.onnx": 7892424,
+          "frontend.json": 377057,
+          "tokens.json": 36037,
+          "decoding.json": 122,
+          "LICENSE": 11358,
+          "NOTICE": 2032
+        },
+        "payload_bytes": 380327304
+      },
+      "runtime_status": "delivery_failed",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "b9a33c555b7e2532ecd7acdd6c7a38172c108c25bc111599e7867372b8bf0016",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 2.4,
+            "available_memory_bytes_before": 6186991616
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4059999999881,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 35,
+            "zh": 35
+          },
+          "published_turns": 35,
+          "asr_calls": 49,
+          "mt_calls": 70,
+          "cache_hits": 0,
+          "notices": {
+            "audio_dropped": 1
+          },
+          "dropped": {
+            "segments": 1,
+            "seconds": 2.21,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 3234.0,
+          "max_delay_ms": 9110,
+          "peak_rss_bytes": 3108478976,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": false,
+          "valid": false,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 1.922,
+            "measurement_last_at_s": 615.219,
+            "last_at_s": 633.625,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": [
+            "delivery",
+            "live/offline text mismatch"
+          ]
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 3234.0,
+        "max_delay_ms": 9110,
+        "peak_rss_bytes": 3108478976
+      }
+    },
+    "haas-int8": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.028315946348733235,
+          "substitutions": 65,
+          "deletions": 16,
+          "insertions": 14,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 70,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.028315946348733235,
+          "substitutions": 65,
+          "deletions": 16,
+          "insertions": 14,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 70,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 26,
+          "deletions": 10,
+          "insertions": 0,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 0
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {
+          "manifest.json": 5422,
+          "encoder.onnx": 3917201,
+          "encoder.onnx.data": 634489344,
+          "prediction.onnx": 17155566,
+          "joint.onnx": 7892424,
+          "frontend.json": 377057,
+          "tokens.json": 36037,
+          "decoding.json": 122,
+          "LICENSE": 11358,
+          "NOTICE": 2032
+        },
+        "payload_bytes": 663886563
+      },
+      "runtime_status": "measured",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "25caa6767da31807bcf05e80d521b136219eab43679fbba1cbbb0dde9a25a205",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 9.5,
+            "available_memory_bytes_before": 6364581888
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "zh": 1,
+            "en": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 50,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2891.0,
+          "max_delay_ms": 7828,
+          "peak_rss_bytes": 3366309888,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": true,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 2.016,
+            "measurement_last_at_s": 615.031,
+            "last_at_s": 633.453,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        },
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "25caa6767da31807bcf05e80d521b136219eab43679fbba1cbbb0dde9a25a205",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 3.8,
+            "available_memory_bytes_before": 6465286144
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4070000000065,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "zh": 1,
+            "en": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 50,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2961.0,
+          "max_delay_ms": 7985,
+          "peak_rss_bytes": 3366281216,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": true,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 1.938,
+            "measurement_last_at_s": 614.938,
+            "last_at_s": 635.375,
+            "max_gap_s": 2.11
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        },
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "25caa6767da31807bcf05e80d521b136219eab43679fbba1cbbb0dde9a25a205",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 2.3,
+            "available_memory_bytes_before": 6605811712
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 50,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2929.0,
+          "max_delay_ms": 7843,
+          "peak_rss_bytes": 3365265408,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": true,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 2.015,
+            "measurement_last_at_s": 615.297,
+            "last_at_s": 633.75,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        },
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "25caa6767da31807bcf05e80d521b136219eab43679fbba1cbbb0dde9a25a205",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 7.4,
+            "available_memory_bytes_before": 6480494592
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 50,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2952.5,
+          "max_delay_ms": 7906,
+          "peak_rss_bytes": 3368742912,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": true,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 299,
+            "first_at_s": 2.016,
+            "measurement_last_at_s": 615.0,
+            "last_at_s": 633.469,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        },
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "25caa6767da31807bcf05e80d521b136219eab43679fbba1cbbb0dde9a25a205",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 1.8,
+            "available_memory_bytes_before": 6427672576
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 50,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {},
+          "dropped": {
+            "segments": 0,
+            "seconds": 0.0,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 2984.0,
+          "max_delay_ms": 7938,
+          "peak_rss_bytes": 3371597824,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": true,
+          "valid": true,
+          "resource_coverage": {
+            "measurement_samples": 298,
+            "first_at_s": 1.938,
+            "measurement_last_at_s": 613.656,
+            "last_at_s": 634.235,
+            "max_gap_s": 2.125
+          },
+          "filtered_segments": 0,
+          "failed_checks": []
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 2984.0,
+        "max_delay_ms": 7985,
+        "peak_rss_bytes": 3371597824
+      }
+    },
+    "speech-q4_k": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.030104321907600595,
+          "substitutions": 56,
+          "deletions": 23,
+          "insertions": 22,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 74,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.029806259314456036,
+          "substitutions": 59,
+          "deletions": 20,
+          "insertions": 21,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 86,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 22,
+          "deletions": 10,
+          "insertions": 0,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 0
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {
+          "speech.exe": 46981632,
+          "Haas-616M-ja-v1.0-Q4_K.gguf": 351901216
+        },
+        "payload_bytes": 398882848
+      },
+      "runtime_status": "delivery_failed",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "c46b48ecf63c9679d9df79a9765380583ee7fd804613d2f31596851f039e54b3",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 2.3,
+            "available_memory_bytes_before": 6221299712
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "zh": 1,
+            "en": 1
+          },
+          "captions": {
+            "en": 37,
+            "zh": 37
+          },
+          "published_turns": 37,
+          "asr_calls": 49,
+          "mt_calls": 74,
+          "cache_hits": 0,
+          "notices": {
+            "audio_dropped": 1
+          },
+          "dropped": {
+            "segments": 1,
+            "seconds": 2.21,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 3445.0,
+          "max_delay_ms": 10358,
+          "peak_rss_bytes": 2841223168,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": false,
+          "valid": false,
+          "resource_coverage": {
+            "measurement_samples": 297,
+            "first_at_s": 2.031,
+            "measurement_last_at_s": 614.0,
+            "last_at_s": 634.562,
+            "max_gap_s": 2.203
+          },
+          "filtered_segments": 0,
+          "failed_checks": [
+            "delivery",
+            "live/offline text mismatch"
+          ]
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 3445.0,
+        "max_delay_ms": 10358,
+        "peak_rss_bytes": 2841223168
+      }
+    },
+    "speech-q8_0": {
+      "accuracy": {
+        "plain": {
+          "cer": 0.022652757078986587,
+          "substitutions": 52,
+          "deletions": 16,
+          "insertions": 8,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 72,
+          "terms_total": 106
+        },
+        "tuned": {
+          "cer": 0.024143070044709388,
+          "substitutions": 59,
+          "deletions": 13,
+          "insertions": 9,
+          "ref_len": 3355,
+          "nonempty_segments": 50,
+          "terms_recovered": 84,
+          "terms_total": 106
+        }
+      },
+      "regression": {
+        "speech_clips": 34,
+        "counts": {
+          "substitutions": 25,
+          "deletions": 10,
+          "insertions": 0,
+          "ref_len": 983
+        },
+        "noise_insertions": {
+          "noise-only": 0
+        },
+        "known_correct": {
+          "base-01": false,
+          "base-02": true,
+          "base-08": true
+        },
+        "browser_inputs": {
+          "browser-1": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-2": {
+            "counts": {
+              "substitutions": 2,
+              "deletions": 1,
+              "insertions": 0,
+              "ref_len": 18
+            },
+            "phrase_preserved": false
+          },
+          "browser-3": {
+            "counts": {
+              "substitutions": 0,
+              "deletions": 0,
+              "insertions": 0,
+              "ref_len": 16
+            },
+            "phrase_preserved": false
+          }
+        }
+      },
+      "package_size": {
+        "files": {
+          "speech.exe": 46981632,
+          "Haas-616M-ja-v1.0-Q8_0.gguf": 656381472
+        },
+        "payload_bytes": 703363104
+      },
+      "runtime_status": "delivery_failed",
+      "replays": [
+        {
+          "video_sha256": "2edcd0ff4039cd51bec86977c84804d408857ee6b936e0f82b31e3b3380c9060",
+          "profile_sha256": "008850f311576100a4b35b56b869cd8b77ad16b71341e8b72e1dcba6cb9421e8",
+          "host": {
+            "physical_cores": 8,
+            "logical_cores": 16,
+            "cpu_percent_before": 3.6,
+            "available_memory_bytes_before": 6201024512
+          },
+          "target_seconds": 615.3535,
+          "measurement_seconds": 615.4060000000027,
+          "audio_bytes_expected": 19691312,
+          "audio_bytes_sent": 19691312,
+          "students": {
+            "en": 1,
+            "zh": 1
+          },
+          "captions": {
+            "en": 36,
+            "zh": 36
+          },
+          "published_turns": 36,
+          "asr_calls": 49,
+          "mt_calls": 72,
+          "cache_hits": 0,
+          "notices": {
+            "audio_dropped": 1
+          },
+          "dropped": {
+            "segments": 1,
+            "seconds": 2.21,
+            "frames_rejected": 0
+          },
+          "disconnects": 0,
+          "crashes": 0,
+          "errors": [],
+          "server_errors": 0,
+          "median_delay_ms": 3897.5,
+          "max_delay_ms": 10172,
+          "peak_rss_bytes": 3146461184,
+          "rss_interval_s": 2.0,
+          "offline_text_matches": false,
+          "valid": false,
+          "resource_coverage": {
+            "measurement_samples": 297,
+            "first_at_s": 1.938,
+            "measurement_last_at_s": 613.656,
+            "last_at_s": 634.266,
+            "max_gap_s": 2.156
+          },
+          "filtered_segments": 0,
+          "failed_checks": [
+            "delivery",
+            "live/offline text mismatch"
+          ]
+        }
+      ],
+      "runtime": {
+        "median_delay_ms": 3897.5,
+        "max_delay_ms": 10172,
+        "peak_rss_bytes": 3146461184
+      }
+    }
+  },
+  "punctuation": {
+    "sentences": 21,
+    "temperature": 0.0,
+    "by_lang": {
+      "en": {
+        "pairs": 21,
+        "identical": 13,
+        "identical_rate": 0.619,
+        "disagreement_median_when_changed": 0.2515,
+        "disagreement_max": 0.7838
+      },
+      "zh": {
+        "pairs": 21,
+        "identical": 5,
+        "identical_rate": 0.238,
+        "disagreement_median_when_changed": 0.1027,
+        "disagreement_max": 1.0
+      }
+    },
+    "lesson_turns": {
+      "with": {
+        "count": 36,
+        "reasons": {
+          "strong_end": 14,
+          "boundary": 9,
+          "predicate_end": 11,
+          "max_turn": 2
+        }
+      },
+      "without": {
+        "count": 34,
+        "reasons": {
+          "max_turn": 3,
+          "predicate_end": 21,
+          "boundary": 8,
+          "strong_end": 2
+        }
+      }
+    }
+  },
+  "excluded_before_decision": {},
+  "decision": {
+    "adopted": "haas-int8",
+    "candidates": {
+      "haas-fp32": {
+        "passed": false,
+        "reasons": [
+          "遅延最大 12702ms > 8000ms",
+          "ピーク RSS 5232087040 bytes > 4500000000 bytes",
+          "配布容量増 2505118160 bytes > 1000000000 bytes"
+        ]
+      },
+      "haas-int4": {
+        "passed": false,
+        "reasons": [
+          "遅延最大 9110ms > 8000ms"
+        ]
+      },
+      "haas-int8": {
+        "passed": true,
+        "reasons": []
+      },
+      "speech-q4_k": {
+        "passed": false,
+        "reasons": [
+          "遅延最大 10358ms > 8000ms"
+        ]
+      },
+      "speech-q8_0": {
+        "passed": false,
+        "reasons": [
+          "遅延最大 10172ms > 8000ms"
+        ]
+      }
+    }
+  }
+}
