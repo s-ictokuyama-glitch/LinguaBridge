@@ -76,6 +76,26 @@ def build_asr_engine(config: AppConfig) -> ASREngine:
             blank_penalty=config.asr.sherpa.blank_penalty,
             refill_gap_s=config.asr.sherpa.refill_gap_s,
         )
+    if config.asr.engine == "haas-sherpa":
+        from server.asr.haas_sherpa_engine import HaasSherpaEngine
+
+        haas = config.asr.haas_sherpa
+        return HaasSherpaEngine(
+            config.models.resolve(haas.model),
+            num_threads=config.asr.cpu_threads,
+            decoding_method=haas.decoding_method,
+            hotwords_file=haas.resolved_hotwords_file(),
+            hotwords_score=haas.hotwords_score,
+        )
+    if config.asr.engine == "haas-onnx":
+        from server.asr.haas_onnx_engine import HaasOnnxEngine
+
+        onnx = config.asr.haas_onnx
+        return HaasOnnxEngine(
+            config.models.resolve(onnx.model),
+            quantization=onnx.quantization,
+            num_threads=config.asr.cpu_threads,
+        )
     raise NotImplementedError(f"未知のASRエンジン: '{config.asr.engine}'")
 
 

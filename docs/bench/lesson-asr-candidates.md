@@ -17,6 +17,8 @@ python scripts/lesson_asr_eval.py $video --config-override config.accuracy.yaml 
 
 `--candidate-out` には入力動画の SHA256 と、Segment 番号ごとの書き起こし、音声の開始・終了サンプル番号が入る。区間には推論に渡した前後の無音も含む。書き起こしだけが必要なら `--out` を使う。コマンドが表示する `asr` は、warmup を除いた各 Segment の推論時間の合計である。
 
+Haas-ja と speech.cpp の候補も、同じ区切りで JSON に保存できる。[Haas-ja の取得と実行](2026-11-08-haas-eval.md)、[speech.cpp の取得と実行](haas-speech-cpp.md)
+
 ## 下書きを作り、正解文を取り出す
 
 ```powershell
