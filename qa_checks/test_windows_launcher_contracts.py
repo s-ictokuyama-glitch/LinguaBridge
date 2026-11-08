@@ -120,8 +120,8 @@ def _assert_interrupted_download_keeps_completed_payload(
     calls: list[tuple[str, Path]] = []
     b_attempts = 0
 
-    def snapshot_download(*, repo_id: str, local_dir: Path, allow_patterns) -> None:
-        del allow_patterns
+    def snapshot_download(*, repo_id: str, local_dir: Path, allow_patterns, revision=None) -> None:
+        del allow_patterns, revision
         nonlocal b_attempts
         target = Path(local_dir)
         target.mkdir(parents=True, exist_ok=True)

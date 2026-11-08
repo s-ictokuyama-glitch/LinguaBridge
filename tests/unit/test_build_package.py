@@ -12,6 +12,7 @@ import yaml
 
 from scripts.build_package import (
     CODE_FILES,
+    HAAS_PACKAGE_NAME,
     ROOT,
     BuildError,
     copy_code,
@@ -23,6 +24,8 @@ from scripts.build_package import (
     pinned_version,
     unknown_dependencies,
 )
+
+pytestmark = pytest.mark.usefixtures("small_package_model")
 
 # requirements.txt の CPU 版インデックスから入る llama-cpp-python 0.3.33 の wheel（#52 で配布して落ちたもの）を
 # 開発機（Ryzen 7 8840U）で読んだ値
@@ -94,6 +97,12 @@ def test_bundled_windows_and_vc_runtime_dependencies_pass():
 
 
 SPECS_FILES = {
+    "haas-ja-onecompression": [
+        "manifest.json", "LICENSE", "NOTICE", "int8/encoder.onnx", "int8/encoder.onnx.data",
+        "common/decoding.json", "common/frontend.json", "common/joint.onnx",
+        "common/prediction.onnx", "common/tokens.json",
+        "int4-onecomp/encoder.onnx", "fp32/encoder.onnx",
+    ],
     "reazonspeech-k2-v2": [
         "encoder-epoch-99-avg-1.int8.onnx", "decoder-epoch-99-avg-1.onnx",
         "decoder-epoch-99-avg-1.int8.onnx", "joiner-epoch-99-avg-1.int8.onnx",
@@ -129,12 +138,90 @@ def plan(tmp_path, **kwargs):
     return plan_bundle(ROOT / "config.yaml", models_dir=tmp_path, **kwargs)
 
 
-def test_default_only_requires_active_models(tmp_path):
+def test_default_ships_haas_int8_and_reazon_fallback(tmp_path):
+    from server.config import load_config
+
     populate(tmp_path, skip="nllb-200-distilled-600M-ct2")
     selected = plan(tmp_path)
-    assert {model.spec.name for model in selected.models} == {"reazonspeech", "hy-mt2"}
-    assert selected.total_bytes == 7
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2"}
+    haas = next(model for model in selected.models if model.spec.name == HAAS_PACKAGE_NAME)
+    assert {str(file.relative.relative_to(haas.spec.subdir)) for file in haas.files} == set(
+        SPECS_FILES[haas.spec.subdir][:-2]
+    )
+    assert selected.total_bytes == 17
     assert all(".cache" not in str(file.relative) for model in selected.models for file in model.files)
+
+    config_path = tmp_path / "config.yaml"
+    write_distribution_config(selected, config_path)
+    default = load_config(config_path)
+    assert default.asr.engine == "haas-onnx"
+    assert default.asr.haas_onnx.quantization == "int8"
+    assert default.asr.haas_onnx.cpu_threads == 6
+    override = tmp_path / "override.yaml"
+    override.write_text("asr: { engine: sherpa }\n", encoding="utf-8")
+    fallback = load_config(config_path, override=override)
+    assert fallback.asr.engine == "sherpa"
+    assert fallback.asr.sherpa == default.asr.sherpa
+    assert fallback.asr.cpu_threads == default.asr.cpu_threads == 0
+    assert fallback.mt == default.mt
+
+
+def test_download_pins_haas_int8_snapshot_and_checks_payload(tmp_path, monkeypatch, small_package_model):
+    import hashlib
+    import json
+    from scripts import download_models
+    from server.asr import haas_onnx_engine
+
+    spec = small_package_model
+    encoder = "int8/encoder.onnx"
+    names = set(SPECS_FILES[spec.subdir][:-2])
+    contents = {name: b"x" for name in names - {"manifest.json"}}
+    manifest = {
+        "formats": {"int8": {"encoder": encoder}},
+        "common": {Path(name).stem: name for name in sorted(names) if name.startswith("common/")},
+        "files": {
+            name: {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+            for name, data in contents.items()
+        },
+    }
+    manifest_bytes = json.dumps(manifest).encode("utf-8")
+    monkeypatch.setattr(haas_onnx_engine, "MANIFEST_SHA256", hashlib.sha256(manifest_bytes).hexdigest())
+    contents["manifest.json"] = manifest_bytes
+
+    def snapshot_download(*, repo_id, local_dir, revision, allow_patterns):
+        assert repo_id == "kizuna-intelligence/Haas-ja-v1.0-OneCompression-ONNX"
+        assert revision == "e46a4b107ffba60336eb3de9745da6f628cfae35"
+        assert set(allow_patterns) == names
+        for name, data in contents.items():
+            path = local_dir / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+
+    monkeypatch.setattr(download_models, "snapshot_download", snapshot_download)
+    target = download_models.download_one(spec, tmp_path)
+    assert target == tmp_path / "haas-ja-onecompression"
+    contents["NOTICE"] = b"y"
+    with pytest.raises(ValueError, match="SHA256.*NOTICE"):
+        download_models.download_one(spec, tmp_path)
+
+    (target / f"{encoder}.data").write_bytes(b"y")
+    with pytest.raises(ValueError, match=r"SHA256.*encoder\.onnx\.data"):
+        haas_onnx_engine.HaasOnnxEngine(target, quantization="int8").warmup()
+
+
+def test_plan_rejects_a_truncated_haas_payload(tmp_path, small_package_model):
+    populate(tmp_path)
+    weights = tmp_path / small_package_model.subdir / "int8/encoder.onnx.data"
+    weights.write_bytes(b"")
+    with pytest.raises(BuildError, match="合計サイズ"):
+        plan(tmp_path)
+
+
+def test_plan_rejects_active_haas_int4_before_looking_up_models(tmp_path):
+    override = tmp_path / "override.yaml"
+    override.write_text("asr: {haas_onnx: {quantization: int4}}\n", encoding="utf-8")
+    with pytest.raises(BuildError, match="asr.haas_onnx.quantization: int8"):
+        plan(tmp_path / "missing", override=override)
 
 
 def test_default_hotwords_ship_with_the_code(tmp_path):
@@ -150,12 +237,13 @@ def test_default_hotwords_ship_with_the_code(tmp_path):
 def test_include_nllb_adds_tokenizer(tmp_path):
     populate(tmp_path)
     selected = plan(tmp_path, include=("nllb",))
-    assert {model.spec.name for model in selected.models} == {"reazonspeech", "hy-mt2", "nllb", "nllb-tokenizer"}
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2", "nllb", "nllb-tokenizer"}
     with pytest.raises(BuildError, match="nllb.*依存"):
         plan(tmp_path, include=("nllb",), exclude=("nllb-tokenizer",))
 
 
 @pytest.mark.parametrize(("missing", "spec_name"), [
+    ("haas-ja-onecompression", HAAS_PACKAGE_NAME),
     ("reazonspeech-k2-v2", "reazonspeech"), ("hy-mt2", "hy-mt2"),
     ("nllb-200-distilled-600M-ct2", "nllb"), ("nllb-tokenizer", "nllb-tokenizer"),
 ])
@@ -174,6 +262,7 @@ def test_partially_downloaded_model_names_missing_file(tmp_path):
 
 @pytest.mark.parametrize("kwargs, message", [
     ({"exclude": ("hy-mt2",)}, "mt.hy_mt2.gguf_path"),
+    ({"exclude": ("reazonspeech",)}, "asr.sherpa.model"),
     ({"include": ("unknown",)}, "未知"),
     ({"include": ("nllb",), "exclude": ("nllb",)}, "include/exclude"),
 ])
@@ -205,7 +294,7 @@ def test_nllb_active_selects_dependencies(tmp_path):
     override = tmp_path / "override.yaml"
     override.write_text("mt: {engine: nllb}\n", encoding="utf-8")
     selected = plan(tmp_path, override=override)
-    assert {m.spec.name for m in selected.models} == {"reazonspeech", "nllb", "nllb-tokenizer"}
+    assert {m.spec.name for m in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "nllb", "nllb-tokenizer"}
 
 
 @pytest.mark.parametrize("text", [
@@ -241,7 +330,14 @@ def test_config_manifest_version_and_payload_share_plan(tmp_path):
     assert set(manifest) == set(version["models"]) == {m.spec.name for m in selected.models}
     assert version["model_bytes"] == sum(m["bytes"] for m in manifest.values()) == selected.total_bytes
     expected = {str(f.relative) for m in selected.models for f in m.files}
-    assert expected == {str(p.relative_to(app / "models").as_posix()) for p in (app / "models").rglob("*") if p.is_file() and p.name != "manifest.json"}
+    model_dir = app / "models"
+    assert expected == {
+        p.relative_to(model_dir).as_posix()
+        for p in model_dir.rglob("*") if p.is_file() and p != model_dir / "manifest.json"
+    }
+    haas = next(model for model in selected.models if model.spec.name == HAAS_PACKAGE_NAME)
+    for key, value in haas.spec.provenance().items():
+        assert manifest[HAAS_PACKAGE_NAME][key] == value
     assert (app / "config.yaml").read_text(encoding="utf-8") == selected.config_yaml
     assert hashlib.sha256((app / "config.yaml").read_bytes()).hexdigest() == version["config_sha256"]
 
@@ -300,7 +396,7 @@ def test_plan_cli_has_no_build_network_or_writes(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(Path, "mkdir", forbidden)
     monkeypatch.setattr(sys, "argv", ["build_package.py", "--models-dir", str(tmp_path), "--plan"])
     assert package.main() == 0
-    assert "7 bytes" in capsys.readouterr().out
+    assert "モデルpayload合計: 17 bytes" in capsys.readouterr().out
     assert before == {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
 
 

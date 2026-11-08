@@ -68,11 +68,24 @@ def inside(path):
     if not path.is_relative_to(app) or not path.exists():
         raise ValueError("Missing or external packaged input: " + str(path))
     return str(path)
-if cfg.asr.engine not in ("sherpa", "faster-whisper") or cfg.mt.engine not in ("hy-mt2", "nllb") or cfg.vad.engine != "silero":
+if cfg.asr.engine not in ("haas-onnx", "sherpa", "faster-whisper") or cfg.mt.engine not in ("hy-mt2", "nllb") or cfg.vad.engine != "silero":
     raise ValueError("Distribution verification requires real ASR/MT and silero VAD")
 models = cfg.models.resolved_dir.resolve()
 refs = {"models": inside(models)}
-if cfg.asr.engine == "sherpa":
+modules = {"server.config": inside(config.__file__), "server.network": inside(network.__file__)}
+if cfg.asr.engine == "haas-onnx":
+    import onnxruntime
+    from onnxruntime.capi import onnxruntime_pybind11_state
+    from server.asr import haas_onnx_engine
+    modules["onnxruntime"] = inside(onnxruntime.__file__)
+    modules["onnxruntime.capi.onnxruntime_pybind11_state"] = inside(onnxruntime_pybind11_state.__file__)
+    modules["server.asr.haas_onnx_engine"] = inside(haas_onnx_engine.__file__)
+    model = cfg.models.resolve(cfg.asr.haas_onnx.model)
+    refs["asr"] = inside(model)
+    refs["asr/manifest.json"] = inside(model / "manifest.json")
+    for path in haas_onnx_engine.verified_model_paths(model, cfg.asr.haas_onnx.quantization).values():
+        refs["asr/" + path.relative_to(model).as_posix()] = inside(path)
+elif cfg.asr.engine == "sherpa":
     from server.asr import sherpa_engine
     model = models / cfg.asr.sherpa.model
     refs["asr"] = inside(model)
@@ -90,7 +103,7 @@ else:
     refs["tokenizer"] = inside(models / cfg.mt.nllb.tokenizer_dir)
 import faster_whisper.vad
 refs["vad"] = inside(pathlib.Path(faster_whisper.vad.__file__).parent / "assets" / "silero_vad_v6.onnx")
-modules = {"server.config": inside(config.__file__), "server.network": inside(network.__file__), "faster_whisper.vad": inside(faster_whisper.vad.__file__)}
+modules["faster_whisper.vad"] = inside(faster_whisper.vad.__file__)
 for item in sys.path:
     inside(item or pathlib.Path.cwd())
 print(json.dumps({"executable": inside(sys.executable), "sys_path": sys.path, "modules": modules,

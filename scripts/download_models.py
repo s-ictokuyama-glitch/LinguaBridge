@@ -24,7 +24,11 @@ from huggingface_hub import hf_hub_download, list_repo_files, snapshot_download
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from server.asr.haas_onnx_engine import MANIFEST_SHA256, verified_model_paths  # noqa: E402
 from server.config import load_config  # noqa: E402
+
+HAAS_PACKAGE_NAME = "haas-ja-int8"
+HAAS_LEGAL_FILES = ("LICENSE", "NOTICE")
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,18 @@ class ModelSpec:
     subdir: str
     allow_patterns: tuple[str, ...] | None = None
     gguf_pattern: str = "*Q4_K_M*.gguf"
+    revision: str | None = None
+    manifest_sha256: str | None = None
+    min_bytes: int | None = None
+
+    def provenance(self) -> dict[str, str | int | None]:
+        if self.revision is None:
+            return {}
+        return {
+            "revision": self.revision,
+            "manifest_sha256": self.manifest_sha256,
+            "min_bytes": self.min_bytes,
+        }
 
 
 SPECS: list[ModelSpec] = [
@@ -98,6 +114,28 @@ SPECS: list[ModelSpec] = [
         ),
     ),
     ModelSpec(
+        name=HAAS_PACKAGE_NAME,
+        repo_id="kizuna-intelligence/Haas-ja-v1.0-OneCompression-ONNX",
+        license="Apache-2.0",
+        note="既定の日本語ASR（Kizuna int8、ONNX Runtime）",
+        kind="snapshot",
+        subdir="haas-ja-onecompression",
+        allow_patterns=(
+            "manifest.json",
+            "int8/encoder.onnx",
+            "int8/encoder.onnx.data",
+            "common/decoding.json",
+            "common/frontend.json",
+            "common/joint.onnx",
+            "common/prediction.onnx",
+            "common/tokens.json",
+            *HAAS_LEGAL_FILES,
+        ),
+        revision="e46a4b107ffba60336eb3de9745da6f628cfae35",
+        manifest_sha256=MANIFEST_SHA256,
+        min_bytes=663_886_563,
+    ),
+    ModelSpec(
         name="hy-mt2",
         repo_id="tencent/Hy-MT2-1.8B-GGUF",
         license="Apache-2.0",
@@ -119,8 +157,11 @@ def download_one(spec: ModelSpec, dest: Path) -> Path:
         snapshot_download(
             repo_id=spec.repo_id,
             local_dir=target,
+            revision=spec.revision,
             allow_patterns=list(spec.allow_patterns) if spec.allow_patterns else None,
         )
+        if spec.name == HAAS_PACKAGE_NAME:
+            verified_model_paths(target, "int8", additional_files=HAAS_LEGAL_FILES)
         return target
     # GGUF: リポジトリから量子化パターンに合う1ファイルだけ取得
     files = list_repo_files(spec.repo_id)
@@ -170,6 +211,7 @@ def main() -> int:
             "note": spec.note,
             "path": str(target),
             "bytes": dir_size(target),
+            **spec.provenance(),
         }
         manifest_path.write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -182,7 +224,7 @@ def main() -> int:
     print()
     print("ライセンス注記:")
     print("  - NLLB-200 は CC-BY-NC 4.0（非商用限定）。学校の授業利用は非商用の想定（plan.md A-05）")
-    print("  - Hy-MT2 / kotoba-whisper / ReazonSpeech K2 v2 は Apache-2.0、whisper-small は MIT")
+    print("  - Haas-ja / Hy-MT2 / kotoba-whisper / ReazonSpeech K2 v2 は Apache-2.0、whisper-small は MIT")
     if failures:
         print(f"\n失敗: {failures} — 再実行するか --only で個別に取得してください")
         return 1

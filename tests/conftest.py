@@ -22,6 +22,16 @@ def local_network_inventory(monkeypatch):
 
 
 @pytest.fixture
+def small_package_model(monkeypatch):
+    from dataclasses import replace
+    from scripts import build_package
+
+    spec = build_package.SPECS_BY_NAME[build_package.HAAS_PACKAGE_NAME]
+    monkeypatch.setitem(build_package.SPECS_BY_NAME, spec.name, replace(spec, min_bytes=10))
+    return spec
+
+
+@pytest.fixture
 def asr_engine() -> FakeASREngine:
     return FakeASREngine()
 

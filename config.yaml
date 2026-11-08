@@ -12,11 +12,13 @@ models:
   dir: "%LOCALAPPDATA%/LinguaBridge/models"
 
 asr:
-  # 既定 sherpa は判断ゲート②で確定（docs/bench/2026-08-24-asr-gate.md）。
-  # ReazonSpeech K2 v2 が CER・速度の両軸で whisper 系に勝った
-  # （CER 9.62%→2.09% / E2E 遅延中央値 2.27s→0.54s / CPU中央値 93%→2.3%）。
-  # faster-whisper に戻すならこの1行を faster-whisper にする（実装は残してある）
-  engine: sherpa             # "sherpa" | "faster-whisper" | "fake"（テスト・デモ用）
+  # Haas-ja Kizuna int8 の採用根拠は docs/bench/2026-11-08-asr-adoption.md。
+  # ReazonSpeech に戻すには engine を sherpa にする。
+  engine: haas-onnx
+  haas_onnx:
+    model: haas-ja-onecompression
+    quantization: int8
+    cpu_threads: 6
   # 以下 model / compute_type は engine: faster-whisper のときだけ効く。
   # 判断ゲート①で確定（docs/bench/2026-07-07-bench.md）: kotoba はCPUではデコードに
   # 発話長によらず約6秒かかり予算超過のため、whisper 側の既定は small。

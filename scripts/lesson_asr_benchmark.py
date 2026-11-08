@@ -62,10 +62,12 @@ def write_profiles(out: Path, haas: Path, speech: Path) -> list[tuple[str, str]]
         }),
     ]
     for quant in ("int4", "int8"):
-        variants.append((f"haas-{quant}", {
-            "engine": "haas-onnx",
-            "haas_onnx": {"model": str(haas / "haas-ja-onecompression"), "quantization": quant},
-        }, {}, {"cpu_threads": 6}))
+        model = {"model": str(haas / "haas-ja-onecompression"), "quantization": quant}
+        variants.append((f"haas-{quant}", {"engine": "haas-onnx"}, {
+            "haas_onnx": {**model, "cpu_threads": 4},
+        }, {
+            "haas_onnx": {**model, "cpu_threads": 6},
+        }))
     for quant in ("Q4_K", "Q8_0"):
         variants.append((f"speech-{quant.lower()}", {
             "engine": "speech-cpp",
