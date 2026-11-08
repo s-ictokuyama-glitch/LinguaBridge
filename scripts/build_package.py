@@ -143,9 +143,8 @@ ENGINE_CHOICES = (
                  (ModelBinding("kotoba", "asr.model"),)),
     EngineChoice("asr", "faster-whisper", "Whisper small（多言語）",
                  (ModelBinding("whisper-small", "asr.model"),)),
-    EngineChoice("asr", "haas-onnx", "Haas-ja Kizuna int8（既定・ReazonSpeech 同梱）",
-                 (ModelBinding(HAAS_PACKAGE_NAME, "asr.haas_onnx.model"),
-                  ModelBinding("reazonspeech", "asr.sherpa.model"))),
+    EngineChoice("asr", "haas-onnx", "Haas-ja Kizuna int8（既定）",
+                 (ModelBinding(HAAS_PACKAGE_NAME, "asr.haas_onnx.model"),)),
     EngineChoice("mt", "hy-mt2", "Hy-MT2（品質重視）",
                  (ModelBinding("hy-mt2", "mt.hy_mt2.gguf_path", gguf=True),)),
     EngineChoice("mt", "nllb", "NLLB（翻訳品質の既知課題 #53・非商用限定）",
@@ -379,11 +378,6 @@ def _inspect_bundle(
                     raise BuildError(f"{binding.field}: GGUF を指定してください")
                 exact_gguf = root / Path(relative)
             required.setdefault(binding.name, []).append(binding.field)
-    hotwords = config.asr.sherpa.resolved_hotwords_file()
-    if "reazonspeech" in required and hotwords is not None:
-        # copy_code が運ぶのは server/ 以下だけ。それ以外を指す設定は配布先で見つからない
-        if not hotwords.resolve().is_relative_to((ROOT / "server").resolve()) or not hotwords.is_file():
-            raise BuildError(f"asr.sherpa.hotwords_file は server/ 配下の既存ファイルにしてください: {hotwords}")
     for name in include:
         required.setdefault(name, []).append("--include-model")
     for name in tuple(required):
@@ -392,6 +386,19 @@ def _inspect_bundle(
     for name in exclude:
         if name in required:
             raise BuildError(f"{name} は {', '.join(required[name])} が必要としています。除外できません")
+    if "reazonspeech" in required and config.asr.engine in ("haas-onnx", "sherpa"):
+        if config.asr.engine == "haas-onnx":
+            model_path = _relative_path(config.asr.sherpa.model, "asr.sherpa.model")
+            if model_path.as_posix() != SPECS_BY_NAME["reazonspeech"].subdir:
+                raise BuildError(f"asr.sherpa.model: 登録モデルと一致しないパスです: {model_path}")
+        if config.asr.sherpa.hotwords_file:
+            relative = Path(config.asr.sherpa.hotwords_file)
+            hotwords = ROOT / relative
+            if (not relative.is_relative_to(Path("server")) or ".." in relative.parts
+                    or not hotwords.resolve().is_relative_to((ROOT / "server").resolve())
+                    or not hotwords.is_file()):
+                raise BuildError("asr.sherpa.hotwords_file は server/ 配下の既存ファイルへの"
+                                 f"相対パスにしてください: {relative}")
     models = []
     missing = []
     for name in sorted(required):
@@ -880,7 +887,9 @@ asr = build_asr_engine(config)
 asr.warmup()
 del asr
 active_asr = config.asr.engine
-if active_asr == "haas-onnx":
+manifest = config.models.resolved_dir / "manifest.json"
+bundled = json.loads(manifest.read_text(encoding="utf-8"))
+if active_asr == "haas-onnx" and "reazonspeech" in bundled:
     config.asr.engine = "sherpa"
     reazon = build_asr_engine(config)
     reazon.warmup()

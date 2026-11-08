@@ -138,17 +138,18 @@ def plan(tmp_path, **kwargs):
     return plan_bundle(ROOT / "config.yaml", models_dir=tmp_path, **kwargs)
 
 
-def test_default_ships_haas_int8_and_reazon_fallback(tmp_path):
+@pytest.mark.parametrize("skip", [None, "reazonspeech-k2-v2"])
+def test_default_ships_haas_int8_and_hy_mt2(tmp_path, skip):
     from server.config import load_config
 
-    populate(tmp_path, skip="nllb-200-distilled-600M-ct2")
+    populate(tmp_path, skip=skip)
     selected = plan(tmp_path)
-    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2"}
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "hy-mt2"}
     haas = next(model for model in selected.models if model.spec.name == HAAS_PACKAGE_NAME)
     assert {str(file.relative.relative_to(haas.spec.subdir)) for file in haas.files} == set(
         SPECS_FILES[haas.spec.subdir][:-2]
     )
-    assert selected.total_bytes == 17
+    assert selected.total_bytes == 11
     assert all(".cache" not in str(file.relative) for model in selected.models for file in model.files)
 
     config_path = tmp_path / "config.yaml"
@@ -157,6 +158,18 @@ def test_default_ships_haas_int8_and_reazon_fallback(tmp_path):
     assert default.asr.engine == "haas-onnx"
     assert default.asr.haas_onnx.quantization == "int8"
     assert default.asr.haas_onnx.cpu_threads == 6
+
+
+def test_include_reazon_preserves_haas_startup_and_allows_one_line_switch(tmp_path):
+    from server.config import load_config
+
+    populate(tmp_path)
+    selected = plan(tmp_path, include=("reazonspeech",))
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2"}
+    config_path = tmp_path / "config.yaml"
+    write_distribution_config(selected, config_path)
+    default = load_config(config_path)
+    assert default.asr.engine == "haas-onnx"
     override = tmp_path / "override.yaml"
     override.write_text("asr: { engine: sherpa }\n", encoding="utf-8")
     fallback = load_config(config_path, override=override)
@@ -237,7 +250,7 @@ def test_default_hotwords_ship_with_the_code(tmp_path):
 def test_include_nllb_adds_tokenizer(tmp_path):
     populate(tmp_path)
     selected = plan(tmp_path, include=("nllb",))
-    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2", "nllb", "nllb-tokenizer"}
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "hy-mt2", "nllb", "nllb-tokenizer"}
     with pytest.raises(BuildError, match="nllb.*依存"):
         plan(tmp_path, include=("nllb",), exclude=("nllb-tokenizer",))
 
@@ -250,25 +263,34 @@ def test_include_nllb_adds_tokenizer(tmp_path):
 def test_missing_selected_model_reports_download(tmp_path, missing, spec_name):
     populate(tmp_path, skip=missing)
     with pytest.raises(BuildError, match=f"scripts/download_models.py --only {spec_name}"):
-        plan(tmp_path, include=("nllb",))
+        plan(tmp_path, include=("nllb", "reazonspeech"))
 
 
 def test_partially_downloaded_model_names_missing_file(tmp_path):
     populate(tmp_path)
     (tmp_path / "reazonspeech-k2-v2" / "tokens.txt").unlink()
     with pytest.raises(BuildError, match="tokens.txt"):
-        plan(tmp_path)
+        plan(tmp_path, include=("reazonspeech",))
 
 
 @pytest.mark.parametrize("kwargs, message", [
     ({"exclude": ("hy-mt2",)}, "mt.hy_mt2.gguf_path"),
-    ({"exclude": ("reazonspeech",)}, "asr.sherpa.model"),
     ({"include": ("unknown",)}, "未知"),
     ({"include": ("nllb",), "exclude": ("nllb",)}, "include/exclude"),
 ])
 def test_invalid_selection_fails_before_model_lookup(tmp_path, kwargs, message):
     with pytest.raises(BuildError, match=message):
         plan(tmp_path, **kwargs)
+
+
+def test_reazon_is_required_when_it_is_the_startup_engine(tmp_path):
+    populate(tmp_path, skip="haas-ja-onecompression")
+    override = tmp_path / "override.yaml"
+    override.write_text("asr: {engine: sherpa}\n", encoding="utf-8")
+    selected = plan(tmp_path, override=override)
+    assert {model.spec.name for model in selected.models} == {"reazonspeech", "hy-mt2"}
+    with pytest.raises(BuildError, match="asr.sherpa.model.*除外できません"):
+        plan(tmp_path, override=override, exclude=("reazonspeech",))
 
 
 def test_config_snapshot_override_and_exact_gguf(tmp_path):
@@ -294,20 +316,34 @@ def test_nllb_active_selects_dependencies(tmp_path):
     override = tmp_path / "override.yaml"
     override.write_text("mt: {engine: nllb}\n", encoding="utf-8")
     selected = plan(tmp_path, override=override)
-    assert {m.spec.name for m in selected.models} == {HAAS_PACKAGE_NAME, "reazonspeech", "nllb", "nllb-tokenizer"}
+    assert {m.spec.name for m in selected.models} == {HAAS_PACKAGE_NAME, "nllb", "nllb-tokenizer"}
 
 
 @pytest.mark.parametrize("text", [
     "asr: {engine: fake}", "mt: {engine: fake}",
-    "asr: {sherpa: {model: ../outside}}", "mt: {hy_mt2: {gguf_path: C:/outside.gguf}}",
-    "asr: {sherpa: {hotwords_file: custom.txt}}",
-    "asr: {sherpa: {hotwords_file: server/asr/hotwords/missing.txt}}",
+    "mt: {hy_mt2: {gguf_path: C:/outside.gguf}}",
 ])
 def test_nonportable_config_is_rejected(tmp_path, text):
     override = tmp_path / "override.yaml"
     override.write_text(text, encoding="utf-8")
     with pytest.raises(BuildError):
         plan(tmp_path, override=override)
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("model", "../outside"),
+    ("model", "other-model"),
+    ("hotwords_file", "custom.txt"),
+    ("hotwords_file", "server/asr/hotwords/missing.txt"),
+])
+def test_haas_checks_sherpa_paths_only_with_reazon(tmp_path, field, value):
+    populate(tmp_path)
+    override = tmp_path / "override.yaml"
+    override.write_text(yaml.safe_dump({"asr": {"sherpa": {field: value}}}), encoding="utf-8")
+    selected = plan(tmp_path, override=override, exclude=("reazonspeech",))
+    assert {model.spec.name for model in selected.models} == {HAAS_PACKAGE_NAME, "hy-mt2"}
+    with pytest.raises(BuildError, match=rf"asr\.sherpa\.{field}"):
+        plan(tmp_path, override=override, include=("reazonspeech",))
 
 
 def test_explicit_missing_override_is_error(tmp_path):
@@ -396,7 +432,7 @@ def test_plan_cli_has_no_build_network_or_writes(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(Path, "mkdir", forbidden)
     monkeypatch.setattr(sys, "argv", ["build_package.py", "--models-dir", str(tmp_path), "--plan"])
     assert package.main() == 0
-    assert "モデルpayload合計: 17 bytes" in capsys.readouterr().out
+    assert "モデルpayload合計: 11 bytes" in capsys.readouterr().out
     assert before == {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
 
 
@@ -413,7 +449,7 @@ def test_ambiguous_inactive_gguf_is_rejected(tmp_path):
 def test_model_links_are_rejected(tmp_path, monkeypatch):
     populate(tmp_path)
     original = Path.is_symlink
-    target = tmp_path / "reazonspeech-k2-v2" / "tokens.txt"
+    target = tmp_path / "haas-ja-onecompression" / "common" / "tokens.json"
     monkeypatch.setattr(Path, "is_symlink", lambda self: self == target or original(self))
     with pytest.raises(BuildError, match="リンク"):
         plan(tmp_path)

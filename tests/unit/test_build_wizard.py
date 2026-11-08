@@ -7,7 +7,7 @@ import yaml
 from scripts import build_package as package
 
 pytestmark = pytest.mark.usefixtures("small_package_model")
-DEFAULT_MODELS = {package.HAAS_PACKAGE_NAME, "reazonspeech", "hy-mt2"}
+DEFAULT_MODELS = {package.HAAS_PACKAGE_NAME, "hy-mt2"}
 
 
 def populate_model(root, spec):
@@ -111,14 +111,14 @@ def test_defaults_preserve_custom_config_and_exact_gguf(monkeypatch, tmp_path, m
 
 def test_invalid_choices_retry_and_extras_keep_active_engines(monkeypatch, tmp_path, models, built, capsys):
     assert run_wizard(monkeypatch, tmp_path, models,
-                      ["99", "bad", "", "1,2", "", "0", "1,99", "1,3,3", "", "maybe", "y"]) == 0
+                      ["99", "bad", "", "1,2", "", "0", "1,99", "1,3,5,3", "", "maybe", "y"]) == 0
     plan = built[0][2]
     config = yaml.safe_load(plan.config_yaml)
-    assert names(plan) == DEFAULT_MODELS | {"kotoba", "nllb", "nllb-tokenizer"}
+    assert names(plan) == DEFAULT_MODELS | {"kotoba", "nllb", "nllb-tokenizer", "reazonspeech"}
     assert (config["asr"]["engine"], config["mt"]["engine"]) == ("haas-onnx", "hy-mt2")
     output = capsys.readouterr().out
     assert "#53" in output and "CC-BY-NC-4.0" in output
-    assert "reazonspeech（起動設定で同梱必須）" in output
+    assert "5. reazonspeech [" in output
     assert "依存 nllb-tokenizer は自動追加" in output
     assert f"{plan.total_bytes} bytes" in output
     assert "ZIP全体の容量ではありません" in output
@@ -220,7 +220,7 @@ def test_download_must_supply_exact_configured_gguf(monkeypatch, tmp_path, model
 @pytest.mark.parametrize("danger", ["file", "root"])
 def test_links_rejected_before_missing_model_download(monkeypatch, tmp_path, models, built, danger):
     (models / "hy-mt2" / "Hy-MT2-1.8B-Q4_K_M.gguf").unlink()
-    target = models if danger == "root" else models / "reazonspeech-k2-v2" / "tokens.txt"
+    target = models if danger == "root" else models / "haas-ja-onecompression" / "common" / "tokens.json"
     original = Path.is_symlink
     monkeypatch.setattr(Path, "is_symlink", lambda path: path == target or original(path))
 
