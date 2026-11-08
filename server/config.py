@@ -6,6 +6,7 @@ import argparse
 import os
 from ipaddress import IPv4Address
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -106,8 +107,29 @@ class SherpaConfig(BaseModel):
         return _under_root(Path(self.hotwords_file))
 
 
+class HaasSherpaConfig(BaseModel):
+    model: str = "haas-ja-v1.0-onnx"
+    decoding_method: Literal["greedy_search", "modified_beam_search"] = "greedy_search"
+    hotwords_file: str | None = None
+    hotwords_score: float = Field(default=1.5, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _hotwords_require_beam_search(self) -> HaasSherpaConfig:
+        if self.hotwords_file and self.decoding_method != "modified_beam_search":
+            raise ValueError("asr.haas_sherpa.hotwords_file には modified_beam_search が必要です")
+        return self
+
+    def resolved_hotwords_file(self) -> Path | None:
+        return _under_root(Path(self.hotwords_file)) if self.hotwords_file else None
+
+
+class HaasOnnxConfig(BaseModel):
+    model: str = "haas-ja-onecompression"
+    quantization: Literal["int4", "int8"] = "int4"
+
+
 class AsrConfig(BaseModel):
-    engine: str = "faster-whisper"  # "faster-whisper" | "sherpa" | "fake"（テスト・デモ用）
+    engine: str = "faster-whisper"
     # models.dir 配下のディレクトリ名。既定はベンチ確定値（docs/bench/2026-07-07-bench.md）
     model: str = "faster-whisper-small"
     compute_type: str = "int8"
@@ -126,6 +148,8 @@ class AsrConfig(BaseModel):
         return v
 
     sherpa: SherpaConfig = Field(default_factory=SherpaConfig)
+    haas_sherpa: HaasSherpaConfig = Field(default_factory=HaasSherpaConfig)
+    haas_onnx: HaasOnnxConfig = Field(default_factory=HaasOnnxConfig)
 
 
 class VadConfig(BaseModel):
