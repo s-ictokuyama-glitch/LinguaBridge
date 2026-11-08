@@ -1,7 +1,7 @@
 """Windows 起動・初回準備の安全な制御経路を隔離先で検証する。
 
 実ホストのファイアウォール、電源設定、モデル、既存 ``.venv`` には触れない。
-``scripts/run.ps1`` と ``start.bat`` はそのまま一時ディレクトリへコピーし、
+起動に必要なスクリプトはそのまま一時ディレクトリへコピーし、
 重いセットアップとサーバー本体だけを決定的なスタブへ置き換える。
 そのため、ここで証明するのは起動制御であり、クリーン Windows での実セットアップ
 や実モデルのオフライン起動は別途必要である。
@@ -41,6 +41,7 @@ def _make_launcher_sandbox(tmp_path: Path, *, setup_complete: bool) -> Path:
     root = tmp_path / "launcher-sandbox"
     (root / "scripts").mkdir(parents=True)
     shutil.copy2(ROOT / "scripts" / "run.ps1", root / "scripts" / "run.ps1")
+    shutil.copy2(ROOT / "scripts" / "launcher.ps1", root / "scripts" / "launcher.ps1")
     shutil.copy2(ROOT / "start.bat", root / "start.bat")
     _copy_python_launcher(root)
 
@@ -92,7 +93,7 @@ def _write_setup_stub(root: Path, body: str) -> None:
 
 def _assert_server_invoked(root: Path) -> None:
     invocation = json.loads((root / "server-invoked.json").read_text(encoding="utf-8"))
-    assert invocation == {"argv": ["--open-browser"]}
+    assert invocation == {"argv": ["--open-browser", "--select-network"]}
 
 
 def _assert_interrupted_download_keeps_completed_payload(
@@ -277,19 +278,42 @@ def test_setup_marker_follows_every_required_native_step() -> None:
 
 
 def test_admin_and_non_admin_setup_policies_are_both_explicit() -> None:
-    """管理者時の受信許可・AC電源設定と、非管理者時の案内を固定する。"""
+    """管理者時は共通の受信許可・AC電源設定を呼び、非管理者時は案内する。"""
 
     setup = (ROOT / "setup.ps1").read_text(encoding="utf-8-sig")
-    admin_block = setup[setup.index("if ($isAdmin) {") :]
+    lines = [line.strip() for line in setup.splitlines()]
+    admin_start = lines.index("if ($isAdmin) {")
+    admin_block = lines[admin_start + 1 : lines.index("}", admin_start)]
 
-    assert "New-NetFirewallRule" in admin_block
-    assert "-Direction Inbound" in admin_block
-    assert "-Protocol TCP" in admin_block
-    assert "-LocalPort $p" in admin_block
-    assert "powercfg /change standby-timeout-ac 0" in admin_block
-    assert "powercfg /change hibernate-timeout-ac 0" in admin_block
-    assert "管理者権限がありません" in setup
-    assert "ファイアウォール許可とスリープ無効化はスキップされます" in setup
+    shared_import = '. "$root\\scripts\\os_setup.ps1"'
+    firewall_call = "Grant-LinguaBridgeFirewall -Ports @($httpPort, $httpsPort)"
+    sleep_call = "$null = Disable-AcSleep"
+    for statement in (shared_import, firewall_call, sleep_call):
+        assert statement in admin_block
+    assert admin_block.index(shared_import) < admin_block.index(firewall_call)
+    assert admin_block.index(shared_import) < admin_block.index(sleep_call)
+
+    os_setup = (ROOT / "scripts" / "os_setup.ps1").read_text(encoding="utf-8-sig")
+    os_lines = [line.strip() for line in os_setup.splitlines()]
+    active_os_setup = "\n".join(line for line in os_lines if not line.startswith("#"))
+    assert any(line.startswith("New-NetFirewallRule ") for line in os_lines)
+    for fragment in (
+        "-Direction Inbound",
+        "-Protocol TCP",
+        "-LocalPort $p",
+        "-Action Allow",
+        '"standby-timeout-ac"',
+        '"hibernate-timeout-ac"',
+    ):
+        assert fragment in active_os_setup
+    assert any(line.split()[:4] == ["powercfg", "/change", "$setting", "0"] for line in os_lines)
+
+    non_admin_start = lines.index("if (-not $isAdmin) {")
+    non_admin_block = lines[non_admin_start + 1 : lines.index("}", non_admin_start)]
+    assert (
+        'Write-Warning "管理者権限がありません。ファイアウォール許可とスリープ無効化はスキップされます。"'
+        in non_admin_block
+    )
 
 
 def test_powershell_launch_scripts_parse_without_errors() -> None:
@@ -319,11 +343,23 @@ def test_powershell_launch_scripts_parse_without_errors() -> None:
 
 
 def test_start_bat_remains_ascii_and_invokes_the_bundled_run_script() -> None:
-    """cmd.exe のコードページに依存しない薄いシムを維持する。"""
+    """ASCII のシムは開発版を既定とし、同梱版があれば優先して起動する。"""
 
     batch = (ROOT / "start.bat").read_bytes()
     text = batch.decode("ascii")
+    lines = [line.strip() for line in text.splitlines()]
 
-    assert 'cd /d "%~dp0"' in text
-    assert 'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\run.ps1"' in text
+    change_directory = 'cd /d "%~dp0"'
+    development = 'set "launcher=%~dp0scripts\\run.ps1"'
+    bundled = 'if exist "%~dp0app\\scripts\\run.ps1" set "launcher=%~dp0app\\scripts\\run.ps1"'
+    launch = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%launcher%"'
+    for statement in (change_directory, development, bundled, launch):
+        assert statement in lines
+    assert (
+        lines.index(change_directory)
+        < lines.index(development)
+        < lines.index(bundled)
+        < lines.index(launch)
+    )
+    assert launch + " -Diagnose" in lines
     assert "pause" in text.lower().splitlines()
