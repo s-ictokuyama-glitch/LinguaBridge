@@ -42,7 +42,7 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 
 ## 実装との同期を確認する
 
-最終同期コミットは `d78968533639ca29108318dd9e572407f26c1c10`。結果 JSON の `sync_commit` に出る。
+最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。結果 JSON の `sync_commit` に出る。
 修正前の基準結果は `f4f77289ca4a69b1c401cb39b4f93e5e70cb51a4` のまま比較に使う。
 
 | ファイル | 照合する処理 |
@@ -57,7 +57,7 @@ MTは必ず成功し、操作列終了後はキューを公平に排出すると
 | `web/caption-recovery.js`、`web/student.js` | 字幕の受理、履歴開始位置、連続受信位置。`student.js` は呼出し側の照合のみ |
 
 ```powershell
-git diff d78968533639ca29108318dd9e572407f26c1c10 -- server/caption_delivery.py server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py server/inference.py web/caption-recovery.js web/student.js
+git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/caption_delivery.py server/pipeline.py server/lesson.py server/roster.py server/delivery.py server/caption_history.py server/config.py server/mt/fake_engine.py server/inference.py web/caption-recovery.js web/student.js
 ```
 
 対象処理が変わったら、MTの待機境界、復元対象、切断条件、操作集合を照合して検証器を更新する。

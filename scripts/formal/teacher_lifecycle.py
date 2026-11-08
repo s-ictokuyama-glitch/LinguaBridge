@@ -16,7 +16,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "d78968533639ca29108318dd9e572407f26c1c10"
+SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
 SERIAL = ("join_A", "join_B", "leave_A", "leave_B", "start", "pause", "end")
 OVERLAP = ("join_C", "leave_C", "start", "pause", "end", "release_A")
 PREFIX = ("join_A", "start", "begin_join_B_at_close_A")

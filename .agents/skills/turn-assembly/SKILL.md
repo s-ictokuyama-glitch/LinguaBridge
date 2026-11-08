@@ -34,7 +34,7 @@ reset だけは未確定断片を捨てる操作である。`discard_reserved` �
 
 ## 実装との同期を確認する
 
-最終同期コミットは `d78968533639ca29108318dd9e572407f26c1c10`。
+最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -45,7 +45,7 @@ reset だけは未確定断片を捨てる操作である。`discard_reserved` �
 | `server/config.py` | `TurnMorphConfig` の個数・時間上限との対応のみ。実行対象外 |
 
 ```powershell
-git diff d78968533639ca29108318dd9e572407f26c1c10 -- server/turn/assembler.py server/turn/boundary.py server/pipeline.py server/lesson.py server/config.py
+git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/turn/assembler.py server/turn/boundary.py server/pipeline.py server/lesson.py server/config.py
 ```
 
 保留の所有権、確定と破棄の条件、ID の寿命、版番号、時間幅と音声長の違い、単一ワーカー契約を照合する。

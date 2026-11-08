@@ -38,7 +38,7 @@ Traceback、タイムアウト、破壊箇所の不一致は検証器か環境�
 
 ## 実装との同期を確認する
 
-最終同期コミットは `d78968533639ca29108318dd9e572407f26c1c10`。
+最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。
 これは製品コードを照合したコミットであり、スキルの追加コミットとは異なる。
 
 | ファイル | 照合する処理 |
@@ -49,7 +49,7 @@ Traceback、タイムアウト、破壊箇所の不一致は検証器か環境�
 | `server/config.py` | `LimitsConfig.send_queue_max`、`send_timeout_s` の意味 |
 
 ```powershell
-git diff d78968533639ca29108318dd9e572407f26c1c10 -- server/delivery.py server/roster.py server/config.py server/caption_delivery.py
+git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/delivery.py server/roster.py server/config.py server/caption_delivery.py
 ```
 
 容量に送信中の1件を含めるか、受付・停止・切断の原子性、送信ワーカー数、closeの待機、制御移譲の回数を照合する。
