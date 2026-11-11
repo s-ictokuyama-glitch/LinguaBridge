@@ -181,11 +181,13 @@ def create_app(
     if asr_engine is None:
         asr_factory = partial(build_asr_engine, config.model_copy(deep=True))
         asr_engine = asr_factory()
-        asr_runner = ProcessInferenceRunner(asr_engine, asr_factory, name="asr")
+        asr_runner = ProcessInferenceRunner(
+            asr_engine, asr_factory, startup_timeout_s=config.limits.inference_startup_timeout_s, name="asr")
     if mt_engine is None:
         mt_factory = partial(build_mt_engine, config.model_copy(deep=True))
         mt_engine = mt_factory()
-        mt_runner = ProcessInferenceRunner(mt_engine, mt_factory, name="mt")
+        mt_runner = ProcessInferenceRunner(
+            mt_engine, mt_factory, startup_timeout_s=config.limits.inference_startup_timeout_s, name="mt")
     pipeline = Pipeline(
         roster,
         config,

@@ -278,8 +278,12 @@ async def native_hang(kind, destination, release_hang=False):
     asr, mt = make_asr(), make_mt()
     scenario.pipeline = Pipeline(
         scenario.roster, scenario.config, asr, mt,
-        asr_runner=ProcessInferenceRunner(asr, make_asr, name="endurance-asr"),
-        mt_runner=ProcessInferenceRunner(mt, make_mt, name="endurance-mt"),
+        asr_runner=ProcessInferenceRunner(asr, make_asr,
+                                        startup_timeout_s=scenario.config.limits.inference_startup_timeout_s,
+                                        name="endurance-asr"),
+        mt_runner=ProcessInferenceRunner(mt, make_mt,
+                                       startup_timeout_s=scenario.config.limits.inference_startup_timeout_s,
+                                       name="endurance-mt"),
     )
     report = dict(kind=kind, released_control=release_hang, status="FAIL",
                   property="native_hang_recovery", timeout_s=2, recovery_observation_s=8,

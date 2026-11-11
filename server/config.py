@@ -351,6 +351,7 @@ class LimitsConfig(BaseModel):
     max_audio_bytes: int = 32000  # バイナリフレームの受信上限（1秒 @16kHz PCM16）
     asr_timeout_s: float = 60.0  # 1発話のASR推論タイムアウト（whisper-flow W-1）
     mt_timeout_s: float = 60.0  # 1件の翻訳のタイムアウト
+    inference_startup_timeout_s: float = Field(default=120.0, gt=0, allow_inf_nan=False)
     # WSの Origin 許可リスト。空なら「Hostと同一ホストのみ許可」。
     # Origin ヘッダを持たない接続（非ブラウザのツール類）は常に許可する
     allowed_origins: list[str] = Field(default_factory=list)
