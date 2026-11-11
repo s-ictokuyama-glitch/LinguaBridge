@@ -1,0 +1,438 @@
+{
+  "sync_commit": "dcb03548822b9b8e0ca0e8200c2b378f2a80ed39",
+  "python": "3.12.10",
+  "coverage": {
+    "deadline_cases": 6,
+    "lesson_profiles": 8,
+    "seconds_per_profile": 3000,
+    "native_cases": 4
+  },
+  "controlled": {
+    "deadlines": [
+      {
+        "service_s": 0.9,
+        "release_before_timer": false,
+        "first": "InferenceSucceeded",
+        "next": "InferenceSucceeded"
+      },
+      {
+        "service_s": 0.9,
+        "release_before_timer": true,
+        "first": "InferenceSucceeded",
+        "next": "InferenceSucceeded"
+      },
+      {
+        "service_s": 1.0,
+        "release_before_timer": false,
+        "first": "InferenceTimedOut",
+        "next": "InferenceSucceeded"
+      },
+      {
+        "service_s": 1.0,
+        "release_before_timer": true,
+        "first": "InferenceTimedOut",
+        "next": "InferenceSucceeded"
+      },
+      {
+        "service_s": 1.1,
+        "release_before_timer": false,
+        "first": "InferenceTimedOut",
+        "next": "InferenceSucceeded"
+      },
+      {
+        "service_s": 1.1,
+        "release_before_timer": true,
+        "first": "InferenceTimedOut",
+        "next": "InferenceSucceeded"
+      }
+    ],
+    "lessons": [
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 4.0,
+        "asr_service_seconds": 0.1,
+        "mt_service_seconds": 0.2,
+        "inputs": 600,
+        "captions_per_language": 600,
+        "max_caption_after_speech_s": 0.5,
+        "peaks": {
+          "audio_seconds": 4.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 4.0,
+        "asr_service_seconds": 0.1,
+        "mt_service_seconds": 1.5,
+        "inputs": 600,
+        "captions_per_language": 600,
+        "max_caption_after_speech_s": 3.1,
+        "peaks": {
+          "audio_seconds": 4.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 4.0,
+        "asr_service_seconds": 0.4,
+        "mt_service_seconds": 0.2,
+        "inputs": 600,
+        "captions_per_language": 600,
+        "max_caption_after_speech_s": 0.8,
+        "peaks": {
+          "audio_seconds": 4.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 4.0,
+        "asr_service_seconds": 0.4,
+        "mt_service_seconds": 1.5,
+        "inputs": 600,
+        "captions_per_language": 600,
+        "max_caption_after_speech_s": 3.4,
+        "peaks": {
+          "audio_seconds": 4.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 29.0,
+        "asr_service_seconds": 0.1,
+        "mt_service_seconds": 0.2,
+        "inputs": 100,
+        "captions_per_language": 100,
+        "max_caption_after_speech_s": 0.5,
+        "peaks": {
+          "audio_seconds": 29.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 200,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 29.0,
+        "asr_service_seconds": 0.1,
+        "mt_service_seconds": 1.5,
+        "inputs": 100,
+        "captions_per_language": 100,
+        "max_caption_after_speech_s": 3.1,
+        "peaks": {
+          "audio_seconds": 29.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 200,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 29.0,
+        "asr_service_seconds": 0.4,
+        "mt_service_seconds": 0.2,
+        "inputs": 100,
+        "captions_per_language": 100,
+        "max_caption_after_speech_s": 0.8,
+        "peaks": {
+          "audio_seconds": 29.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 200,
+          "receipts": 100,
+          "tasks": 7
+        }
+      },
+      {
+        "status": "PASS",
+        "seconds": 3000,
+        "voice_seconds": 29.0,
+        "asr_service_seconds": 0.4,
+        "mt_service_seconds": 1.5,
+        "inputs": 100,
+        "captions_per_language": 100,
+        "max_caption_after_speech_s": 3.4,
+        "peaks": {
+          "audio_seconds": 29.1,
+          "mt_jobs": 1,
+          "history": 50,
+          "cache": 200,
+          "receipts": 100,
+          "tasks": 7
+        }
+      }
+    ],
+    "violations": [],
+    "status": "PASS"
+  },
+  "scope": "finite timing grid and fixed 3000-second virtual PCM schedules; not CPU performance proof",
+  "native": [
+    {
+      "kind": "asr",
+      "released_control": true,
+      "status": "PASS",
+      "property": "native_hang_recovery",
+      "timeout_s": 0.1,
+      "recovery_observation_s": 0.6,
+      "expected": "second utterance reaches both languages",
+      "actual": {
+        "en": true,
+        "zh": true
+      },
+      "injected_operation_still_blocked": false,
+      "trace": [
+        "asr enters blocking operation",
+        "caller deadline expires",
+        "release operation",
+        "feed second utterance",
+        "observe both languages after six deadlines"
+      ],
+      "notices": [
+        "asr_timeout"
+      ],
+      "pipeline_stop_returned": true,
+      "process_exit": {
+        "status": "PASS",
+        "after_result_watchdog_s": 2,
+        "expected": "interpreter exits after Pipeline.stop",
+        "actual": "exited"
+      }
+    },
+    {
+      "kind": "asr",
+      "released_control": false,
+      "status": "FAIL",
+      "property": "native_hang_recovery",
+      "timeout_s": 0.1,
+      "recovery_observation_s": 0.6,
+      "expected": "second utterance reaches both languages",
+      "actual": {
+        "en": false,
+        "zh": false
+      },
+      "injected_operation_still_blocked": true,
+      "trace": [
+        "asr enters blocking operation",
+        "caller deadline expires",
+        "keep operation blocked",
+        "feed second utterance",
+        "observe both languages after six deadlines"
+      ],
+      "notices": [
+        "asr_timeout"
+      ],
+      "pipeline_stop_returned": true,
+      "process_exit": {
+        "status": "FAIL",
+        "after_result_watchdog_s": 2,
+        "expected": "interpreter exits after Pipeline.stop",
+        "actual": "blocked; witness child killed"
+      }
+    },
+    {
+      "kind": "mt",
+      "released_control": true,
+      "status": "PASS",
+      "property": "native_hang_recovery",
+      "timeout_s": 0.1,
+      "recovery_observation_s": 0.6,
+      "expected": "second utterance reaches both languages",
+      "actual": {
+        "en": true,
+        "zh": true
+      },
+      "injected_operation_still_blocked": false,
+      "trace": [
+        "mt enters blocking operation",
+        "caller deadline expires",
+        "release operation",
+        "feed second utterance",
+        "observe both languages after six deadlines"
+      ],
+      "notices": [
+        "mt_timeout"
+      ],
+      "pipeline_stop_returned": true,
+      "process_exit": {
+        "status": "PASS",
+        "after_result_watchdog_s": 2,
+        "expected": "interpreter exits after Pipeline.stop",
+        "actual": "exited"
+      }
+    },
+    {
+      "kind": "mt",
+      "released_control": false,
+      "status": "FAIL",
+      "property": "native_hang_recovery",
+      "timeout_s": 0.1,
+      "recovery_observation_s": 0.6,
+      "expected": "second utterance reaches both languages",
+      "actual": {
+        "en": false,
+        "zh": false
+      },
+      "injected_operation_still_blocked": true,
+      "trace": [
+        "mt enters blocking operation",
+        "caller deadline expires",
+        "keep operation blocked",
+        "feed second utterance",
+        "observe both languages after six deadlines"
+      ],
+      "notices": [
+        "mt_timeout"
+      ],
+      "pipeline_stop_returned": true,
+      "process_exit": {
+        "status": "FAIL",
+        "after_result_watchdog_s": 2,
+        "expected": "interpreter exits after Pipeline.stop",
+        "actual": "blocked; witness child killed"
+      }
+    }
+  ],
+  "mutations": [
+    {
+      "name": "double_deadline",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "positive_deadline",
+        "expected": "success before deadline; timeout after deadline",
+        "actual": "InferenceSucceeded",
+        "trace": [
+          "service_ticks=11",
+          "release_before_timer=False"
+        ]
+      }
+    },
+    {
+      "name": "stop_asr_after_300",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "all workers remain active",
+        "actual": [
+          {
+            "name": "asr-worker",
+            "error": "None"
+          }
+        ],
+        "trace": [
+          "pcm_time=1499.4s",
+          "asr=0.4s mt=1.5s"
+        ]
+      }
+    },
+    {
+      "name": "lose_mt_wakeup",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "caption_deadline",
+        "expected": {
+          "lang": "en",
+          "at_least": 1
+        },
+        "actual": 0,
+        "trace": [
+          "pcm_time=12.0s",
+          "asr=0.4s mt=1.5s"
+        ]
+      }
+    },
+    {
+      "name": "unbounded_translation_cache",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30.0,
+          "mt_jobs": 256,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 11
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "mt_jobs": 0,
+          "history": 50,
+          "cache": 513,
+          "receipts": 53,
+          "tasks": 7
+        },
+        "trace": [
+          "pcm_time=1285.9s",
+          "asr=0.4s mt=1.5s"
+        ]
+      }
+    },
+    {
+      "name": "wrong_caption",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "caption_delivery",
+        "expected": {
+          "count": 600,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "授業の発話1です。",
+            "text": "en:授業の発話1です。",
+            "lang": "en"
+          }
+        },
+        "actual": {
+          "count": 600,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "授業の発話1です。",
+            "text": "wrong translation",
+            "lang": "en"
+          }
+        },
+        "trace": [
+          "pcm_time=3000.0s",
+          "asr=0.4s mt=1.5s"
+        ]
+      }
+    }
+  ],
+  "status": "FAIL"
+}
