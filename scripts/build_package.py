@@ -46,6 +46,7 @@ from pathlib import Path, PurePosixPath
 
 sys.dont_write_bytecode = True
 
+import psutil
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -954,8 +955,31 @@ def verify_server_ready(app: Path, python: Path) -> None:
             try:
                 status = _wait_ready(f"http://127.0.0.1:{http_port}/ready", server)
             finally:
-                server.kill()
-                server.wait(timeout=30)
+                children = []
+                try:
+                    try:
+                        children = psutil.Process(server.pid).children(recursive=True)
+                    except psutil.NoSuchProcess:
+                        pass
+                finally:
+                    try:
+                        try:
+                            server.kill()
+                        finally:
+                            server.wait(timeout=30)
+                    finally:
+                        _, alive = psutil.wait_procs(children, timeout=30)
+                        if alive:
+                            for child in alive:
+                                try:
+                                    child.kill()
+                                except psutil.Error:
+                                    pass
+                            _, remaining = psutil.wait_procs(alive, timeout=30)
+                            raise BuildError(
+                                "自己検証サーバーの子プロセスが終了期限を超えました"
+                                f"（強制終了後の残存PID: {[child.pid for child in remaining]}）"
+                            )
         if status != 200:
             raise BuildError(
                 f"同梱の Python でサーバーが準備完了になりませんでした（/ready: {status}）。ログ:\n"
