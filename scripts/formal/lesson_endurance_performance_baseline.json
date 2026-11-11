@@ -1,0 +1,75 @@
+{
+  "status": "PASS",
+  "checks": {
+    "full_audio": true,
+    "real_inference": true,
+    "classroom": true,
+    "no_failures": true,
+    "every_student": true,
+    "whole_lesson_captions": true,
+    "latency": true,
+    "resources": true,
+    "continuous_observation": true,
+    "drained": true,
+    "acceptance": true
+  },
+  "failures": [],
+  "acceptance_reasons": [],
+  "source_report": "C:\\Users\\esesm\\OneDrive\\ドキュメント\\GitHub\\LinguaBridge\\.audit\\lesson-endurance-real-full\\2026-11-11-acceptance.json",
+  "source_report_sha256": "7639adb29b88c587ff92ae2b7f4d7005952b1ead42d4d1cf1023245ddc4a5745",
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-11-11"
+  },
+  "observed": {
+    "measurement_seconds": 3000.015,
+    "audio_bytes_sent": 96000000,
+    "captions": 962,
+    "latency": {
+      "count": 962,
+      "median_s": 0.89,
+      "p95_s": 1.66,
+      "max_s": 1.86
+    },
+    "memory": {
+      "samples": 1467,
+      "baseline_mb": 3086,
+      "final_mb": 3086,
+      "peak_mb": 3178,
+      "increase_mb": 0,
+      "increasing": false
+    },
+    "calls": {
+      "asr": 497,
+      "asr_partial": 0,
+      "mt": 962,
+      "tasks": 30
+    },
+    "errors": [],
+    "dropped": {
+      "segments": 0,
+      "seconds": 0.0,
+      "frames_rejected": 0,
+      "notices": {}
+    },
+    "cpu_percent": {
+      "cores": 16,
+      "median": 18.5,
+      "p95": 469.7,
+      "max": 581.3,
+      "samples": 1467
+    },
+    "audio_queue_seconds": {
+      "median": 0.0,
+      "p95": 0.0,
+      "max": 8.1,
+      "samples": 1500
+    }
+  },
+  "scope": "one real-time run on the recorded PC and synthetic corpus; no ASR/MT quality or LAN guarantee"
+}
