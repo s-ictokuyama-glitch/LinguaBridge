@@ -1,0 +1,295 @@
+{
+  "status": "FAIL",
+  "sync_commit": "e97e06890846bb48de7b5f16dfa65bd8cbb86a77",
+  "tools": {
+    "python": "3.12.10",
+    "node": "v24.22.1"
+  },
+  "capture": {
+    "status": "FAIL",
+    "bounded": {
+      "attempted": 85,
+      "legal": 24,
+      "passed": 20,
+      "failed": 4,
+      "violations": [
+        {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "pause",
+            "suspend",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "suspended",
+            "tracks": [
+              "live"
+            ],
+            "mic_ready": true,
+            "session_state": "live",
+            "packets": 2,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
+            "packets_since_start": 0,
+            "matching_since_start": 0
+          }
+        },
+        {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "pause",
+            "end_track",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "running",
+            "tracks": [
+              "ended"
+            ],
+            "mic_ready": true,
+            "session_state": "live",
+            "packets": 4,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
+            "packets_since_start": 2,
+            "matching_since_start": 0
+          }
+        },
+        {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "suspend",
+            "pause",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "suspended",
+            "tracks": [
+              "live"
+            ],
+            "mic_ready": true,
+            "session_state": "live",
+            "packets": 2,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
+            "packets_since_start": 0,
+            "matching_since_start": 0
+          }
+        },
+        {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "end_track",
+            "pause",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "running",
+            "tracks": [
+              "ended"
+            ],
+            "mic_ready": true,
+            "session_state": "live",
+            "packets": 4,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
+            "packets_since_start": 2,
+            "matching_since_start": 0
+          }
+        }
+      ]
+    },
+    "sustained": {
+      "status": "PASS",
+      "seconds": 3000,
+      "rate": 48000,
+      "block_samples": 128,
+      "planned_utterances": 600,
+      "packets": 30000,
+      "bytes": 96000000,
+      "expected": {
+        "packets": 30000,
+        "bytes": 96000000
+      },
+      "frame_sizes": [
+        3200
+      ],
+      "violations": []
+    }
+  },
+  "translation": {
+    "status": "PASS",
+    "seconds": 3000,
+    "expected_utterances": 600,
+    "expected_packets": 30000,
+    "asr_service_s": 0.1,
+    "mt_service_s": 0.2,
+    "pipeline_stop_returned": true,
+    "packets": 30000,
+    "asr_calls": 600,
+    "mt_calls": 1200,
+    "captions": {
+      "en": 600,
+      "zh": 600
+    }
+  },
+  "mutations": {
+    "results": [
+      {
+        "name": "initial_context_never_resumed",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "capture_liveness",
+          "trace": [
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1001,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "suspended",
+            "tracks": [
+              "live"
+            ],
+            "mic_ready": true,
+            "session_state": "live",
+            "packets": 0,
+            "nonzero_packets": 0,
+            "matching_packets": 0,
+            "frame_sizes": [],
+            "packets_since_start": 0,
+            "matching_since_start": 0
+          }
+        }
+      },
+      {
+        "name": "audio_sent_while_paused",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "inactive_quiet",
+          "trace": [
+            "start",
+            "pause"
+          ],
+          "expected": {
+            "packets": 0
+          },
+          "actual": {
+            "packets": 2
+          }
+        }
+      },
+      {
+        "name": "wrong_pcm_packet_size",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "pcm_framing",
+          "trace": [
+            "start"
+          ],
+          "expected": {
+            "frame_bytes": 3200
+          },
+          "actual": {
+            "frame_sizes": [
+              3202
+            ]
+          }
+        }
+      },
+      {
+        "name": "wrong_pcm_samples",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "pcm_samples",
+          "expected": 1001,
+          "actual": [
+            500
+          ],
+          "trace": [
+            "worklet_pcm_time=0.0s"
+          ]
+        }
+      },
+      {
+        "name": "wrong_translation",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "caption_delivery",
+          "expected": {
+            "count": 1,
+            "first_difference": 0,
+            "item": {
+              "seq": 1,
+              "ja": "授業の発話1です。",
+              "text": "en:授業の発話1です。",
+              "lang": "en"
+            }
+          },
+          "actual": {
+            "count": 1,
+            "first_difference": 0,
+            "item": {
+              "seq": 1,
+              "ja": "授業の発話1です。",
+              "text": "wrong translation",
+              "lang": "en"
+            }
+          },
+          "trace": [
+            "worklet_pcm_time=5.0s"
+          ]
+        }
+      }
+    ],
+    "restored": "FAIL",
+    "restored_bounded_matches": true,
+    "restored_translation": "PASS"
+  },
+  "source_sha256": {
+    "web/teacher.js": "881c6717e78547f114badd7ca9f02671fa8a609835aa97e850ecb719fa8f2758",
+    "web/audio-worklet.js": "35604f3ed8c18f439529189ccb1fcfae7f63df6ef26b272fac95fe3a544904e2",
+    "server/connection.py": "f2428f8ff939d06f77aef62e371e3418c4f122cea792493973ff364803ed8f09",
+    "server/lesson.py": "307c6a3cf472e4fce509258006f6e7a6078d65e4b42bd0f335681d222e57086e",
+    "server/pipeline.py": "849358d2d7da78a0bdc6db2ad3bc062bfedf56fe6a0fff4f6b3c9d0a79e63267",
+    "server/caption_delivery.py": "1185be64baea857a691acc7261446b20dd36b880f4357524ccf4c5ec1d748fbb"
+  }
+}

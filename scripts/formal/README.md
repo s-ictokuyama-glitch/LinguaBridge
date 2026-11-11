@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+先生ページの音声処理休止・マイク終了後の再開、実Workletの50分PCMから英中字幕までの継続は [teacher-audio スキル](../../.agents/skills/teacher-audio/SKILL.md) を使う。正常な音声入力と、画面だけ配信中へ戻って字幕が再開しない現行の反例を分けて検査する。
+
 推論プロセスの準備中の期限・取消し・停止と、授業途中の再生成でモデル準備が永久停止した場合の字幕継続は [inference-startup 検証](inference_startup.md) と [スキル](../../.agents/skills/inference-startup/SKILL.md) を使う。準備が遅くても完了すれば復帰する対照と、永久停止から自動復旧しない現行の反例を分けて記録する。
 
 50分の連続入力、正の推論期限、永久ハング後の字幕再開・終了は [lesson-endurance 検証](lesson_endurance.md) と [スキル](../../.agents/skills/lesson-endurance/SKILL.md) を使う。仮想時間、プロセスの復旧、実モデルの50分計測を分ける。Issue #180の修正と実モデルでの停止確認は [推論ハング復旧の実行記録](inference_recovery_run.md) にある。
