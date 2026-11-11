@@ -107,7 +107,7 @@ Get-ChildItem -LiteralPath $verifyRun -File
 ```
 
 ヘルパーは記録したPIDの生成時刻と起動引数を照合してから、そのプロセスだけを停止する。
-Windowsの `.venv` ランチャーと実サーバーが別PIDの場合は両方を記録して停止する。
+Windowsの `.venv` ランチャーと実サーバーが別PIDの場合は両方を記録して停止する。停止時に確認した子プロセスは `cleanup-processes.json` に記録して終了を待つ。残った子はPIDと生成時刻、起動引数を再照合して停止する。
 専用 `tmp` のみ削除し、設定、起動ログ、操作ログ、画像、trace、`cleanup.json` を残す。
 `cleanup.json` の停止確認と証拠ファイルの残存を確認して完了とする。名前による一括killや、既存8000/8443番への接続は行わない。
 並列runは別ポート・別データ・別browser contextを持つ。同じrunを2人で操作しない。NICとモデルファイルは読み取りで共有する。

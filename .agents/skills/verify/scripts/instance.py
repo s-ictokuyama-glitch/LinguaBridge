@@ -80,9 +80,11 @@ def identity(owned, prefix=""):
     return {prefix + "pid": owned.pid, prefix + "created": owned.create_time(), prefix + "command": owned.cmdline()}
 
 
-def stop_owned():
+def stop_owned(*, require_complete_tree=False):
     processes = {}
     identities = {}
+    descendants = {}
+    child_snapshots = {}
     for prefix in ("", "launcher_"):
         pid = state.get(prefix + "pid")
         if pid is not None and psutil.pid_exists(pid):
@@ -92,37 +94,79 @@ def stop_owned():
                 raise RuntimeError("Process identity changed; refusing to terminate it")
             processes[pid] = owned
             identities[pid] = snapshot
+    cleanup_processes = run / "cleanup-processes.json"
+    if cleanup_processes.is_file():
+        for snapshot in json.loads(cleanup_processes.read_text(encoding="utf-8")):
+            try:
+                child = psutil.Process(snapshot["pid"])
+                if child.create_time() != snapshot["created"]:
+                    continue
+            except psutil.NoSuchProcess:
+                continue
+            child_snapshots[child.pid] = snapshot
+            identities[child.pid] = snapshot
+            descendants[child.pid] = child
     for owned in list(processes.values()):
         try:
             children = owned.children(recursive=True)
+        except psutil.NoSuchProcess:
+            continue
         except psutil.Error:
+            if require_complete_tree:
+                raise
             continue
         for child in children:
+            if child.pid in identities:
+                continue
             try:
                 child_identity = identity(child)
-                if child_identity["command"][1:] == state["command"][1:]:
-                    processes[child.pid] = child
-                    identities[child.pid] = child_identity
-            except psutil.Error:
+            except psutil.NoSuchProcess:
                 continue
+            except psutil.Error:
+                if require_complete_tree:
+                    raise
+                continue
+            child_snapshots[child.pid] = child_identity
+            identities[child.pid] = child_identity
+            if child_identity["command"][1:] == state["command"][1:]:
+                processes[child.pid] = child
+            else:
+                descendants[child.pid] = child
+
     errors = []
-    for pid, owned in reversed(list(processes.items())):
+    if child_snapshots:
         try:
-            if identity(owned) != identities[pid]:
-                raise RuntimeError("Process identity changed during cleanup")
-            owned.terminate()
-        except psutil.NoSuchProcess:
-            pass
-        except (psutil.Error, RuntimeError) as error:
+            pending = cleanup_processes.with_suffix(".tmp")
+            write_json(pending, list(child_snapshots.values()))
+            pending.replace(cleanup_processes)
+        except OSError as error:
+            if require_complete_tree:
+                raise
             errors.append(str(error))
-    for owned in processes.values():
-        try:
-            owned.wait(timeout=15)
-        except psutil.Error as error:
-            errors.append(str(error))
+
+    def stop_and_wait(targets):
+        for owned in reversed(targets):
+            try:
+                if identity(owned) != identities[owned.pid]:
+                    raise RuntimeError("Process identity changed during cleanup")
+                owned.terminate()
+            except psutil.NoSuchProcess:
+                pass
+            except (psutil.Error, RuntimeError) as error:
+                errors.append(str(error))
+        for owned in targets:
+            try:
+                owned.wait(timeout=15)
+            except psutil.Error as error:
+                errors.append(str(error))
+
+    stop_and_wait(list(processes.values()))
+    waiting = [child for pid, child in descendants.items() if psutil.pid_exists(pid)]
+    _, remaining = psutil.wait_procs(waiting, timeout=3)
+    stop_and_wait(remaining)
     if errors:
         raise RuntimeError("Could not stop all owned processes: " + "; ".join(errors))
-    return sorted(processes)
+    return sorted(identities)
 
 try:
     if args.action == "launch":
@@ -163,7 +207,7 @@ try:
 
     if args.action == "cleanup":
         run.mkdir(parents=True, exist_ok=True)
-        stopped_pids = stop_owned()
+        stopped_pids = stop_owned(require_complete_tree=True)
         tmp = run / "tmp"
         if tmp.exists():
             check_links(tmp)
