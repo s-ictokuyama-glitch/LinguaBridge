@@ -1,0 +1,480 @@
+{
+  "system": {
+    "cpu": "AMD Ryzen 7 8840U w/ Radeon 780M Graphics",
+    "cores": 8,
+    "threads": 16,
+    "ram_gb": 16.4,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "date": "2026-11-11"
+  },
+  "results": [
+    {
+      "engine": "hy-mt2",
+      "asr_engine": "haas-onnx",
+      "minutes": 50.0,
+      "students": 10,
+      "measurement_students": 10,
+      "measurement_langs": {
+        "zh": 5,
+        "en": 5
+      },
+      "measurement_seconds": 3000.015,
+      "audio_bytes_planned": 96000000,
+      "audio_bytes_sent": 96000000,
+      "corpus": "ja",
+      "effective_config": "_work/accept-hy-mt2-haas-onnx-2lang-cache0.yaml",
+      "disconnect_every_s": null,
+      "mt_cache_size": 0,
+      "langs": [
+        "en",
+        "zh"
+      ],
+      "captions": 962,
+      "latency": {
+        "count": 962,
+        "median_s": 0.89,
+        "p95_s": 1.66,
+        "max_s": 1.86
+      },
+      "memory": {
+        "samples": 1467,
+        "baseline_mb": 3086,
+        "final_mb": 3086,
+        "peak_mb": 3178,
+        "increase_mb": 0,
+        "increasing": false
+      },
+      "first_caption_s": 4.11,
+      "cpu_percent": {
+        "cores": 16,
+        "median": 18.5,
+        "p95": 469.7,
+        "max": 581.3,
+        "samples": 1467
+      },
+      "audio_queue_seconds": {
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 8.1,
+        "samples": 1500
+      },
+      "queue_depth": {
+        "median": 0.0,
+        "max": 2
+      },
+      "overloaded_samples": 0,
+      "partial": {
+        "turns": 481,
+        "turns_with_partial": 0,
+        "preceded_rate": 0.0,
+        "partials": 0,
+        "revisions_per_turn": null,
+        "revisions_max": null,
+        "mismatch_rate": null,
+        "exact_match_rate": null,
+        "first_partial_s": null,
+        "first_final_s": 3.7960000000002765,
+        "lead_median_s": null,
+        "lead_max_s": null,
+        "lead_min_s": null
+      },
+      "mt_cache": {
+        "hit_rate": 0.0,
+        "hits": 0,
+        "size": 0
+      },
+      "drift": {
+        "window_s": 300.0,
+        "first_median_s": 0.88,
+        "last_median_s": 0.89,
+        "increase_s": 0.01,
+        "drifting": false,
+        "empty_windows": 0,
+        "windows": [
+          {
+            "index": 0,
+            "start_s": 0.0,
+            "count": 96,
+            "median_s": 0.88,
+            "max_s": 1.7
+          },
+          {
+            "index": 1,
+            "start_s": 300.0,
+            "count": 94,
+            "median_s": 0.89,
+            "max_s": 1.78
+          },
+          {
+            "index": 2,
+            "start_s": 600.0,
+            "count": 98,
+            "median_s": 0.89,
+            "max_s": 1.76
+          },
+          {
+            "index": 3,
+            "start_s": 900.0,
+            "count": 96,
+            "median_s": 0.88,
+            "max_s": 1.7
+          },
+          {
+            "index": 4,
+            "start_s": 1200.0,
+            "count": 96,
+            "median_s": 0.88,
+            "max_s": 1.69
+          },
+          {
+            "index": 5,
+            "start_s": 1500.0,
+            "count": 98,
+            "median_s": 0.85,
+            "max_s": 1.69
+          },
+          {
+            "index": 6,
+            "start_s": 1800.0,
+            "count": 96,
+            "median_s": 0.89,
+            "max_s": 1.72
+          },
+          {
+            "index": 7,
+            "start_s": 2100.0,
+            "count": 96,
+            "median_s": 0.88,
+            "max_s": 1.67
+          },
+          {
+            "index": 8,
+            "start_s": 2400.0,
+            "count": 96,
+            "median_s": 0.84,
+            "max_s": 1.69
+          },
+          {
+            "index": 9,
+            "start_s": 2700.0,
+            "count": 94,
+            "median_s": 0.89,
+            "max_s": 1.86
+          }
+        ]
+      },
+      "resources": [
+        {
+          "name": "threads",
+          "samples": 1467,
+          "baseline": 28.0,
+          "final": 28.0,
+          "peak": 49.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "handles",
+          "samples": 1467,
+          "baseline": 444.0,
+          "final": 444.0,
+          "peak": 469.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "tasks",
+          "samples": 1500,
+          "baseline": 30.0,
+          "final": 30.0,
+          "peak": 30.0,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "audio_queue_seconds",
+          "samples": 1500,
+          "baseline": 0.0,
+          "final": 0.0,
+          "peak": 8.1,
+          "increase": 0.0,
+          "growing": false
+        },
+        {
+          "name": "mt_queue_depth",
+          "samples": 1500,
+          "baseline": 0.0,
+          "final": 0.0,
+          "peak": 2.0,
+          "increase": 0.0,
+          "growing": false
+        }
+      ],
+      "resource_observation": {
+        "sampler_interval_s": 2.0,
+        "stats_interval_s": 2.0,
+        "process_samples": 1467,
+        "process_first_at_s": 1.984,
+        "process_measurement_last_at_s": 2998.875,
+        "process_last_at_s": 3119.468,
+        "process_max_gap_s": 2.11,
+        "rss_samples": 1467,
+        "thread_samples": 1467,
+        "handle_samples": 1467,
+        "stats_samples": 1500,
+        "stats_first_at_s": 1.3,
+        "stats_measurement_last_at_s": 2999.4,
+        "stats_last_at_s": 3119.7,
+        "stats_max_gap_s": 2.1
+      },
+      "dropped": {
+        "segments": 0,
+        "seconds": 0.0,
+        "frames_rejected": 0,
+        "notices": {}
+      },
+      "restore": {
+        "students": 10,
+        "gaps": 0,
+        "beyond_history": 0,
+        "worst_student": "s0",
+        "worst_gaps": 0,
+        "by_student": {
+          "s0": {
+            "lang": "en",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s1": {
+            "lang": "zh",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s2": {
+            "lang": "en",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s3": {
+            "lang": "zh",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s4": {
+            "lang": "en",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s5": {
+            "lang": "zh",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s6": {
+            "lang": "en",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s7": {
+            "lang": "zh",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s8": {
+            "lang": "en",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          },
+          "s9": {
+            "lang": "zh",
+            "received": 481,
+            "published": 481,
+            "recoverable": 50,
+            "gaps": 0,
+            "beyond_history": 0
+          }
+        },
+        "injected_disconnects": 0,
+        "injection_attempts": 0,
+        "injection_close_failures": 0,
+        "injected_by_student": {
+          "s0": 0,
+          "s1": 0,
+          "s2": 0,
+          "s3": 0,
+          "s4": 0,
+          "s5": 0,
+          "s6": 0,
+          "s7": 0,
+          "s8": 0,
+          "s9": 0
+        },
+        "restored_by_student": {
+          "s0": 0,
+          "s1": 0,
+          "s2": 0,
+          "s3": 0,
+          "s4": 0,
+          "s5": 0,
+          "s6": 0,
+          "s7": 0,
+          "s8": 0,
+          "s9": 0
+        },
+        "injection_events": [],
+        "continuous_delivery_by_student": {
+          "s0": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s1": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s2": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s3": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s4": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s5": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s6": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s7": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s8": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          },
+          "s9": {
+            "published": 481,
+            "received": 481,
+            "exempt_own_history": [],
+            "expected": 481,
+            "missing_seqs": [],
+            "gaps": 0
+          }
+        },
+        "restore_median_s": null,
+        "restore_max_s": null,
+        "published_seqs": 481
+      },
+      "calls": {
+        "asr": 497,
+        "asr_partial": 0,
+        "mt": 962,
+        "tasks": 30
+      },
+      "disconnects": 0,
+      "reconnect_failures": 0,
+      "crashes": 0,
+      "errors": [],
+      "ran_seconds": 3120.063,
+      "total_elapsed_seconds": 3120.063,
+      "final_stats": {
+        "at_s": 3119.7,
+        "students": 10,
+        "langs": {
+          "en": 5,
+          "zh": 5
+        },
+        "queue_depth": 0,
+        "audio_queue_seconds": 0.0,
+        "median_delay_ms": 1373,
+        "mt_queue_depth": 0,
+        "overloaded": false,
+        "mt_cache_hit_rate": 0.0,
+        "mt_cache_hits": 0,
+        "mt_cache_size": 0,
+        "asr_calls": 497,
+        "asr_partial_calls": 0,
+        "mt_calls": 962,
+        "audio_frames_rejected": 0,
+        "asr_dropped_segments": 0,
+        "asr_dropped_seconds": 0.0,
+        "tasks": 30
+      },
+      "verdict": {
+        "passed": true,
+        "reasons": []
+      }
+    }
+  ]
+}

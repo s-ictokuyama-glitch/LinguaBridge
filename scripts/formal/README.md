@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+50分の連続入力、正の推論期限、永久ハング後の字幕再開・終了は [lesson-endurance 検証](lesson_endurance.md) と [スキル](../../.agents/skills/lesson-endurance/SKILL.md) を使う。仮想時間の検査と実モデルの50分計測を分け、現行のハング復旧失敗も保持する。
+
 音声入力から翻訳字幕までの反復、MT満杯後の再開、失敗後の継続は [lesson-liveness 検証](lesson_liveness.md) と [スキル](../../.agents/skills/lesson-liveness/SKILL.md) を使う。実モデル32回と生徒画面の確認コマンドも含む。
 
 字幕の再接続復元は別の [caption-recovery 検証](caption_recovery.md) と [スキル](../../.agents/skills/caption-recovery/SKILL.md) を使う。
