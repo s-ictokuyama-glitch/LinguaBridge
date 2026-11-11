@@ -1,5 +1,5 @@
 {
-  "sync_commit": "dc9c07088472dcaf94350836b33d4a9057020411",
+  "sync_commit": "4bdd9b28b9076f913ba82363dba947f7f1689d74",
   "python": "3.12.10",
   "scope": "finite real-process schedules and synthetic PCM witnesses; no unbounded liveness proof",
   "bounded": {

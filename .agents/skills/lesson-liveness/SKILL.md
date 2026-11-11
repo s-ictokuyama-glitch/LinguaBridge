@@ -51,7 +51,7 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 
 ## 実装との同期を確認する
 
-最終同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。
+最終同期コミットは `1f5bc911317534a3c6b93cf0941d27a0189c8745`。
 
 | 対象 | 照合する処理 |
 |---|---|
@@ -66,12 +66,13 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 | `web/index.html`、`web/student.js`、`web/caption-recovery.js` | 別コマンドで実行する受信とDOM表示 |
 
 ```powershell
-git diff 5aa0ca374beb563376b247eee60fd811e954e977 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/inference_process.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
+git diff 1f5bc911317534a3c6b93cf0941d27a0189c8745 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/inference_process.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
 ```
 
 実行順序、await境界、容量、失敗時の処理単位が変わったら、操作列と期待値を見直す。
 破壊は一時コピーの製品コードへ適用し、元の製品ファイルを変更しない。
 新実装との一致、通常版の成功、各性質の破壊検出を確認した後だけ、同期コミットと検証器の `SYNC_COMMIT`、基準結果を更新する。
+同期先の選定は [inference-startup の同期手順](../inference-startup/SKILL.md#実装との同期を確認する) に従い、新規 clone で上記の差分照合を確認する。
 未確認の変更から同期を戻す場合は `/maintain-formal-verification-skill` を使う。
 実コードの反例は保持し、保証を弱めて消さない。製品コードの修正は依頼された場合に行う。
 

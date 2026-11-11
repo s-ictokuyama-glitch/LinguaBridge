@@ -19,7 +19,7 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "dc9c07088472dcaf94350836b33d4a9057020411"
+SYNC_COMMIT = "4bdd9b28b9076f913ba82363dba947f7f1689d74"
 OPERATIONS = ("deadline", "cancel")
 PHASES = ("factory", "warmup")
 KINDS = ("asr", "mt")
