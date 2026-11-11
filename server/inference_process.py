@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
+import math
 import multiprocessing
 from multiprocessing.process import BaseProcess
 import pickle
@@ -121,9 +122,14 @@ class _Generation:
 
 
 class ProcessInferenceRunner:
-    def __init__(self, engine: object, factory: Callable[[], object], *, name: str = "") -> None:
+    def __init__(
+        self, engine: object, factory: Callable[[], object], *, startup_timeout_s: float, name: str = ""
+    ) -> None:
+        if not math.isfinite(startup_timeout_s) or startup_timeout_s <= 0:
+            raise ValueError("startup_timeout_s must be positive and finite")
         self._engine = engine
         self._factory = factory
+        self._startup_timeout_s = startup_timeout_s
         self._name = name
         self._gate = asyncio.Lock()
         self._generation: _Generation | None = None
@@ -145,13 +151,19 @@ class ProcessInferenceRunner:
             raise ValueError("warmup takes no arguments")
         return method, args
 
-    async def _prepare(self, generation: _Generation) -> InferenceFailed | None:
+    async def _prepare(self, generation: _Generation, deadline: float) -> InferenceFailed | None:
         try:
-            reply = await _receive(generation.connection)
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("inference startup deadline expired")
+            async with asyncio.timeout_at(deadline):
+                reply = await _receive(generation.connection)
             if reply.request_id != 0:
                 raise RuntimeError("unexpected inference startup response")
-            return InferenceFailed(reply.error.exception()) if reply.error else None
+            if reply.error is not None:
+                raise reply.error.exception()
+            return None
         except Exception as error:
+            self._retire(generation)
             return InferenceFailed(error)
 
     async def _get_generation(self) -> _Generation:
@@ -170,8 +182,9 @@ class ProcessInferenceRunner:
             )
             generation = self._generation = _Generation(process, parent)
             try:
+                deadline = asyncio.get_running_loop().time() + self._startup_timeout_s
                 process.start()
-                generation.startup = asyncio.create_task(self._prepare(generation))
+                generation.startup = asyncio.create_task(self._prepare(generation, deadline))
             except BaseException:
                 await finish_cleanup(self._retire(generation))
                 raise

@@ -21,10 +21,10 @@ class ProbeEngine:
 
     def warmup(self):
         (self.directory / f"loaded-{os.getpid()}").touch()
-        if self.fail_start:
-            raise TranslationModelError("モデルを展開し直してください")
         if self.slow_start:
             self._wait("startup")
+        if self.fail_start:
+            raise TranslationModelError("モデルを展開し直してください")
 
     def _wait(self, name):
         (self.directory / f"entered-{name}").write_text(str(os.getpid()))
@@ -54,7 +54,7 @@ async def wait_for(predicate):
 async def prepared(directory, **kwargs):
     factory = partial(ProbeEngine, directory, **kwargs)
     engine = factory()
-    runner = ProcessInferenceRunner(engine, factory, name="test")
+    runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=5, name="test")
     result = await runner.run(engine.warmup, timeout=5)
     assert isinstance(result, InferenceSucceeded), result
     return engine, runner
@@ -145,7 +145,7 @@ def test_short_deadlines_share_startup_and_do_not_restart_it(tmp_path):
     async def scenario():
         factory = partial(ProbeEngine, tmp_path, slow_start=True)
         engine = factory()
-        runner = ProcessInferenceRunner(engine, factory)
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=5)
         try:
             first = await runner.run(partial(engine.translate, "first", "en"), timeout=0.05)
             assert isinstance(first, InferenceTimedOut)
@@ -165,13 +165,181 @@ def test_short_deadlines_share_startup_and_do_not_restart_it(tmp_path):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("startup_timeout_s", [0, -1, float("inf"), float("-inf"), float("nan")])
+def test_startup_budget_must_be_positive_and_finite(tmp_path, startup_timeout_s):
+    factory = partial(ProbeEngine, tmp_path)
+    with pytest.raises(ValueError, match="startup_timeout_s"):
+        ProcessInferenceRunner(factory(), factory, startup_timeout_s=startup_timeout_s)
+
+
+def test_startup_deadline_fails_initial_request_without_request_timeout(tmp_path):
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path, slow_start=True)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=1.5)
+        try:
+            result = await asyncio.wait_for(runner.run(engine.warmup, timeout=None), 4)
+            assert isinstance(result, InferenceFailed)
+            assert isinstance(result.error, TimeoutError)
+            assert_reaped(tmp_path)
+        finally:
+            await runner.aclose()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("cancel_waiter", [False, True])
+def test_abandoned_startup_expires_without_new_requests(tmp_path, cancel_waiter):
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path, slow_start=True)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=1.5)
+        task = asyncio.create_task(runner.run(engine.warmup, timeout=None if cancel_waiter else 0.1))
+        try:
+            await wait_for((tmp_path / "entered-startup").exists)
+            pid = int((tmp_path / "entered-startup").read_text())
+            if cancel_waiter:
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+            else:
+                assert isinstance(await task, InferenceTimedOut)
+            assert psutil.pid_exists(pid)
+            await wait_for(lambda: not psutil.pid_exists(pid))
+            (tmp_path / "release-startup").touch()
+            result = await runner.run(partial(engine.translate, "recovered", "zh"), timeout=5)
+            assert isinstance(result, InferenceSucceeded)
+            assert result.value[1:] == ("recovered", "zh")
+            assert result.value[0] != pid
+        finally:
+            await runner.aclose()
+            await asyncio.gather(task, return_exceptions=True)
+        assert_reaped(tmp_path)
+
+    asyncio.run(scenario())
+
+
+def test_later_waiter_cannot_reset_startup_budget(tmp_path):
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path, slow_start=True)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=2)
+        started = asyncio.get_running_loop().time()
+        try:
+            result = await runner.run(engine.warmup, timeout=1)
+            assert isinstance(result, InferenceTimedOut)
+            await wait_for((tmp_path / "entered-startup").exists)
+            result = await runner.run(engine.warmup, timeout=None)
+            assert isinstance(result, InferenceFailed)
+            assert isinstance(result.error, TimeoutError)
+            assert asyncio.get_running_loop().time() - started < 2.8
+            assert len(loaded_pids(tmp_path)) == 1
+            assert_reaped(tmp_path)
+        finally:
+            await runner.aclose()
+
+    asyncio.run(scenario())
+
+
+def test_process_start_time_consumes_startup_budget(tmp_path, monkeypatch):
+    from multiprocessing.process import BaseProcess
+
+    start = BaseProcess.start
+
+    def delayed_start(process):
+        start(process)
+        time.sleep(1)
+
+    monkeypatch.setattr(BaseProcess, "start", delayed_start)
+
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=0.5)
+        try:
+            result = await runner.run(engine.warmup, timeout=None)
+            assert isinstance(result, InferenceFailed)
+            assert isinstance(result.error, TimeoutError)
+            assert_reaped(tmp_path)
+        finally:
+            await runner.aclose()
+
+    asyncio.run(scenario())
+
+
+def test_startup_error_reaps_generation_after_waiter_left(tmp_path):
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path, slow_start=True, fail_start=True)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=5)
+        try:
+            assert isinstance(await runner.run(engine.warmup, timeout=0.1), InferenceTimedOut)
+            await wait_for((tmp_path / "entered-startup").exists)
+            pid = int((tmp_path / "entered-startup").read_text())
+            process = runner._generation.process
+
+            def process_closed():
+                try:
+                    process.pid
+                except ValueError:
+                    return True
+                return False
+
+            (tmp_path / "release-startup").touch()
+            await wait_for(process_closed)
+            await wait_for(lambda: not psutil.pid_exists(pid))
+        finally:
+            await runner.aclose()
+        assert_reaped(tmp_path)
+
+    asyncio.run(scenario())
+
+
+def test_close_waits_for_expired_startup_cleanup_without_spawning(tmp_path, monkeypatch):
+    async def scenario():
+        factory = partial(ProbeEngine, tmp_path, slow_start=True)
+        engine = factory()
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=1.5)
+        dispose = runner._dispose
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def delayed(generation):
+            entered.set()
+            await release.wait()
+            await dispose(generation)
+
+        monkeypatch.setattr(runner, "_dispose", delayed)
+        closing = later = None
+        try:
+            assert isinstance(await runner.run(engine.warmup, timeout=0.1), InferenceTimedOut)
+            await asyncio.wait_for(entered.wait(), 4)
+            later = asyncio.create_task(runner.run(engine.warmup, timeout=None))
+            await asyncio.sleep(0)
+            assert not later.done()
+            assert len(loaded_pids(tmp_path)) == 1
+            closing = asyncio.create_task(runner.aclose())
+            await asyncio.sleep(0)
+            assert not closing.done()
+            release.set()
+            await asyncio.wait_for(closing, 4)
+            assert isinstance(await later, InferenceFailed)
+            assert len(loaded_pids(tmp_path)) == 1
+            assert_reaped(tmp_path)
+        finally:
+            release.set()
+            await runner.aclose()
+            await asyncio.gather(*(task for task in (closing, later) if task), return_exceptions=True)
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("during_startup", [False, True])
 @pytest.mark.parametrize("loop_factory", [None, asyncio.SelectorEventLoop])
 def test_close_cancels_startup_or_active_hang_and_is_repeatable(tmp_path, during_startup, loop_factory):
     async def scenario():
         factory = partial(ProbeEngine, tmp_path, slow_start=during_startup)
         engine = factory()
-        runner = ProcessInferenceRunner(engine, factory)
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=5)
         active = asyncio.create_task(runner.run(partial(engine.translate, "hang-stop", "en"), timeout=None))
         marker = "startup" if during_startup else "hang-stop"
         await wait_for((tmp_path / f"entered-{marker}").exists)
@@ -259,7 +427,7 @@ def test_startup_failure_preserves_public_model_error(tmp_path):
     async def scenario():
         factory = partial(ProbeEngine, tmp_path, fail_start=True)
         engine = factory()
-        runner = ProcessInferenceRunner(engine, factory)
+        runner = ProcessInferenceRunner(engine, factory, startup_timeout_s=5)
         try:
             result = await runner.run(engine.warmup, timeout=5)
             assert isinstance(result, InferenceFailed)
@@ -275,7 +443,7 @@ def test_startup_failure_preserves_public_model_error(tmp_path):
 def test_invalid_callable_or_factory_does_not_fall_back_to_threads(tmp_path):
     async def scenario():
         engine = ProbeEngine(tmp_path)
-        runner = ProcessInferenceRunner(engine, lambda: engine)
+        runner = ProcessInferenceRunner(engine, lambda: engine, startup_timeout_s=5)
         other = ProbeEngine(tmp_path)
         forged = MethodType(lambda self: None, engine)
         forged.__func__.__name__ = "warmup"

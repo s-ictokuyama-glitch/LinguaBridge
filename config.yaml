@@ -131,6 +131,7 @@ limits:
   max_audio_bytes: 32000     # バイナリフレームの受信上限（1秒 @16kHz PCM16）
   asr_timeout_s: 60          # 1発話のASR推論タイムアウト
   mt_timeout_s: 60           # 1件の翻訳のタイムアウト
+  inference_startup_timeout_s: 120.0  # 子プロセス生成開始からモデル準備完了までの期限。環境に応じて調整
   allowed_origins: []        # 空 = 接続先と同一ホストのみ許可（Originなしは常に許可）
 
 recording:

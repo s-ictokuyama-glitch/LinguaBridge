@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+from functools import partial
+import os
 from pathlib import Path
+import time
 
+import httpx
+import psutil
 import pytest
 import yaml
 from pydantic import ValidationError
@@ -138,3 +144,59 @@ def test_relative_models_dir_resolves_inside_app_regardless_of_cwd_and_data_root
 
 def _errors(exc: ValidationError) -> list[tuple]:
     return [(e["loc"], e["type"], e["msg"]) for e in exc.errors()]
+
+
+@pytest.mark.parametrize("value", [0, -1, float("inf"), float("-inf"), float("nan")])
+def test_startup_timeout_override_rejects_nonpositive_or_nonfinite_values(tmp_path, value):
+    override = write(tmp_path / "override.yaml", yaml.safe_dump({
+        "limits": {"inference_startup_timeout_s": value},
+    }))
+    with pytest.raises(ValidationError, match="inference_startup_timeout_s"):
+        load_config(BASE, override=override)
+
+
+def test_startup_timeout_defaults_when_key_is_absent(tmp_path):
+    assert load_config(write(tmp_path / "base.yaml", "{}\n")).limits.inference_startup_timeout_s == 120
+
+
+class HangingStartup:
+    model_version = "config-startup-probe"
+
+    def __init__(self, directory, config):
+        self.directory = directory
+
+    def warmup(self):
+        (self.directory / "startup-pid").write_text(str(os.getpid()))
+        while True:
+            time.sleep(0.01)
+
+
+@pytest.mark.parametrize("kind", ["asr", "mt"])
+def test_startup_timeout_override_reaches_app_and_keeps_failed_startup_unready(tmp_path, monkeypatch, caplog, kind):
+    from server.main import create_app
+    from server.publication import Publication
+
+    override = write(tmp_path / "override.yaml", yaml.safe_dump({
+        "asr": {"engine": "fake"}, "mt": {"engine": "fake"},
+        "vad": {"engine": "energy", "threshold": 300}, "turn": {"strategy": "simple"},
+        "limits": {"inference_startup_timeout_s": 1.5},
+    }))
+    config = load_config(BASE, override=override)
+    monkeypatch.setattr(f"server.main.build_{kind}_engine", partial(HangingStartup, tmp_path))
+
+    async def scenario():
+        app = create_app(config, Publication(config.server))
+        pipeline = app.state.pipeline
+        try:
+            await pipeline.start()
+            await asyncio.wait_for(pipeline._warmup_task, 5)
+            pid = int((tmp_path / "startup-pid").read_text())
+            assert not psutil.pid_exists(pid)
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as client:
+                assert (await client.get("/ready")).status_code == 503
+            assert not pipeline.ready
+            assert "モデルの事前ロードに失敗" in caplog.text
+        finally:
+            await pipeline.stop()
+
+    asyncio.run(scenario())
