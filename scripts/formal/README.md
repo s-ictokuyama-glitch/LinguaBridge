@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+音声入力から翻訳字幕までの反復、MT満杯後の再開、失敗後の継続は [lesson-liveness 検証](lesson_liveness.md) と [スキル](../../.agents/skills/lesson-liveness/SKILL.md) を使う。実モデル32回と生徒画面の確認コマンドも含む。
+
 字幕の再接続復元は別の [caption-recovery 検証](caption_recovery.md) と [スキル](../../.agents/skills/caption-recovery/SKILL.md) を使う。
 ASR待ち行列の容量・順序・キャンセル後の排出は [asr-backlog 検証](asr_backlog.md) と [スキル](../../.agents/skills/asr-backlog/SKILL.md) を使う。
 接続ごとの送信順序・障害時の1013切断・他接続への影響は [client-delivery 検証](client_delivery.md) と [スキル](../../.agents/skills/client-delivery/SKILL.md) を使う。

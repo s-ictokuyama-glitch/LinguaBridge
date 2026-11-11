@@ -1,0 +1,1563 @@
+{
+  "status": "PASS",
+  "sync_commit": "a15aea2288be88165acb3f9c9f4792d5a0a13f59",
+  "depth": 6,
+  "callback_rounds": 16,
+  "attempted": 19531,
+  "legal": 413,
+  "witnesses": {
+    "distinct": {
+      "inputs": 601,
+      "asr_calls": 601,
+      "mt_calls": 1202,
+      "captions": {
+        "en": 601,
+        "zh": 601
+      },
+      "cache_hits": 0,
+      "history_size": 50
+    },
+    "repeated": {
+      "inputs": 65,
+      "asr_calls": 65,
+      "mt_calls": 4,
+      "captions": {
+        "en": 65,
+        "zh": 65
+      },
+      "cache_hits": 126,
+      "history_size": 50
+    },
+    "capacity": {
+      "inputs": 141,
+      "asr_calls": 141,
+      "mt_calls": 282,
+      "captions": {
+        "en": 141,
+        "zh": 141
+      },
+      "cache_hits": 0,
+      "history_size": 50
+    },
+    "asr_timeout": {
+      "inputs": 2,
+      "asr_calls": 2,
+      "mt_calls": 2,
+      "captions": {
+        "en": 1,
+        "zh": 1
+      },
+      "cache_hits": 0,
+      "history_size": 1
+    },
+    "mt_timeout": {
+      "inputs": 2,
+      "asr_calls": 2,
+      "mt_calls": 4,
+      "captions": {
+        "en": 1,
+        "zh": 1
+      },
+      "cache_hits": 0,
+      "history_size": 2
+    },
+    "held_drain": {
+      "inputs": 2,
+      "asr_calls": 2,
+      "mt_calls": 4,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      },
+      "cache_hits": 0,
+      "history_size": 2
+    }
+  },
+  "violations": [],
+  "mutations": [
+    {
+      "name": "stop_asr_after_16",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "all workers remain active",
+        "actual": [
+          {
+            "name": "asr-worker",
+            "error": "None"
+          }
+        ],
+        "trace": [
+          "feed_pcm(1)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(1)",
+          "mt_ok(('授業の発話1です。', 'en'))",
+          "mt_ok(('授業の発話1です。', 'zh'))",
+          "feed_pcm(2)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(2)",
+          "mt_ok(('授業の発話2です。', 'en'))",
+          "mt_ok(('授業の発話2です。', 'zh'))",
+          "feed_pcm(3)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(3)",
+          "mt_ok(('授業の発話3です。', 'en'))",
+          "mt_ok(('授業の発話3です。', 'zh'))",
+          "feed_pcm(4)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(4)",
+          "mt_ok(('授業の発話4です。', 'en'))",
+          "mt_ok(('授業の発話4です。', 'zh'))",
+          "feed_pcm(5)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(5)",
+          "mt_ok(('授業の発話5です。', 'en'))",
+          "mt_ok(('授業の発話5です。', 'zh'))",
+          "feed_pcm(6)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(6)",
+          "mt_ok(('授業の発話6です。', 'en'))",
+          "mt_ok(('授業の発話6です。', 'zh'))",
+          "feed_pcm(7)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(7)",
+          "mt_ok(('授業の発話7です。', 'en'))",
+          "mt_ok(('授業の発話7です。', 'zh'))",
+          "feed_pcm(8)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(8)",
+          "mt_ok(('授業の発話8です。', 'en'))",
+          "mt_ok(('授業の発話8です。', 'zh'))",
+          "feed_pcm(9)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(9)",
+          "mt_ok(('授業の発話9です。', 'en'))",
+          "mt_ok(('授業の発話9です。', 'zh'))",
+          "feed_pcm(10)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(10)",
+          "mt_ok(('授業の発話10です。', 'en'))",
+          "mt_ok(('授業の発話10です。', 'zh'))",
+          "feed_pcm(11)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(11)",
+          "mt_ok(('授業の発話11です。', 'en'))",
+          "mt_ok(('授業の発話11です。', 'zh'))",
+          "feed_pcm(12)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(12)",
+          "mt_ok(('授業の発話12です。', 'en'))",
+          "mt_ok(('授業の発話12です。', 'zh'))",
+          "feed_pcm(13)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(13)",
+          "mt_ok(('授業の発話13です。', 'en'))",
+          "mt_ok(('授業の発話13です。', 'zh'))",
+          "feed_pcm(14)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(14)",
+          "mt_ok(('授業の発話14です。', 'en'))",
+          "mt_ok(('授業の発話14です。', 'zh'))",
+          "feed_pcm(15)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(15)",
+          "mt_ok(('授業の発話15です。', 'en'))",
+          "mt_ok(('授業の発話15です。', 'zh'))",
+          "feed_pcm(16)",
+          "drain_with_eventual_inference_completion",
+          "asr_ok(16)"
+        ],
+        "witness": "distinct"
+      }
+    },
+    {
+      "name": "lose_mt_wakeup",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "eventual_drain",
+        "expected": "drain returns after released inference",
+        "actual": {
+          "asr": 0,
+          "audio_seconds": 0.2,
+          "mt": 1,
+          "asr_running": false,
+          "mt_running": false
+        },
+        "trace": [
+          "feed_pcm(1)",
+          "asr_ok(1)",
+          "drain_with_eventual_inference_completion"
+        ],
+        "witness": "held_drain"
+      }
+    },
+    {
+      "name": "drop_full_live_job",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "caption_delivery",
+        "expected": {
+          "count": 140,
+          "first_difference": 129,
+          "item": {
+            "seq": 130,
+            "ja": "授業の発話130です。",
+            "text": "en:授業の発話130です。",
+            "lang": "en"
+          }
+        },
+        "actual": {
+          "count": 129,
+          "first_difference": 129,
+          "item": null
+        },
+        "trace": [
+          "feed_pcm(1)",
+          "asr_ok(1)",
+          "feed_pcm(2)",
+          "asr_ok(2)",
+          "feed_pcm(3)",
+          "asr_ok(3)",
+          "feed_pcm(4)",
+          "asr_ok(4)",
+          "feed_pcm(5)",
+          "asr_ok(5)",
+          "feed_pcm(6)",
+          "asr_ok(6)",
+          "feed_pcm(7)",
+          "asr_ok(7)",
+          "feed_pcm(8)",
+          "asr_ok(8)",
+          "feed_pcm(9)",
+          "asr_ok(9)",
+          "feed_pcm(10)",
+          "asr_ok(10)",
+          "feed_pcm(11)",
+          "asr_ok(11)",
+          "feed_pcm(12)",
+          "asr_ok(12)",
+          "feed_pcm(13)",
+          "asr_ok(13)",
+          "feed_pcm(14)",
+          "asr_ok(14)",
+          "feed_pcm(15)",
+          "asr_ok(15)",
+          "feed_pcm(16)",
+          "asr_ok(16)",
+          "feed_pcm(17)",
+          "asr_ok(17)",
+          "feed_pcm(18)",
+          "asr_ok(18)",
+          "feed_pcm(19)",
+          "asr_ok(19)",
+          "feed_pcm(20)",
+          "asr_ok(20)",
+          "feed_pcm(21)",
+          "asr_ok(21)",
+          "feed_pcm(22)",
+          "asr_ok(22)",
+          "feed_pcm(23)",
+          "asr_ok(23)",
+          "feed_pcm(24)",
+          "asr_ok(24)",
+          "feed_pcm(25)",
+          "asr_ok(25)",
+          "feed_pcm(26)",
+          "asr_ok(26)",
+          "feed_pcm(27)",
+          "asr_ok(27)",
+          "feed_pcm(28)",
+          "asr_ok(28)",
+          "feed_pcm(29)",
+          "asr_ok(29)",
+          "feed_pcm(30)",
+          "asr_ok(30)",
+          "feed_pcm(31)",
+          "asr_ok(31)",
+          "feed_pcm(32)",
+          "asr_ok(32)",
+          "feed_pcm(33)",
+          "asr_ok(33)",
+          "feed_pcm(34)",
+          "asr_ok(34)",
+          "feed_pcm(35)",
+          "asr_ok(35)",
+          "feed_pcm(36)",
+          "asr_ok(36)",
+          "feed_pcm(37)",
+          "asr_ok(37)",
+          "feed_pcm(38)",
+          "asr_ok(38)",
+          "feed_pcm(39)",
+          "asr_ok(39)",
+          "feed_pcm(40)",
+          "asr_ok(40)",
+          "feed_pcm(41)",
+          "asr_ok(41)",
+          "feed_pcm(42)",
+          "asr_ok(42)",
+          "feed_pcm(43)",
+          "asr_ok(43)",
+          "feed_pcm(44)",
+          "asr_ok(44)",
+          "feed_pcm(45)",
+          "asr_ok(45)",
+          "feed_pcm(46)",
+          "asr_ok(46)",
+          "feed_pcm(47)",
+          "asr_ok(47)",
+          "feed_pcm(48)",
+          "asr_ok(48)",
+          "feed_pcm(49)",
+          "asr_ok(49)",
+          "feed_pcm(50)",
+          "asr_ok(50)",
+          "feed_pcm(51)",
+          "asr_ok(51)",
+          "feed_pcm(52)",
+          "asr_ok(52)",
+          "feed_pcm(53)",
+          "asr_ok(53)",
+          "feed_pcm(54)",
+          "asr_ok(54)",
+          "feed_pcm(55)",
+          "asr_ok(55)",
+          "feed_pcm(56)",
+          "asr_ok(56)",
+          "feed_pcm(57)",
+          "asr_ok(57)",
+          "feed_pcm(58)",
+          "asr_ok(58)",
+          "feed_pcm(59)",
+          "asr_ok(59)",
+          "feed_pcm(60)",
+          "asr_ok(60)",
+          "feed_pcm(61)",
+          "asr_ok(61)",
+          "feed_pcm(62)",
+          "asr_ok(62)",
+          "feed_pcm(63)",
+          "asr_ok(63)",
+          "feed_pcm(64)",
+          "asr_ok(64)",
+          "feed_pcm(65)",
+          "asr_ok(65)",
+          "feed_pcm(66)",
+          "asr_ok(66)",
+          "feed_pcm(67)",
+          "asr_ok(67)",
+          "feed_pcm(68)",
+          "asr_ok(68)",
+          "feed_pcm(69)",
+          "asr_ok(69)",
+          "feed_pcm(70)",
+          "asr_ok(70)",
+          "feed_pcm(71)",
+          "asr_ok(71)",
+          "feed_pcm(72)",
+          "asr_ok(72)",
+          "feed_pcm(73)",
+          "asr_ok(73)",
+          "feed_pcm(74)",
+          "asr_ok(74)",
+          "feed_pcm(75)",
+          "asr_ok(75)",
+          "feed_pcm(76)",
+          "asr_ok(76)",
+          "feed_pcm(77)",
+          "asr_ok(77)",
+          "feed_pcm(78)",
+          "asr_ok(78)",
+          "feed_pcm(79)",
+          "asr_ok(79)",
+          "feed_pcm(80)",
+          "asr_ok(80)",
+          "feed_pcm(81)",
+          "asr_ok(81)",
+          "feed_pcm(82)",
+          "asr_ok(82)",
+          "feed_pcm(83)",
+          "asr_ok(83)",
+          "feed_pcm(84)",
+          "asr_ok(84)",
+          "feed_pcm(85)",
+          "asr_ok(85)",
+          "feed_pcm(86)",
+          "asr_ok(86)",
+          "feed_pcm(87)",
+          "asr_ok(87)",
+          "feed_pcm(88)",
+          "asr_ok(88)",
+          "feed_pcm(89)",
+          "asr_ok(89)",
+          "feed_pcm(90)",
+          "asr_ok(90)",
+          "feed_pcm(91)",
+          "asr_ok(91)",
+          "feed_pcm(92)",
+          "asr_ok(92)",
+          "feed_pcm(93)",
+          "asr_ok(93)",
+          "feed_pcm(94)",
+          "asr_ok(94)",
+          "feed_pcm(95)",
+          "asr_ok(95)",
+          "feed_pcm(96)",
+          "asr_ok(96)",
+          "feed_pcm(97)",
+          "asr_ok(97)",
+          "feed_pcm(98)",
+          "asr_ok(98)",
+          "feed_pcm(99)",
+          "asr_ok(99)",
+          "feed_pcm(100)",
+          "asr_ok(100)",
+          "feed_pcm(101)",
+          "asr_ok(101)",
+          "feed_pcm(102)",
+          "asr_ok(102)",
+          "feed_pcm(103)",
+          "asr_ok(103)",
+          "feed_pcm(104)",
+          "asr_ok(104)",
+          "feed_pcm(105)",
+          "asr_ok(105)",
+          "feed_pcm(106)",
+          "asr_ok(106)",
+          "feed_pcm(107)",
+          "asr_ok(107)",
+          "feed_pcm(108)",
+          "asr_ok(108)",
+          "feed_pcm(109)",
+          "asr_ok(109)",
+          "feed_pcm(110)",
+          "asr_ok(110)",
+          "feed_pcm(111)",
+          "asr_ok(111)",
+          "feed_pcm(112)",
+          "asr_ok(112)",
+          "feed_pcm(113)",
+          "asr_ok(113)",
+          "feed_pcm(114)",
+          "asr_ok(114)",
+          "feed_pcm(115)",
+          "asr_ok(115)",
+          "feed_pcm(116)",
+          "asr_ok(116)",
+          "feed_pcm(117)",
+          "asr_ok(117)",
+          "feed_pcm(118)",
+          "asr_ok(118)",
+          "feed_pcm(119)",
+          "asr_ok(119)",
+          "feed_pcm(120)",
+          "asr_ok(120)",
+          "feed_pcm(121)",
+          "asr_ok(121)",
+          "feed_pcm(122)",
+          "asr_ok(122)",
+          "feed_pcm(123)",
+          "asr_ok(123)",
+          "feed_pcm(124)",
+          "asr_ok(124)",
+          "feed_pcm(125)",
+          "asr_ok(125)",
+          "feed_pcm(126)",
+          "asr_ok(126)",
+          "feed_pcm(127)",
+          "asr_ok(127)",
+          "feed_pcm(128)",
+          "asr_ok(128)",
+          "feed_pcm(129)",
+          "asr_ok(129)",
+          "feed_pcm(130)",
+          "asr_ok(130)",
+          "feed_pcm(131)",
+          "asr_ok(131)",
+          "feed_pcm(132)",
+          "asr_ok(132)",
+          "feed_pcm(133)",
+          "asr_ok(133)",
+          "feed_pcm(134)",
+          "asr_ok(134)",
+          "feed_pcm(135)",
+          "asr_ok(135)",
+          "feed_pcm(136)",
+          "asr_ok(136)",
+          "feed_pcm(137)",
+          "asr_ok(137)",
+          "feed_pcm(138)",
+          "asr_ok(138)",
+          "feed_pcm(139)",
+          "asr_ok(139)",
+          "feed_pcm(140)",
+          "asr_ok(140)",
+          "drain_with_eventual_inference_completion",
+          "mt_ok(('授業の発話1です。', 'en'))",
+          "mt_ok(('授業の発話1です。', 'zh'))",
+          "mt_ok(('授業の発話2です。', 'en'))",
+          "mt_ok(('授業の発話2です。', 'zh'))",
+          "mt_ok(('授業の発話3です。', 'en'))",
+          "mt_ok(('授業の発話3です。', 'zh'))",
+          "mt_ok(('授業の発話4です。', 'en'))",
+          "mt_ok(('授業の発話4です。', 'zh'))",
+          "mt_ok(('授業の発話5です。', 'en'))",
+          "mt_ok(('授業の発話5です。', 'zh'))",
+          "mt_ok(('授業の発話6です。', 'en'))",
+          "mt_ok(('授業の発話6です。', 'zh'))",
+          "mt_ok(('授業の発話7です。', 'en'))",
+          "mt_ok(('授業の発話7です。', 'zh'))",
+          "mt_ok(('授業の発話8です。', 'en'))",
+          "mt_ok(('授業の発話8です。', 'zh'))",
+          "mt_ok(('授業の発話9です。', 'en'))",
+          "mt_ok(('授業の発話9です。', 'zh'))",
+          "mt_ok(('授業の発話10です。', 'en'))",
+          "mt_ok(('授業の発話10です。', 'zh'))",
+          "mt_ok(('授業の発話11です。', 'en'))",
+          "mt_ok(('授業の発話11です。', 'zh'))",
+          "mt_ok(('授業の発話12です。', 'en'))",
+          "mt_ok(('授業の発話12です。', 'zh'))",
+          "mt_ok(('授業の発話13です。', 'en'))",
+          "mt_ok(('授業の発話13です。', 'zh'))",
+          "mt_ok(('授業の発話14です。', 'en'))",
+          "mt_ok(('授業の発話14です。', 'zh'))",
+          "mt_ok(('授業の発話15です。', 'en'))",
+          "mt_ok(('授業の発話15です。', 'zh'))",
+          "mt_ok(('授業の発話16です。', 'en'))",
+          "mt_ok(('授業の発話16です。', 'zh'))",
+          "mt_ok(('授業の発話17です。', 'en'))",
+          "mt_ok(('授業の発話17です。', 'zh'))",
+          "mt_ok(('授業の発話18です。', 'en'))",
+          "mt_ok(('授業の発話18です。', 'zh'))",
+          "mt_ok(('授業の発話19です。', 'en'))",
+          "mt_ok(('授業の発話19です。', 'zh'))",
+          "mt_ok(('授業の発話20です。', 'en'))",
+          "mt_ok(('授業の発話20です。', 'zh'))",
+          "mt_ok(('授業の発話21です。', 'en'))",
+          "mt_ok(('授業の発話21です。', 'zh'))",
+          "mt_ok(('授業の発話22です。', 'en'))",
+          "mt_ok(('授業の発話22です。', 'zh'))",
+          "mt_ok(('授業の発話23です。', 'en'))",
+          "mt_ok(('授業の発話23です。', 'zh'))",
+          "mt_ok(('授業の発話24です。', 'en'))",
+          "mt_ok(('授業の発話24です。', 'zh'))",
+          "mt_ok(('授業の発話25です。', 'en'))",
+          "mt_ok(('授業の発話25です。', 'zh'))",
+          "mt_ok(('授業の発話26です。', 'en'))",
+          "mt_ok(('授業の発話26です。', 'zh'))",
+          "mt_ok(('授業の発話27です。', 'en'))",
+          "mt_ok(('授業の発話27です。', 'zh'))",
+          "mt_ok(('授業の発話28です。', 'en'))",
+          "mt_ok(('授業の発話28です。', 'zh'))",
+          "mt_ok(('授業の発話29です。', 'en'))",
+          "mt_ok(('授業の発話29です。', 'zh'))",
+          "mt_ok(('授業の発話30です。', 'en'))",
+          "mt_ok(('授業の発話30です。', 'zh'))",
+          "mt_ok(('授業の発話31です。', 'en'))",
+          "mt_ok(('授業の発話31です。', 'zh'))",
+          "mt_ok(('授業の発話32です。', 'en'))",
+          "mt_ok(('授業の発話32です。', 'zh'))",
+          "mt_ok(('授業の発話33です。', 'en'))",
+          "mt_ok(('授業の発話33です。', 'zh'))",
+          "mt_ok(('授業の発話34です。', 'en'))",
+          "mt_ok(('授業の発話34です。', 'zh'))",
+          "mt_ok(('授業の発話35です。', 'en'))",
+          "mt_ok(('授業の発話35です。', 'zh'))",
+          "mt_ok(('授業の発話36です。', 'en'))",
+          "mt_ok(('授業の発話36です。', 'zh'))",
+          "mt_ok(('授業の発話37です。', 'en'))",
+          "mt_ok(('授業の発話37です。', 'zh'))",
+          "mt_ok(('授業の発話38です。', 'en'))",
+          "mt_ok(('授業の発話38です。', 'zh'))",
+          "mt_ok(('授業の発話39です。', 'en'))",
+          "mt_ok(('授業の発話39です。', 'zh'))",
+          "mt_ok(('授業の発話40です。', 'en'))",
+          "mt_ok(('授業の発話40です。', 'zh'))",
+          "mt_ok(('授業の発話41です。', 'en'))",
+          "mt_ok(('授業の発話41です。', 'zh'))",
+          "mt_ok(('授業の発話42です。', 'en'))",
+          "mt_ok(('授業の発話42です。', 'zh'))",
+          "mt_ok(('授業の発話43です。', 'en'))",
+          "mt_ok(('授業の発話43です。', 'zh'))",
+          "mt_ok(('授業の発話44です。', 'en'))",
+          "mt_ok(('授業の発話44です。', 'zh'))",
+          "mt_ok(('授業の発話45です。', 'en'))",
+          "mt_ok(('授業の発話45です。', 'zh'))",
+          "mt_ok(('授業の発話46です。', 'en'))",
+          "mt_ok(('授業の発話46です。', 'zh'))",
+          "mt_ok(('授業の発話47です。', 'en'))",
+          "mt_ok(('授業の発話47です。', 'zh'))",
+          "mt_ok(('授業の発話48です。', 'en'))",
+          "mt_ok(('授業の発話48です。', 'zh'))",
+          "mt_ok(('授業の発話49です。', 'en'))",
+          "mt_ok(('授業の発話49です。', 'zh'))",
+          "mt_ok(('授業の発話50です。', 'en'))",
+          "mt_ok(('授業の発話50です。', 'zh'))",
+          "mt_ok(('授業の発話51です。', 'en'))",
+          "mt_ok(('授業の発話51です。', 'zh'))",
+          "mt_ok(('授業の発話52です。', 'en'))",
+          "mt_ok(('授業の発話52です。', 'zh'))",
+          "mt_ok(('授業の発話53です。', 'en'))",
+          "mt_ok(('授業の発話53です。', 'zh'))",
+          "mt_ok(('授業の発話54です。', 'en'))",
+          "mt_ok(('授業の発話54です。', 'zh'))",
+          "mt_ok(('授業の発話55です。', 'en'))",
+          "mt_ok(('授業の発話55です。', 'zh'))",
+          "mt_ok(('授業の発話56です。', 'en'))",
+          "mt_ok(('授業の発話56です。', 'zh'))",
+          "mt_ok(('授業の発話57です。', 'en'))",
+          "mt_ok(('授業の発話57です。', 'zh'))",
+          "mt_ok(('授業の発話58です。', 'en'))",
+          "mt_ok(('授業の発話58です。', 'zh'))",
+          "mt_ok(('授業の発話59です。', 'en'))",
+          "mt_ok(('授業の発話59です。', 'zh'))",
+          "mt_ok(('授業の発話60です。', 'en'))",
+          "mt_ok(('授業の発話60です。', 'zh'))",
+          "mt_ok(('授業の発話61です。', 'en'))",
+          "mt_ok(('授業の発話61です。', 'zh'))",
+          "mt_ok(('授業の発話62です。', 'en'))",
+          "mt_ok(('授業の発話62です。', 'zh'))",
+          "mt_ok(('授業の発話63です。', 'en'))",
+          "mt_ok(('授業の発話63です。', 'zh'))",
+          "mt_ok(('授業の発話64です。', 'en'))",
+          "mt_ok(('授業の発話64です。', 'zh'))",
+          "mt_ok(('授業の発話65です。', 'en'))",
+          "mt_ok(('授業の発話65です。', 'zh'))",
+          "mt_ok(('授業の発話66です。', 'en'))",
+          "mt_ok(('授業の発話66です。', 'zh'))",
+          "mt_ok(('授業の発話67です。', 'en'))",
+          "mt_ok(('授業の発話67です。', 'zh'))",
+          "mt_ok(('授業の発話68です。', 'en'))",
+          "mt_ok(('授業の発話68です。', 'zh'))",
+          "mt_ok(('授業の発話69です。', 'en'))",
+          "mt_ok(('授業の発話69です。', 'zh'))",
+          "mt_ok(('授業の発話70です。', 'en'))",
+          "mt_ok(('授業の発話70です。', 'zh'))",
+          "mt_ok(('授業の発話71です。', 'en'))",
+          "mt_ok(('授業の発話71です。', 'zh'))",
+          "mt_ok(('授業の発話72です。', 'en'))",
+          "mt_ok(('授業の発話72です。', 'zh'))",
+          "mt_ok(('授業の発話73です。', 'en'))",
+          "mt_ok(('授業の発話73です。', 'zh'))",
+          "mt_ok(('授業の発話74です。', 'en'))",
+          "mt_ok(('授業の発話74です。', 'zh'))",
+          "mt_ok(('授業の発話75です。', 'en'))",
+          "mt_ok(('授業の発話75です。', 'zh'))",
+          "mt_ok(('授業の発話76です。', 'en'))",
+          "mt_ok(('授業の発話76です。', 'zh'))",
+          "mt_ok(('授業の発話77です。', 'en'))",
+          "mt_ok(('授業の発話77です。', 'zh'))",
+          "mt_ok(('授業の発話78です。', 'en'))",
+          "mt_ok(('授業の発話78です。', 'zh'))",
+          "mt_ok(('授業の発話79です。', 'en'))",
+          "mt_ok(('授業の発話79です。', 'zh'))",
+          "mt_ok(('授業の発話80です。', 'en'))",
+          "mt_ok(('授業の発話80です。', 'zh'))",
+          "mt_ok(('授業の発話81です。', 'en'))",
+          "mt_ok(('授業の発話81です。', 'zh'))",
+          "mt_ok(('授業の発話82です。', 'en'))",
+          "mt_ok(('授業の発話82です。', 'zh'))",
+          "mt_ok(('授業の発話83です。', 'en'))",
+          "mt_ok(('授業の発話83です。', 'zh'))",
+          "mt_ok(('授業の発話84です。', 'en'))",
+          "mt_ok(('授業の発話84です。', 'zh'))",
+          "mt_ok(('授業の発話85です。', 'en'))",
+          "mt_ok(('授業の発話85です。', 'zh'))",
+          "mt_ok(('授業の発話86です。', 'en'))",
+          "mt_ok(('授業の発話86です。', 'zh'))",
+          "mt_ok(('授業の発話87です。', 'en'))",
+          "mt_ok(('授業の発話87です。', 'zh'))",
+          "mt_ok(('授業の発話88です。', 'en'))",
+          "mt_ok(('授業の発話88です。', 'zh'))",
+          "mt_ok(('授業の発話89です。', 'en'))",
+          "mt_ok(('授業の発話89です。', 'zh'))",
+          "mt_ok(('授業の発話90です。', 'en'))",
+          "mt_ok(('授業の発話90です。', 'zh'))",
+          "mt_ok(('授業の発話91です。', 'en'))",
+          "mt_ok(('授業の発話91です。', 'zh'))",
+          "mt_ok(('授業の発話92です。', 'en'))",
+          "mt_ok(('授業の発話92です。', 'zh'))",
+          "mt_ok(('授業の発話93です。', 'en'))",
+          "mt_ok(('授業の発話93です。', 'zh'))",
+          "mt_ok(('授業の発話94です。', 'en'))",
+          "mt_ok(('授業の発話94です。', 'zh'))",
+          "mt_ok(('授業の発話95です。', 'en'))",
+          "mt_ok(('授業の発話95です。', 'zh'))",
+          "mt_ok(('授業の発話96です。', 'en'))",
+          "mt_ok(('授業の発話96です。', 'zh'))",
+          "mt_ok(('授業の発話97です。', 'en'))",
+          "mt_ok(('授業の発話97です。', 'zh'))",
+          "mt_ok(('授業の発話98です。', 'en'))",
+          "mt_ok(('授業の発話98です。', 'zh'))",
+          "mt_ok(('授業の発話99です。', 'en'))",
+          "mt_ok(('授業の発話99です。', 'zh'))",
+          "mt_ok(('授業の発話100です。', 'en'))",
+          "mt_ok(('授業の発話100です。', 'zh'))",
+          "mt_ok(('授業の発話101です。', 'en'))",
+          "mt_ok(('授業の発話101です。', 'zh'))",
+          "mt_ok(('授業の発話102です。', 'en'))",
+          "mt_ok(('授業の発話102です。', 'zh'))",
+          "mt_ok(('授業の発話103です。', 'en'))",
+          "mt_ok(('授業の発話103です。', 'zh'))",
+          "mt_ok(('授業の発話104です。', 'en'))",
+          "mt_ok(('授業の発話104です。', 'zh'))",
+          "mt_ok(('授業の発話105です。', 'en'))",
+          "mt_ok(('授業の発話105です。', 'zh'))",
+          "mt_ok(('授業の発話106です。', 'en'))",
+          "mt_ok(('授業の発話106です。', 'zh'))",
+          "mt_ok(('授業の発話107です。', 'en'))",
+          "mt_ok(('授業の発話107です。', 'zh'))",
+          "mt_ok(('授業の発話108です。', 'en'))",
+          "mt_ok(('授業の発話108です。', 'zh'))",
+          "mt_ok(('授業の発話109です。', 'en'))",
+          "mt_ok(('授業の発話109です。', 'zh'))",
+          "mt_ok(('授業の発話110です。', 'en'))",
+          "mt_ok(('授業の発話110です。', 'zh'))",
+          "mt_ok(('授業の発話111です。', 'en'))",
+          "mt_ok(('授業の発話111です。', 'zh'))",
+          "mt_ok(('授業の発話112です。', 'en'))",
+          "mt_ok(('授業の発話112です。', 'zh'))",
+          "mt_ok(('授業の発話113です。', 'en'))",
+          "mt_ok(('授業の発話113です。', 'zh'))",
+          "mt_ok(('授業の発話114です。', 'en'))",
+          "mt_ok(('授業の発話114です。', 'zh'))",
+          "mt_ok(('授業の発話115です。', 'en'))",
+          "mt_ok(('授業の発話115です。', 'zh'))",
+          "mt_ok(('授業の発話116です。', 'en'))",
+          "mt_ok(('授業の発話116です。', 'zh'))",
+          "mt_ok(('授業の発話117です。', 'en'))",
+          "mt_ok(('授業の発話117です。', 'zh'))",
+          "mt_ok(('授業の発話118です。', 'en'))",
+          "mt_ok(('授業の発話118です。', 'zh'))",
+          "mt_ok(('授業の発話119です。', 'en'))",
+          "mt_ok(('授業の発話119です。', 'zh'))",
+          "mt_ok(('授業の発話120です。', 'en'))",
+          "mt_ok(('授業の発話120です。', 'zh'))",
+          "mt_ok(('授業の発話121です。', 'en'))",
+          "mt_ok(('授業の発話121です。', 'zh'))",
+          "mt_ok(('授業の発話122です。', 'en'))",
+          "mt_ok(('授業の発話122です。', 'zh'))",
+          "mt_ok(('授業の発話123です。', 'en'))",
+          "mt_ok(('授業の発話123です。', 'zh'))",
+          "mt_ok(('授業の発話124です。', 'en'))",
+          "mt_ok(('授業の発話124です。', 'zh'))",
+          "mt_ok(('授業の発話125です。', 'en'))",
+          "mt_ok(('授業の発話125です。', 'zh'))",
+          "mt_ok(('授業の発話126です。', 'en'))",
+          "mt_ok(('授業の発話126です。', 'zh'))",
+          "mt_ok(('授業の発話127です。', 'en'))",
+          "mt_ok(('授業の発話127です。', 'zh'))",
+          "mt_ok(('授業の発話128です。', 'en'))",
+          "mt_ok(('授業の発話128です。', 'zh'))",
+          "mt_ok(('授業の発話129です。', 'en'))"
+        ],
+        "witness": "capacity"
+      }
+    },
+    {
+      "name": "drain_before_mt",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "no unfinished work",
+        "actual": {
+          "asr": 0,
+          "audio_seconds": 0.0,
+          "mt": 1,
+          "asr_running": false,
+          "mt_running": true
+        },
+        "trace": [
+          "feed_pcm(1)",
+          "asr_ok(1)",
+          "drain_with_eventual_inference_completion"
+        ],
+        "witness": "held_drain"
+      }
+    },
+    {
+      "name": "wrong_translation",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "caption_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "授業の発話1です。",
+            "text": "en:授業の発話1です。",
+            "lang": "en"
+          }
+        },
+        "actual": {
+          "count": 1,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "授業の発話1です。",
+            "text": "wrong translation",
+            "lang": "en"
+          }
+        },
+        "trace": [
+          "feed_pcm(1)",
+          "asr_ok(1)",
+          "drain_with_eventual_inference_completion",
+          "mt_ok(('授業の発話1です。', 'en'))",
+          "mt_ok(('授業の発話1です。', 'zh'))"
+        ],
+        "witness": "held_drain"
+      }
+    },
+    {
+      "name": "wrong_recognition",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "recognition_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "授業の発話1です。"
+          }
+        },
+        "actual": {
+          "count": 1,
+          "first_difference": 0,
+          "item": {
+            "seq": 1,
+            "ja": "wrong recognition"
+          }
+        },
+        "trace": [
+          "feed_pcm(1)",
+          "asr_ok(1)",
+          "drain_with_eventual_inference_completion",
+          "mt_ok(('wrong recognition', 'en'))",
+          "mt_ok(('wrong recognition', 'zh'))"
+        ],
+        "witness": "held_drain"
+      }
+    }
+  ],
+  "browser": {
+    "status": "PASS",
+    "screens": [
+      {
+        "name": "distinct",
+        "language": "en",
+        "cards": 601,
+        "last_seq": 601,
+        "visible": true
+      },
+      {
+        "name": "distinct",
+        "language": "zh",
+        "cards": 601,
+        "last_seq": 601,
+        "visible": true
+      },
+      {
+        "name": "repeated",
+        "language": "en",
+        "cards": 65,
+        "last_seq": 65,
+        "visible": true
+      },
+      {
+        "name": "repeated",
+        "language": "zh",
+        "cards": 65,
+        "last_seq": 65,
+        "visible": true
+      },
+      {
+        "name": "capacity",
+        "language": "en",
+        "cards": 141,
+        "last_seq": 141,
+        "visible": true
+      },
+      {
+        "name": "capacity",
+        "language": "zh",
+        "cards": 141,
+        "last_seq": 141,
+        "visible": true
+      },
+      {
+        "name": "asr_timeout",
+        "language": "en",
+        "cards": 1,
+        "last_seq": 1,
+        "visible": true
+      },
+      {
+        "name": "asr_timeout",
+        "language": "zh",
+        "cards": 1,
+        "last_seq": 1,
+        "visible": true
+      },
+      {
+        "name": "mt_timeout",
+        "language": "en",
+        "cards": 1,
+        "last_seq": 2,
+        "visible": true
+      },
+      {
+        "name": "mt_timeout",
+        "language": "zh",
+        "cards": 1,
+        "last_seq": 2,
+        "visible": true
+      },
+      {
+        "name": "held_drain",
+        "language": "en",
+        "cards": 2,
+        "last_seq": 2,
+        "visible": true
+      },
+      {
+        "name": "held_drain",
+        "language": "zh",
+        "cards": 2,
+        "last_seq": 2,
+        "visible": true
+      }
+    ],
+    "violations": [],
+    "mutations": [
+      {
+        "name": "display_stops_after_16",
+        "detected": true,
+        "violations": [
+          {
+            "property": "caption_display",
+            "screen": "distinct",
+            "language": "en",
+            "first_difference": 16,
+            "expected_count": 601,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話17です。",
+                "text": "en:授業の発話17です。",
+                "lang": "en"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "distinct",
+            "language": "zh",
+            "first_difference": 16,
+            "expected_count": 601,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話17です。",
+                "text": "zh:授業の発話17です。",
+                "lang": "zh"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "repeated",
+            "language": "en",
+            "first_difference": 16,
+            "expected_count": 65,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話1です。",
+                "text": "en:授業の発話1です。",
+                "lang": "en"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "repeated",
+            "language": "zh",
+            "first_difference": 16,
+            "expected_count": 65,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話1です。",
+                "text": "zh:授業の発話1です。",
+                "lang": "zh"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "capacity",
+            "language": "en",
+            "first_difference": 16,
+            "expected_count": 141,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話17です。",
+                "text": "en:授業の発話17です。",
+                "lang": "en"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "capacity",
+            "language": "zh",
+            "first_difference": 16,
+            "expected_count": 141,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "授業の発話17です。",
+                "text": "zh:授業の発話17です。",
+                "lang": "zh"
+              }
+            ],
+            "actual": []
+          }
+        ]
+      },
+      {
+        "name": "hidden_after_16",
+        "detected": true,
+        "violations": [
+          {
+            "property": "caption_visibility",
+            "screen": "distinct",
+            "language": "en",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "distinct",
+            "language": "zh",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "repeated",
+            "language": "en",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "repeated",
+            "language": "zh",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "capacity",
+            "language": "en",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "capacity",
+            "language": "zh",
+            "expected": true,
+            "actual": false
+          }
+        ]
+      }
+    ]
+  },
+  "real_models": {
+    "status": "PASS",
+    "python": "3.12.10",
+    "dependencies": {
+      "numpy": "2.5.4",
+      "onnxruntime": "1.31.0",
+      "llama-cpp-python": "0.3.33",
+      "faster-whisper": "1.2.1"
+    },
+    "input": "tests/fixtures/ja/03.wav",
+    "input_sha256": "af625e035c2b036a445fbd1346956a9782cf4bee583c37c87b3a3e2dc0226cce",
+    "input_seconds": 3.45,
+    "configuration": {
+      "asr": {
+        "engine": "haas-onnx",
+        "model": "faster-whisper-small",
+        "compute_type": "int8",
+        "language": "ja",
+        "cpu_threads": 0,
+        "sherpa": {
+          "model": "reazonspeech-k2-v2",
+          "lead_in_ms": 600,
+          "decoding_method": "modified_beam_search",
+          "hotwords_file": "server/asr/hotwords/geography.txt",
+          "hotwords_score": 3.0,
+          "blank_penalty": 1.5,
+          "refill_gap_s": 1.5
+        },
+        "haas_sherpa": {
+          "model": "haas-ja-v1.0-onnx",
+          "decoding_method": "greedy_search",
+          "hotwords_file": null,
+          "hotwords_score": 1.5
+        },
+        "haas_onnx": {
+          "model": "haas-ja-onecompression",
+          "quantization": "int8",
+          "cpu_threads": 6
+        }
+      },
+      "mt": {
+        "engine": "hy-mt2",
+        "hy_mt2": {
+          "gguf_path": "hy-mt2/Hy-MT2-1.8B-Q4_K_M.gguf",
+          "threads": 4,
+          "temperature": 0.0,
+          "max_tokens_cap": 512
+        },
+        "nllb": {
+          "model_dir": "nllb-200-distilled-600M-ct2",
+          "tokenizer_dir": "nllb-tokenizer",
+          "beam_size": 1
+        },
+        "cache_size": 0
+      },
+      "vad": {
+        "engine": "silero",
+        "threshold": 0.5,
+        "min_silence_ms": 500,
+        "max_utterance_s": 30,
+        "pre_roll_ms": 240
+      },
+      "turn": {
+        "strategy": "morph",
+        "classifier": "surface",
+        "morph": {
+          "check_silence_ms": 500,
+          "start_speech_ms": 96,
+          "force_silence_ms": 1000,
+          "max_turn_s": 30.0,
+          "max_segments": 12
+        }
+      }
+    },
+    "model_files": [
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\.gitignore",
+        "bytes": 1,
+        "mtime_ns": 1794293944457386600
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\CACHEDIR.TAG",
+        "bytes": 195,
+        "mtime_ns": 1794293944403481200
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\common\\decoding.json.metadata",
+        "bytes": 104,
+        "mtime_ns": 1794293944848456200
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\common\\frontend.json.metadata",
+        "bytes": 104,
+        "mtime_ns": 1794293944671109300
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\common\\joint.onnx.metadata",
+        "bytes": 128,
+        "mtime_ns": 1794293949089938400
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\common\\prediction.onnx.metadata",
+        "bytes": 128,
+        "mtime_ns": 1794293953640179800
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\common\\tokens.json.metadata",
+        "bytes": 103,
+        "mtime_ns": 1794293944849814000
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\int8\\encoder.onnx.data.metadata",
+        "bytes": 126,
+        "mtime_ns": 1794294012547940100
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\int8\\encoder.onnx.metadata",
+        "bytes": 126,
+        "mtime_ns": 1794293948134879900
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\LICENSE.metadata",
+        "bytes": 104,
+        "mtime_ns": 1794293944848456200
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\manifest.json.metadata",
+        "bytes": 104,
+        "mtime_ns": 1794293945080386000
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\download\\NOTICE.metadata",
+        "bytes": 104,
+        "mtime_ns": 1794293944898856400
+      },
+      {
+        "path": "haas-ja-onecompression\\.cache\\huggingface\\trees\\e46a4b107ffba60336eb3de9745da6f628cfae35.json",
+        "bytes": 5331,
+        "mtime_ns": 1794293944391483800
+      },
+      {
+        "path": "haas-ja-onecompression\\common\\decoding.json",
+        "bytes": 122,
+        "mtime_ns": 1794293944844280100
+      },
+      {
+        "path": "haas-ja-onecompression\\common\\frontend.json",
+        "bytes": 377057,
+        "mtime_ns": 1794293944667095100
+      },
+      {
+        "path": "haas-ja-onecompression\\common\\joint.onnx",
+        "bytes": 7892424,
+        "mtime_ns": 1794293949081939700
+      },
+      {
+        "path": "haas-ja-onecompression\\common\\prediction.onnx",
+        "bytes": 17155566,
+        "mtime_ns": 1794293953635171300
+      },
+      {
+        "path": "haas-ja-onecompression\\common\\tokens.json",
+        "bytes": 36037,
+        "mtime_ns": 1794293944845282600
+      },
+      {
+        "path": "haas-ja-onecompression\\int8\\encoder.onnx",
+        "bytes": 3917201,
+        "mtime_ns": 1794293948128879300
+      },
+      {
+        "path": "haas-ja-onecompression\\int8\\encoder.onnx.data",
+        "bytes": 634489344,
+        "mtime_ns": 1794294012541960800
+      },
+      {
+        "path": "haas-ja-onecompression\\LICENSE",
+        "bytes": 11358,
+        "mtime_ns": 1794293944844280100
+      },
+      {
+        "path": "haas-ja-onecompression\\manifest.json",
+        "bytes": 5422,
+        "mtime_ns": 1794293945074720600
+      },
+      {
+        "path": "haas-ja-onecompression\\NOTICE",
+        "bytes": 2032,
+        "mtime_ns": 1794293944895849500
+      },
+      {
+        "path": "hy-mt2\\Hy-MT2-1.8B-Q4_K_M.gguf",
+        "bytes": 1133080448,
+        "mtime_ns": 1783405161126638500
+      }
+    ],
+    "totals": {
+      "iterations": 32,
+      "asr_calls": 32,
+      "mt_calls": 64,
+      "asr_finals": 32,
+      "captions": {
+        "en": 32,
+        "zh": 32
+      }
+    },
+    "checkpoints": [
+      {
+        "iteration": 1,
+        "asr_final": [
+          {
+            "type": "asr_final",
+            "seq": 1,
+            "ja": "教科書の42ページを開いてください",
+            "asr_ms": 94,
+            "turn_id": 1
+          }
+        ],
+        "captions": {
+          "en": [
+            {
+              "type": "caption",
+              "seq": 1,
+              "ja": "教科書の42ページを開いてください",
+              "text": "Please open page 42 of the textbook.",
+              "lang": "en",
+              "delay_ms": 422
+            }
+          ],
+          "zh": [
+            {
+              "type": "caption",
+              "seq": 1,
+              "ja": "教科書の42ページを開いてください",
+              "text": "请打开教科书的第42页。",
+              "lang": "zh",
+              "delay_ms": 797
+            }
+          ]
+        },
+        "asr_calls": 1,
+        "mt_calls": 2,
+        "asr_dropped_segments": 0,
+        "queue_depth_after_drain": 0,
+        "closed": {
+          "en": null,
+          "zh": null
+        },
+        "teacher_errors": []
+      },
+      {
+        "iteration": 16,
+        "asr_final": [
+          {
+            "type": "asr_final",
+            "seq": 16,
+            "ja": "教科書の42ページを開いてください",
+            "asr_ms": 77,
+            "turn_id": 16
+          }
+        ],
+        "captions": {
+          "en": [
+            {
+              "type": "caption",
+              "seq": 16,
+              "ja": "教科書の42ページを開いてください",
+              "text": "Please open page 42 of the textbook.",
+              "lang": "en",
+              "delay_ms": 483
+            }
+          ],
+          "zh": [
+            {
+              "type": "caption",
+              "seq": 16,
+              "ja": "教科書の42ページを開いてください",
+              "text": "请打开教科书的第42页。",
+              "lang": "zh",
+              "delay_ms": 889
+            }
+          ]
+        },
+        "asr_calls": 16,
+        "mt_calls": 32,
+        "asr_dropped_segments": 0,
+        "queue_depth_after_drain": 0,
+        "closed": {
+          "en": null,
+          "zh": null
+        },
+        "teacher_errors": []
+      },
+      {
+        "iteration": 17,
+        "asr_final": [
+          {
+            "type": "asr_final",
+            "seq": 17,
+            "ja": "教科書の42ページを開いてください",
+            "asr_ms": 108,
+            "turn_id": 17
+          }
+        ],
+        "captions": {
+          "en": [
+            {
+              "type": "caption",
+              "seq": 17,
+              "ja": "教科書の42ページを開いてください",
+              "text": "Please open page 42 of the textbook.",
+              "lang": "en",
+              "delay_ms": 530
+            }
+          ],
+          "zh": [
+            {
+              "type": "caption",
+              "seq": 17,
+              "ja": "教科書の42ページを開いてください",
+              "text": "请打开教科书的第42页。",
+              "lang": "zh",
+              "delay_ms": 936
+            }
+          ]
+        },
+        "asr_calls": 17,
+        "mt_calls": 34,
+        "asr_dropped_segments": 0,
+        "queue_depth_after_drain": 0,
+        "closed": {
+          "en": null,
+          "zh": null
+        },
+        "teacher_errors": []
+      },
+      {
+        "iteration": 32,
+        "asr_final": [
+          {
+            "type": "asr_final",
+            "seq": 32,
+            "ja": "教科書の42ページを開いてください",
+            "asr_ms": 79,
+            "turn_id": 32
+          }
+        ],
+        "captions": {
+          "en": [
+            {
+              "type": "caption",
+              "seq": 32,
+              "ja": "教科書の42ページを開いてください",
+              "text": "Please open page 42 of the textbook.",
+              "lang": "en",
+              "delay_ms": 469
+            }
+          ],
+          "zh": [
+            {
+              "type": "caption",
+              "seq": 32,
+              "ja": "教科書の42ページを開いてください",
+              "text": "请打开教科书的第42页。",
+              "lang": "zh",
+              "delay_ms": 844
+            }
+          ]
+        },
+        "asr_calls": 32,
+        "mt_calls": 64,
+        "asr_dropped_segments": 0,
+        "queue_depth_after_drain": 0,
+        "closed": {
+          "en": null,
+          "zh": null
+        },
+        "teacher_errors": []
+      }
+    ],
+    "scope": "same Pipeline, real ASR/MT/VAD/Turn, captured ClientSender socket messages; no browser or real network",
+    "browser": {
+      "status": "PASS",
+      "screens": [
+        {
+          "name": "real-model-32",
+          "language": "en",
+          "cards": 32,
+          "last_seq": 32,
+          "visible": true
+        },
+        {
+          "name": "real-model-32",
+          "language": "zh",
+          "cards": 32,
+          "last_seq": 32,
+          "visible": true
+        }
+      ],
+      "violations": [],
+      "mutations": [
+        {
+          "name": "display_stops_after_16",
+          "detected": true,
+          "violations": [
+            {
+              "property": "caption_display",
+              "screen": "real-model-32",
+              "language": "en",
+              "first_difference": 16,
+              "expected_count": 32,
+              "actual_count": 16,
+              "expected": [
+                {
+                  "seq": 17,
+                  "ja": "教科書の42ページを開いてください",
+                  "text": "Please open page 42 of the textbook.",
+                  "lang": "en"
+                }
+              ],
+              "actual": []
+            },
+            {
+              "property": "caption_display",
+              "screen": "real-model-32",
+              "language": "zh",
+              "first_difference": 16,
+              "expected_count": 32,
+              "actual_count": 16,
+              "expected": [
+                {
+                  "seq": 17,
+                  "ja": "教科書の42ページを開いてください",
+                  "text": "请打开教科书的第42页。",
+                  "lang": "zh"
+                }
+              ],
+              "actual": []
+            }
+          ]
+        },
+        {
+          "name": "hidden_after_16",
+          "detected": true,
+          "violations": [
+            {
+              "property": "caption_visibility",
+              "screen": "real-model-32",
+              "language": "en",
+              "expected": true,
+              "actual": false
+            },
+            {
+              "property": "caption_visibility",
+              "screen": "real-model-32",
+              "language": "zh",
+              "expected": true,
+              "actual": false
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
