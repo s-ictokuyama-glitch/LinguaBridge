@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import pytest
 import yaml
@@ -498,3 +499,66 @@ def test_build_returns_product_named_zip(tmp_path, monkeypatch, dirty, suffix):
     with zipfile.ZipFile(result) as archive:
         assert "app/config.yaml" in archive.namelist()
         assert "start.bat" in archive.namelist()
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows inherited log handle')
+@pytest.mark.parametrize(('ready_status', 'shutdown_timeout'), [(200, False), (503, False), (200, True)])
+def test_server_selfcheck_waits_for_children_before_removing_logs(
+    tmp_path, monkeypatch, ready_status, shutdown_timeout,
+):
+    import subprocess
+    import sys
+    import time
+    import psutil
+    from scripts import build_package as package
+
+    child = "import sys,time; sys.stdin.read(); time.sleep(0.5)"
+    parent = (
+        "import subprocess,sys,time,pathlib; "
+        f"p=subprocess.Popen([sys.executable,'-c',{child!r}],stdin=subprocess.PIPE); "
+        "pathlib.Path('child.pid').write_text(str(p.pid)); time.sleep(60)"
+    )
+    popen = subprocess.Popen
+    wait_procs = psutil.wait_procs
+    children = []
+    data_dirs = []
+
+    def start_server(command, **kwargs):
+        data_dirs.append(Path(kwargs['cwd']))
+        return popen([sys.executable, '-c', parent], **kwargs)
+
+    def ready(url, server):
+        marker = data_dirs[-1] / 'child.pid'
+        deadline = time.monotonic() + 10
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert marker.exists()
+        children.append(psutil.Process(int(marker.read_text())))
+        return ready_status
+
+    if shutdown_timeout:
+        def expire_first_wait(processes, timeout):
+            monkeypatch.setattr(package.psutil, 'wait_procs', wait_procs)
+            return wait_procs(processes, timeout=0)
+
+        monkeypatch.setattr(package.psutil, 'wait_procs', expire_first_wait)
+    monkeypatch.setattr(package.subprocess, 'Popen', start_server)
+    monkeypatch.setattr(package, '_wait_ready', ready)
+    monkeypatch.setattr(package, '_advertise_ip', lambda: '127.0.0.1')
+    monkeypatch.setattr(package.tempfile, 'tempdir', str(tmp_path))
+    try:
+        if shutdown_timeout:
+            with pytest.raises(BuildError, match='子プロセスが終了期限を超えました'):
+                package.verify_server_ready(tmp_path, Path(sys.executable))
+        elif ready_status == 200:
+            package.verify_server_ready(tmp_path, Path(sys.executable))
+        else:
+            with pytest.raises(BuildError, match='/ready: 503'):
+                package.verify_server_ready(tmp_path, Path(sys.executable))
+        assert all(not process.is_running() for process in children)
+        assert all(not data.exists() for data in data_dirs)
+    finally:
+        for process in children:
+            if process.is_running():
+                process.kill()
+            process.wait(timeout=10)
