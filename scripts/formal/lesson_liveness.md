@@ -92,7 +92,7 @@ Tracebackや子プロセスの期限超過を「検出成功」に数えない�
 
 ## 実モデルと画面の別検査
 
-`lesson_liveness_real.py` は `config.yaml` の実モデル・VAD・Turnを使う。同じPipelineの翻訳キャッシュだけを無効にし、既定では32回、同じ音源を投入する。
+`lesson_liveness_real.py` は `create_app` の未注入経路と `config.yaml` の実モデル・VAD・Turnを使う。同じPipelineの翻訳キャッシュだけを無効にし、既定では32回、同じ音源を投入する。開始時に両モデルの子PIDの生存を確認し、停止後に両PIDが消滅してからPASSとする。
 各回は100ms単位のPCM、1.2秒の無音、flush、drain、送信キュー排出の順で処理する。
 各回の先生の認識結果に対応する非空の訳文が両生徒へ届くこと、通算seqの連続性、ASR破棄0、キュー残留0、MT呼出数を調べる。
 `--models-dir`、`--wav`、`--repeats` で条件を指定でき、`--repeats` は17以上を要求する。
@@ -107,7 +107,7 @@ Edgeがない環境では、対応ブラウザーを用意して `--channel chro
 
 ## 結果と保証の限界
 
-同期コミットは `a15aea2288be88165acb3f9c9f4792d5a0a13f59`。基準結果は [lesson_liveness_baseline.json](lesson_liveness_baseline.json) に保存する。
+同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。基準結果は [lesson_liveness_baseline.json](lesson_liveness_baseline.json) に保存する。
 このコミットでは成立413列、固定6ケース、製品コピーの6破壊検出が成功した。現行コードの性質違反は検出されなかった。
 601入力を含む全固定ケースの生徒画面も一致し、16件後の表示停止と非表示化を検出した。
 既定のHaas int8・Hy-MT2・Silero・morphで音源03.wavを32回処理し、ASR32回、MT64回、英中各32字幕を確認した。
@@ -116,9 +116,9 @@ Edgeがない環境では、対応ブラウザーを用意して `--channel chro
 現行コードの違反が見つかった場合は結果を保持し、前提や期待値を弱めて成功へ変えない。
 
 各推論が最終的には返ることと、正常な接続へ送れることが継続性の前提である。
-`InferenceRunner` のtimeoutは待機を打ち切るだけであり、永久に戻らないnative処理を中断する機能はない。
+この検査に注入する `InferenceRunner` のtimeoutは待機を打ち切るだけであり、永久に戻らないnative処理を中断する機能はない。
 同じ単一Executorに残った処理が永久停止した場合の回復は、この検査では保証しない。
-現行コードに永久停止を再現したという報告でもない。
+設定から起動する製品の `ProcessInferenceRunner` は、モデル準備後の実行中の要求が期限切れになった子を回収して後続要求を再開する。その検証は [lesson-endurance](lesson_endurance.md) と [実行記録](inference_recovery_run.md) を参照する。
 
 マイクからの収音、実WebSocket・LAN、同時の先生操作、再接続、途中字幕、録音保存、実モデルの精度、50分授業、持続的な過負荷時の処理速度、メモリー増加は対象外である。
 実モデル32回は、各回の完了を待って次を入れる有限観測であり、授業中の音声到着速度に追いつくことの証拠には使えない。

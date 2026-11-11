@@ -20,7 +20,7 @@ import time
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "dcb03548822b9b8e0ca0e8200c2b378f2a80ed39"
+SYNC_COMMIT = "5aa0ca374beb563376b247eee60fd811e954e977"
 sys.path.insert(0, str(Path(__file__).parent))
 from lesson_liveness import ControlledExecutor, Recognition, Scenario, Translation, Violation, callbacks, japanese
 

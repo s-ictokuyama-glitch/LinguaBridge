@@ -1,0 +1,188 @@
+{
+  "date": "2026-11-11",
+  "platform": "Windows",
+  "python": "3.12.10",
+  "source_scope": "Current checkout with existing distribution Python runtime; not a newly built ZIP",
+  "endurance": {
+    "native": [
+      {
+        "kind": "asr",
+        "released_control": true,
+        "status": "PASS",
+        "old_pid_reaped_after_timeout": null,
+        "stop_hang_pid_alive": true,
+        "all_children_reaped": true,
+        "process_exit": {
+          "status": "PASS",
+          "after_result_watchdog_s": 2,
+          "expected": "interpreter exits after Pipeline.stop",
+          "actual": "exited"
+        }
+      },
+      {
+        "kind": "asr",
+        "released_control": false,
+        "status": "PASS",
+        "old_pid_reaped_after_timeout": true,
+        "stop_hang_pid_alive": true,
+        "all_children_reaped": true,
+        "process_exit": {
+          "status": "PASS",
+          "after_result_watchdog_s": 2,
+          "expected": "interpreter exits after Pipeline.stop",
+          "actual": "exited"
+        }
+      },
+      {
+        "kind": "mt",
+        "released_control": true,
+        "status": "PASS",
+        "old_pid_reaped_after_timeout": null,
+        "stop_hang_pid_alive": true,
+        "all_children_reaped": true,
+        "process_exit": {
+          "status": "PASS",
+          "after_result_watchdog_s": 2,
+          "expected": "interpreter exits after Pipeline.stop",
+          "actual": "exited"
+        }
+      },
+      {
+        "kind": "mt",
+        "released_control": false,
+        "status": "PASS",
+        "old_pid_reaped_after_timeout": true,
+        "stop_hang_pid_alive": true,
+        "all_children_reaped": true,
+        "process_exit": {
+          "status": "PASS",
+          "after_result_watchdog_s": 2,
+          "expected": "interpreter exits after Pipeline.stop",
+          "actual": "exited"
+        }
+      }
+    ],
+    "status": "PASS",
+    "mutations_detected": 5,
+    "coverage": {
+      "deadline_cases": 6,
+      "lesson_profiles": 8,
+      "seconds_per_profile": 3000,
+      "native_cases": 4
+    }
+  },
+  "real_model": {
+    "all_children_reaped": true,
+    "totals": {
+      "iterations": 32,
+      "asr_calls": 32,
+      "mt_calls": 64,
+      "asr_finals": 32,
+      "captions": {
+        "en": 32,
+        "zh": 32
+      }
+    },
+    "asr": "haas-onnx",
+    "parent_exit_code": 0,
+    "dependencies": {
+      "numpy": "2.5.4",
+      "onnxruntime": "1.31.0",
+      "llama-cpp-python": "0.3.33",
+      "faster-whisper": "1.2.1"
+    },
+    "mt": "hy-mt2",
+    "child_pids": [
+      2916,
+      27280
+    ],
+    "pipeline_stop_returned": true,
+    "cache_size": 0,
+    "teacher_error_count": 0,
+    "status": "PASS",
+    "input_sha256": "af625e035c2b036a445fbd1346956a9782cf4bee583c37c87b3a3e2dc0226cce"
+  },
+  "student_page": {
+    "status": "PASS",
+    "screens": [
+      {
+        "name": "real-model-32",
+        "language": "en",
+        "cards": 32,
+        "last_seq": 32,
+        "visible": true
+      },
+      {
+        "name": "real-model-32",
+        "language": "zh",
+        "cards": 32,
+        "last_seq": 32,
+        "visible": true
+      }
+    ],
+    "violations": [],
+    "mutations": [
+      {
+        "name": "display_stops_after_16",
+        "detected": true,
+        "violations": [
+          {
+            "property": "caption_display",
+            "screen": "real-model-32",
+            "language": "en",
+            "first_difference": 16,
+            "expected_count": 32,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "教科書の42ページを開いてください",
+                "text": "Please open page 42 of the textbook.",
+                "lang": "en"
+              }
+            ],
+            "actual": []
+          },
+          {
+            "property": "caption_display",
+            "screen": "real-model-32",
+            "language": "zh",
+            "first_difference": 16,
+            "expected_count": 32,
+            "actual_count": 16,
+            "expected": [
+              {
+                "seq": 17,
+                "ja": "教科書の42ページを開いてください",
+                "text": "请打开教科书的第42页。",
+                "lang": "zh"
+              }
+            ],
+            "actual": []
+          }
+        ]
+      },
+      {
+        "name": "hidden_after_16",
+        "detected": true,
+        "violations": [
+          {
+            "property": "caption_visibility",
+            "screen": "real-model-32",
+            "language": "en",
+            "expected": true,
+            "actual": false
+          },
+          {
+            "property": "caption_visibility",
+            "screen": "real-model-32",
+            "language": "zh",
+            "expected": true,
+            "actual": false
+          }
+        ]
+      }
+    ]
+  },
+  "scope": "Finite fault injection and 32 real-model repetitions; no 50-minute real-time performance claim"
+}

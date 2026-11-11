@@ -1,5 +1,5 @@
 {
-  "sync_commit": "dcb03548822b9b8e0ca0e8200c2b378f2a80ed39",
+  "sync_commit": "5aa0ca374beb563376b247eee60fd811e954e977",
   "python": "3.12.10",
   "coverage": {
     "deadline_cases": 6,
@@ -202,25 +202,72 @@
       "released_control": true,
       "status": "PASS",
       "property": "native_hang_recovery",
-      "timeout_s": 0.1,
-      "recovery_observation_s": 0.6,
-      "expected": "second utterance reaches both languages",
+      "timeout_s": 2,
+      "recovery_observation_s": 8,
+      "expected": "second utterance reaches both languages and every child is reaped",
+      "pipeline_stop_returned": true,
+      "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
+      "initial_startup_s": 0.437,
+      "old_pid": 28428,
+      "old_pid_reaped_after_timeout": null,
       "actual": {
         "en": true,
         "zh": true
       },
-      "injected_operation_still_blocked": false,
+      "recovery_elapsed_s": 0.016,
+      "expected_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "actual_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "injected_operation_never_released": false,
       "trace": [
-        "asr enters blocking operation",
-        "caller deadline expires",
-        "release operation",
+        "asr enters input-specific blocking operation",
+        "release control",
         "feed second utterance",
-        "observe both languages after six deadlines"
+        "observe both language captions",
+        "feed third utterance and stop while blocked"
       ],
-      "notices": [
-        "asr_timeout"
+      "notices": [],
+      "stop_while_blocked": true,
+      "stop_hang_pid": 28428,
+      "stop_hang_pid_alive": true,
+      "child_pids": [
+        27268,
+        28428
       ],
-      "pipeline_stop_returned": true,
+      "all_children_reaped": true,
       "process_exit": {
         "status": "PASS",
         "after_result_watchdog_s": 2,
@@ -231,32 +278,82 @@
     {
       "kind": "asr",
       "released_control": false,
-      "status": "FAIL",
+      "status": "PASS",
       "property": "native_hang_recovery",
-      "timeout_s": 0.1,
-      "recovery_observation_s": 0.6,
-      "expected": "second utterance reaches both languages",
+      "timeout_s": 2,
+      "recovery_observation_s": 8,
+      "expected": "second utterance reaches both languages and every child is reaped",
+      "pipeline_stop_returned": true,
+      "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
+      "initial_startup_s": 0.734,
+      "old_pid": 29788,
+      "old_pid_reaped_after_timeout": true,
       "actual": {
-        "en": false,
-        "zh": false
+        "en": true,
+        "zh": true
       },
-      "injected_operation_still_blocked": true,
+      "recovery_elapsed_s": 0.843,
+      "expected_captions": {
+        "en": [
+          {
+            "seq": 1,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 1,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "actual_captions": {
+        "en": [
+          {
+            "seq": 1,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 1,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "injected_operation_never_released": true,
       "trace": [
-        "asr enters blocking operation",
-        "caller deadline expires",
-        "keep operation blocked",
+        "asr enters input-specific blocking operation",
+        "deadline expires and old process is reaped",
         "feed second utterance",
-        "observe both languages after six deadlines"
+        "observe both language captions",
+        "feed third utterance and stop while blocked"
       ],
       "notices": [
         "asr_timeout"
       ],
-      "pipeline_stop_returned": true,
+      "stop_while_blocked": true,
+      "stop_hang_pid": 21780,
+      "stop_hang_pid_alive": true,
+      "child_pids": [
+        21780,
+        29788,
+        30240
+      ],
+      "all_children_reaped": true,
       "process_exit": {
-        "status": "FAIL",
+        "status": "PASS",
         "after_result_watchdog_s": 2,
         "expected": "interpreter exits after Pipeline.stop",
-        "actual": "blocked; witness child killed"
+        "actual": "exited"
       }
     },
     {
@@ -264,25 +361,72 @@
       "released_control": true,
       "status": "PASS",
       "property": "native_hang_recovery",
-      "timeout_s": 0.1,
-      "recovery_observation_s": 0.6,
-      "expected": "second utterance reaches both languages",
+      "timeout_s": 2,
+      "recovery_observation_s": 8,
+      "expected": "second utterance reaches both languages and every child is reaped",
+      "pipeline_stop_returned": true,
+      "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
+      "initial_startup_s": 0.64,
+      "old_pid": 29312,
+      "old_pid_reaped_after_timeout": null,
       "actual": {
         "en": true,
         "zh": true
       },
-      "injected_operation_still_blocked": false,
+      "recovery_elapsed_s": 0.0,
+      "expected_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "actual_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "injected_operation_never_released": false,
       "trace": [
-        "mt enters blocking operation",
-        "caller deadline expires",
-        "release operation",
+        "mt enters input-specific blocking operation",
+        "release control",
         "feed second utterance",
-        "observe both languages after six deadlines"
+        "observe both language captions",
+        "feed third utterance and stop while blocked"
       ],
-      "notices": [
-        "mt_timeout"
+      "notices": [],
+      "stop_while_blocked": true,
+      "stop_hang_pid": 29312,
+      "stop_hang_pid_alive": true,
+      "child_pids": [
+        3648,
+        29312
       ],
-      "pipeline_stop_returned": true,
+      "all_children_reaped": true,
       "process_exit": {
         "status": "PASS",
         "after_result_watchdog_s": 2,
@@ -293,32 +437,82 @@
     {
       "kind": "mt",
       "released_control": false,
-      "status": "FAIL",
+      "status": "PASS",
       "property": "native_hang_recovery",
-      "timeout_s": 0.1,
-      "recovery_observation_s": 0.6,
-      "expected": "second utterance reaches both languages",
+      "timeout_s": 2,
+      "recovery_observation_s": 8,
+      "expected": "second utterance reaches both languages and every child is reaped",
+      "pipeline_stop_returned": true,
+      "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
+      "initial_startup_s": 0.656,
+      "old_pid": 29608,
+      "old_pid_reaped_after_timeout": true,
       "actual": {
-        "en": false,
-        "zh": false
+        "en": true,
+        "zh": true
       },
-      "injected_operation_still_blocked": true,
+      "recovery_elapsed_s": 0.25,
+      "expected_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "actual_captions": {
+        "en": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "en",
+            "text": "en:授業の発話2です。"
+          }
+        ],
+        "zh": [
+          {
+            "seq": 2,
+            "ja": "授業の発話2です。",
+            "lang": "zh",
+            "text": "zh:授業の発話2です。"
+          }
+        ]
+      },
+      "injected_operation_never_released": true,
       "trace": [
-        "mt enters blocking operation",
-        "caller deadline expires",
-        "keep operation blocked",
+        "mt enters input-specific blocking operation",
+        "deadline expires and old process is reaped",
         "feed second utterance",
-        "observe both languages after six deadlines"
+        "observe both language captions",
+        "feed third utterance and stop while blocked"
       ],
       "notices": [
         "mt_timeout"
       ],
-      "pipeline_stop_returned": true,
+      "stop_while_blocked": true,
+      "stop_hang_pid": 27444,
+      "stop_hang_pid_alive": true,
+      "child_pids": [
+        1916,
+        27444,
+        29608
+      ],
+      "all_children_reaped": true,
       "process_exit": {
-        "status": "FAIL",
+        "status": "PASS",
         "after_result_watchdog_s": 2,
         "expected": "interpreter exits after Pipeline.stop",
-        "actual": "blocked; witness child killed"
+        "actual": "exited"
       }
     }
   ],
@@ -434,5 +628,5 @@
       }
     }
   ],
-  "status": "FAIL"
+  "status": "PASS"
 }
