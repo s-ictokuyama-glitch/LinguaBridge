@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+推論プロセスの準備中の期限・取消し・停止と、授業途中の再生成でモデル準備が永久停止した場合の字幕継続は [inference-startup 検証](inference_startup.md) と [スキル](../../.agents/skills/inference-startup/SKILL.md) を使う。準備が遅くても完了すれば復帰する対照と、永久停止から自動復旧しない現行の反例を分けて記録する。
+
 50分の連続入力、正の推論期限、永久ハング後の字幕再開・終了は [lesson-endurance 検証](lesson_endurance.md) と [スキル](../../.agents/skills/lesson-endurance/SKILL.md) を使う。仮想時間、プロセスの復旧、実モデルの50分計測を分ける。Issue #180の修正と実モデルでの停止確認は [推論ハング復旧の実行記録](inference_recovery_run.md) にある。
 
 音声入力から翻訳字幕までの反復、MT満杯後の再開、失敗後の継続は [lesson-liveness 検証](lesson_liveness.md) と [スキル](../../.agents/skills/lesson-liveness/SKILL.md) を使う。実モデル32回と生徒画面の確認コマンドも含む。
