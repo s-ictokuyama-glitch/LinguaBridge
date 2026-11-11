@@ -20,6 +20,7 @@ const state = {
   micSource: null, // 現在つないでいる MediaStreamSource
   micStream: null, // 現在の MediaStream（切替時に track を止める）
   micDeviceId: "", // 空文字 = 既定のマイク
+  micRequest: null,
 };
 
 const el = {
@@ -132,6 +133,7 @@ async function refreshMicList() {
   } catch {
     return; // 列挙できない環境では既定のマイクのまま動かす
   }
+  if (state.micRequest?.result === null) return;
   const inputs = devices.filter((d) => d.kind === "audioinput");
   const granted = inputs.some((d) => d.label);
   el.micSelect.textContent = "";
@@ -193,16 +195,68 @@ function attachStream(stream, deviceId) {
 /** select の操作。失敗したら選択を元へ戻し、理由を出す。 */
 async function onMicSelected() {
   const wanted = el.micSelect.value;
-  const previous = state.micDeviceId;
-  if (!state.micReady || wanted === previous) return;
-  try {
-    attachStream(await getMicStream(wanted), wanted);
-    showMicNotice("");
-    el.micStatus.textContent = "マイクを切り替えました。";
-  } catch (err) {
-    el.micSelect.value = previous;
-    showMicNotice(`このマイクを使えませんでした（${err.name}）。前のマイクのままです。`);
-  }
+  if (!state.micReady) return;
+  if (wanted === state.micDeviceId && state.micRequest?.result !== null) return;
+  await requestMic("select", wanted).done;
+}
+
+function hasLiveMic() {
+  return state.micStream.getAudioTracks().some((track) => track.readyState === "live");
+}
+
+function requestMic(intent, deviceId) {
+  let resolve;
+  const request = {
+    intent,
+    deviceId,
+    result: null,
+    done: new Promise((done) => { resolve = done; }),
+    settle(result) {
+      if (this.result !== null) return;
+      this.result = result;
+      resolve(result);
+    },
+  };
+  state.micRequest?.settle({ status: "superseded" });
+  state.micRequest = request;
+  (async () => {
+    let stream;
+    let acquiredId = request.deviceId;
+    let notice = "";
+    try {
+      try {
+        stream = await getMicStream(acquiredId);
+      } catch (err) {
+        if (state.micRequest !== request) return;
+        if (request.intent !== "recover" || !acquiredId) throw err;
+        stream = await getMicStream("");
+        acquiredId = "";
+        notice = "前回選んだマイクを使えませんでした。既定のマイクを使います。";
+      }
+      if (state.micRequest !== request) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      attachStream(stream, acquiredId);
+      el.micSelect.value = acquiredId;
+      showMicNotice(notice);
+      el.micStatus.textContent = request.intent === "select"
+        ? "マイクを切り替えました。" : "マイク取得済み。";
+      request.settle({ status: "ready" });
+    } catch (error) {
+      if (stream && stream !== state.micStream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      if (state.micRequest !== request) return;
+      el.micSelect.value = state.micDeviceId;
+      if (request.intent === "select") {
+        showMicNotice(`このマイクを使えませんでした（${error.name}）。前のマイクのままです。`);
+      }
+      request.settle({ status: "failed", error });
+    }
+    refreshMicList();
+  })();
+  return request;
 }
 
 function renderLocalTeacherCode(revealed) {
@@ -478,13 +532,32 @@ function updateMicMeter(buffer) {
   el.micMeterBar.classList.toggle("silent", level < 0.02);
 }
 
-/** マイクの許可を取り、音声グラフを組み立てる（配信開始時に一度だけ）。
- *
- * デバイスの取得（`getMicStream`）とグラフへの接続（`attachStream`）に分けてあるので、
- * 配信中のマイク切替は後者だけをやり直せばよく、ワークレットを作り直さずに済む（#30）。
- */
 async function ensureMic() {
-  if (state.micReady) return;
+  const initialRequest = state.micRequest;
+  const wasPending = initialRequest?.result === null;
+  if (state.audioCtx && state.audioCtx.state !== "running") {
+    await state.audioCtx.resume();
+  }
+  if (state.micReady) {
+    let request = wasPending || state.micRequest !== initialRequest ? state.micRequest : null;
+    if (!request && !hasLiveMic()) {
+      request = requestMic("recover", storageGet(STORAGE_MIC_DEVICE) || "");
+    }
+    while (request) {
+      const result = await request.done;
+      if (request !== state.micRequest) {
+        request = state.micRequest;
+        continue;
+      }
+      if (result.status === "failed" && !hasLiveMic()) throw result.error;
+      break;
+    }
+    if (state.audioCtx.state !== "running" || !hasLiveMic()) {
+      throw new Error("音声入力を再開できませんでした。もう一度お試しください。");
+    }
+    el.micStatus.textContent = "マイク取得済み。";
+    return;
+  }
   // **マイクを取ってから**音声グラフを作る。`AudioContext.resume()` はユーザー操作の
   // 文脈でしか解決しないうえ、許可が下りなければグラフは要らない。
   // 許可を拒否されたあと「開始」を押し直すとここへ戻ってくるので、
