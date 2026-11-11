@@ -14,6 +14,7 @@ const state = {
   acceptedTeacherCode: null,
   localTeacherCode: null,
   sessionState: "idle",
+  recordingSaveError: null,
   micReady: false,
   audioCtx: null,
   workletNode: null,
@@ -460,6 +461,10 @@ function handleMessage(msg, ws, code) {
         el.silenceWarning.hidden = false;
       } else {
         el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
+        if (msg.code === "recording_save_failed") {
+          state.recordingSaveError = el.micStatus.textContent;
+          setButtons(state.joined);
+        }
       }
       break;
   }
@@ -490,6 +495,10 @@ function applyStats(msg) {
 
 function applySessionState(s) {
   state.sessionState = s;
+  if (s !== "ended") {
+    clearRecordingSaveWarning();
+    state.recordingSaveError = null;
+  }
   setPageState(s);
   if (s !== "live") {
     el.silenceWarning.hidden = true;
@@ -512,12 +521,19 @@ function setButtons(connected) {
   el.startBtn.textContent = s === "paused" ? "再開" : "開始";
   el.startBtn.disabled = !connected || s === "live";
   el.pauseBtn.disabled = !connected || s !== "live";
-  el.endBtn.disabled = !connected || (s !== "live" && s !== "paused");
+  el.endBtn.disabled = !connected || (s !== "live" && s !== "paused" && !state.recordingSaveError);
   el.recordToggle.disabled = !connected;
+}
+
+function clearRecordingSaveWarning() {
+  if (el.micStatus.textContent === state.recordingSaveError) {
+    el.micStatus.textContent = "";
+  }
 }
 
 function sendControl(action) {
   if (state.joined && state.ws.readyState === WebSocket.OPEN) {
+    if (action === "end") clearRecordingSaveWarning();
     state.ws.send(JSON.stringify({ type: "control", action }));
   }
 }

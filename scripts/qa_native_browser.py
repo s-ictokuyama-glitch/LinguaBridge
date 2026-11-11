@@ -1046,19 +1046,43 @@ def recording_save_failure_end_retry(screens):
         assert len(failed[role]["sockets"]) == 1, failed
     assert failed["destination_is_file"], failed
 
+    expect(teacher.locator("#end-btn"), "保存失敗後も終了ボタンから再試行できる").to_be_enabled()
+    teacher.locator("#end-btn").click()
+    teacher.wait_for_function(
+        "qaNativeFrames.filter(x => x.message.code === 'recording_save_failed').length === 2"
+    )
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#mic-status")).to_contain_text("もう一度「終了」を押してください")
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    capture("retry-save-failed")
+
+    teacher.locator("#start-btn").click()
+    teacher.wait_for_function(
+        "qaNativeFrames.filter(x => x.message.code === 'recording_save_failed').length === 3"
+    )
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    capture("start-save-failed")
+
     screens.recording_dir.unlink()
     screens.recording_dir.mkdir()
     capture("destination-restored")
     expect(teacher.locator("#end-btn"), "保存先復旧後も終了ボタンから同じ授業の記録を再保存できる").to_be_enabled()
-    ended_count = teacher.evaluate(
-        "qaNativeFrames.filter(x => x.message.type === 'session' && x.message.state === 'ended').length"
-    )
-    teacher.locator("#end-btn").click()
-    teacher.wait_for_function(
-        "count => qaNativeFrames.filter(x => x.message.type === 'session' && x.message.state === 'ended').length > count",
-        arg=ended_count,
-    )
-    expect(teacher.locator("#end-btn")).to_be_disabled()
+
+    def end_and_wait_for_save():
+        off_count = teacher.evaluate(
+            "qaNativeFrames.filter(x => x.message.type === 'recording' && !x.message.on).length"
+        )
+        teacher.locator("#end-btn").click()
+        teacher.locator("#record-toggle").uncheck()
+        teacher.wait_for_function(
+            "count => qaNativeFrames.filter(x => x.message.type === 'recording' && !x.message.on).length > count",
+            arg=off_count,
+        )
+
+    end_and_wait_for_save()
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#mic-status")).not_to_contain_text("授業記録を保存できませんでした")
     expect(teacher.locator("#session-state")).to_have_text("終了")
     expect(student.locator("#session-banner")).to_have_text("Class has ended")
     expect(teacher.locator("#transcript li")).to_have_text("#1 " + phrase)
@@ -1066,7 +1090,7 @@ def recording_save_failure_end_retry(screens):
     saved = capture("saved")
     messages = [frame["message"] for frame in saved["teacher"]["frames"]]
     assert sum(m.get("type") == "session" and m.get("state") == "live" for m in messages) == live_count
-    assert sum(m.get("code") == "recording_save_failed" for m in messages) == 1
+    assert sum(m.get("code") == "recording_save_failed" for m in messages) == 3
     for role in ("teacher", "student"):
         assert saved[role]["connected"] and saved[role]["closed"] == [], saved
         assert len(saved[role]["sockets"]) == 1, saved
@@ -1083,12 +1107,21 @@ def recording_save_failure_end_retry(screens):
     for lang, text in (("ja", phrase), ("en", "[en] " + phrase)):
         markdown = (transcript.parent / f"transcript.{lang}.md").read_text(encoding="utf-8")
         assert markdown.count(text) == 1, markdown
+    saved_files = {path.name: path.read_bytes() for path in transcript.parent.iterdir()}
+    teacher.locator("#record-toggle").check()
+    expect(student.locator("#record-indicator")).to_be_visible()
+    end_and_wait_for_save()
+    assert list(screens.recording_dir.iterdir()) == [transcript.parent]
+    assert {path.name: path.read_bytes() for path in transcript.parent.iterdir()} == saved_files
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    capture("saved-again")
     return {
         "save_failure_code": "recording_save_failed",
         "teacher_connection_retained": True,
         "retry_control": "end",
         "new_lesson_started": False,
         "saved_seq": [entry["seq"]],
+        "repeated_end_preserves_files": True,
         "recording_directory": str(transcript.parent),
         "evidence_directory": str(screens.evidence_dir),
     }
