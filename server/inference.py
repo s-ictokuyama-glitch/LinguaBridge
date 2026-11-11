@@ -7,7 +7,7 @@ from collections.abc import Callable
 from concurrent.futures import Executor, ThreadPoolExecutor
 from dataclasses import dataclass
 from time import monotonic
-from typing import Generic, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -26,6 +26,28 @@ class InferenceTimedOut:
 @dataclass(frozen=True)
 class InferenceFailed:
     error: Exception
+
+
+class Runner(Protocol):
+    async def run(
+        self, operation: Callable[[], T], *, timeout: float | None
+    ) -> InferenceSucceeded[T] | InferenceTimedOut | InferenceFailed: ...
+
+    async def aclose(self) -> None: ...
+
+
+async def finish_cleanup(task: asyncio.Task[T]) -> T:
+    """呼出側が繰り返しキャンセルされても、所有資源の回収を終えてから伝える。"""
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    result = task.result()
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
 
 
 class InferenceRunner:
@@ -63,3 +85,6 @@ class InferenceRunner:
     def stop(self) -> None:
         # 実行中のスレッドは中断できないので、その終了を待たない。
         self._executor.shutdown(wait=False, cancel_futures=True)
+
+    async def aclose(self) -> None:
+        self.stop()

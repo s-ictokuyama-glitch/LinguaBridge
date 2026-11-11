@@ -11,6 +11,7 @@ import asyncio
 import logging
 import re
 from contextlib import asynccontextmanager
+from functools import partial
 from html import escape
 from pathlib import Path
 from typing import AsyncIterator
@@ -27,6 +28,7 @@ from server.asr.base import ASREngine
 from server.asr.fake_engine import FakeASREngine
 from server.config import AppConfig, add_layer_arguments, config_cli_args, load_config
 from server.launch_commands import launch_commands
+from server.inference_process import ProcessInferenceRunner
 from server.diagnostics import record_template
 from server.certificates import print_certificate_report
 from server.model_files import require_model_files
@@ -175,11 +177,22 @@ def create_app(
     recording_wait_s: float = 30,
 ) -> FastAPI:
     roster = Roster(config.limits)
+    asr_runner = mt_runner = None
+    if asr_engine is None:
+        asr_factory = partial(build_asr_engine, config.model_copy(deep=True))
+        asr_engine = asr_factory()
+        asr_runner = ProcessInferenceRunner(asr_engine, asr_factory, name="asr")
+    if mt_engine is None:
+        mt_factory = partial(build_mt_engine, config.model_copy(deep=True))
+        mt_engine = mt_factory()
+        mt_runner = ProcessInferenceRunner(mt_engine, mt_factory, name="mt")
     pipeline = Pipeline(
         roster,
         config,
-        asr_engine or build_asr_engine(config),
-        mt_engine or build_mt_engine(config),
+        asr_engine,
+        mt_engine,
+        asr_runner=asr_runner,
+        mt_runner=mt_runner,
     )
 
     lesson = Lesson(pipeline, config, join_code=join_code or generate_join_code(),

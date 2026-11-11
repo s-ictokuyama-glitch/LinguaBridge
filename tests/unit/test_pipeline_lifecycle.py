@@ -122,3 +122,53 @@ def test_drain_times_out_with_unprocessed_audio():
         assert pipeline.asr_queue_depth > 0
         await pipeline.stop()
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failing_side", ["asr", "mt"])
+def test_stop_attempts_both_runners_when_one_cleanup_fails(monkeypatch, failing_side):
+    async def scenario():
+        pipeline = make_pipeline()
+        calls = []
+
+        async def close(side):
+            calls.append(side)
+            if side == failing_side:
+                raise RuntimeError(f"{side} cleanup failed")
+
+        monkeypatch.setattr(pipeline._asr_runner, "aclose", lambda: close("asr"))
+        monkeypatch.setattr(pipeline.captions._mt_runner, "aclose", lambda: close("mt"))
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match=f"{failing_side} cleanup failed"):
+                await pipeline.stop()
+        assert sorted(calls) == ["asr", "mt"]
+
+    asyncio.run(scenario())
+
+
+def test_repeated_stop_cancellation_finishes_both_cleanups(monkeypatch):
+    async def scenario():
+        pipeline = make_pipeline()
+        entered = {side: asyncio.Event() for side in ("asr", "mt")}
+        release = asyncio.Event()
+        completed = []
+
+        async def close(side):
+            entered[side].set()
+            await release.wait()
+            completed.append(side)
+
+        monkeypatch.setattr(pipeline._asr_runner, "aclose", lambda: close("asr"))
+        monkeypatch.setattr(pipeline.captions._mt_runner, "aclose", lambda: close("mt"))
+        stopping = asyncio.create_task(pipeline.stop())
+        await asyncio.gather(*(event.wait() for event in entered.values()))
+        for _ in range(3):
+            stopping.cancel()
+            await asyncio.sleep(0)
+            assert not stopping.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await stopping
+        assert sorted(completed) == ["asr", "mt"]
+        await pipeline.stop()
+
+    asyncio.run(scenario())

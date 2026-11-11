@@ -1,16 +1,15 @@
 """オーケストレーター（plan.md §6.3）。
 
-teacher WS → ingest → VoiceSegmenter → asr_queue → ASRワーカー(1スレッド)
+teacher WS → ingest → VoiceSegmenter → asr_queue → ASRワーカー
   → TurnAssembler（文法境界で Segment を Turn へ連結。#27）
-  → mt_queue（アクティブ言語ごとにジョブ展開） → MTワーカー(1スレッド)
+  → mt_queue（アクティブ言語ごとにジョブ展開） → MTワーカー
   → 言語別ブロードキャスト / 先生へ asr_final
 
 `Utterance` は **Turn**（字幕カード1枚）を表す。asr_queue を流れる `Segment` は
 ASR に投げる音声1単位で、strategy=morph では複数の Segment が1つの Utterance になる
 （strategy=simple では 1 Segment = 1 Utterance ＝ #27 以前と同一）。
 
-ASR・MTは各1スレッドの ThreadPoolExecutor で直列実行する
-（実エンジンの CTranslate2 / llama.cpp が内部でマルチスレッド推論するため）。
+ASR・MTはそれぞれの実行先で直列実行する。本番の実行先は停止可能な子プロセス。
 発話はスキップしない（キュー滞留時の警告表示は #15）。
 """
 
@@ -40,7 +39,9 @@ from server.asr_backlog import AsrBacklog, AsrEvent, Dropped, FlushTurn
 from server.config import AppConfig
 from server.caption_delivery import CaptionDelivery
 from server.caption_history import Utterance
-from server.inference import InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut
+from server.inference import (
+    InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut, Runner, finish_cleanup,
+)
 from server.mt.base import TranslationEngine
 from server.model_files import TranslationModelError
 from server.roster import Roster
@@ -85,8 +86,8 @@ class Pipeline:
         asr_engine: ASREngine,
         mt_engine: TranslationEngine,
         *,
-        asr_runner: InferenceRunner | None = None,
-        mt_runner: InferenceRunner | None = None,
+        asr_runner: Runner | None = None,
+        mt_runner: Runner | None = None,
     ) -> None:
         self.roster = roster
         self._accepting_audio = False
@@ -144,6 +145,7 @@ class Pipeline:
         )
         self._tasks: list[asyncio.Task[None]] = []
         self._warmup_task: asyncio.Task[None] | None = None
+        self._stop_task: asyncio.Task[None] | None = None
         self.ready = False  # モデルの事前ロード完了（/ready が 200 を返す条件）
         # モニタリング（#15）: 統計の定期配信と無音警告（E-01）
         self._stats_interval_s = config.monitoring.stats_interval_s
@@ -160,7 +162,6 @@ class Pipeline:
     async def start(self) -> None:
         # ワーカーは即座に起動し、サーバーをすぐ応答可能にする（/ready 503 の窓を作る）。
         # モデルの warmup は背後で走らせ、完了で ready を立てる（/ready は #16 で 503→200）。
-        # ワーカーは同一の単一スレッドExecutorを使うため warmup と実推論は直列化される。
         self.captions.start()
         self._tasks = [
             asyncio.create_task(self._asr_worker(), name="asr-worker"),
@@ -188,6 +189,11 @@ class Pipeline:
         self.ready = True
 
     async def stop(self) -> None:
+        if self._stop_task is None:
+            self._stop_task = asyncio.create_task(self._stop())
+        await finish_cleanup(self._stop_task)
+
+    async def _stop(self) -> None:
         if self._partial.enabled:
             # partial の実効値をログに残す（#29）。実授業では合成音源と息継ぎの
             # 分布が変わるので、`docs/bench/2026-08-24-partial.md` の数値がそのまま
@@ -205,12 +211,17 @@ class Pipeline:
         pending: list[asyncio.Task[None]] = [
             *self._tasks, *([self._warmup_task] if self._warmup_task else [])
         ]
-        await self.captions.stop()
-        await asyncio.gather(*pending, return_exceptions=True)
+        outcomes = await asyncio.gather(
+            self.captions.stop(), self._asr_runner.aclose(),
+            asyncio.gather(*pending, return_exceptions=True), self.roster.aclose(),
+            return_exceptions=True,
+        )
         self._tasks = []
         self._warmup_task = None
-        await self.roster.aclose()
-        self._asr_runner.stop()
+        self.ready = False
+        for outcome in outcomes:
+            if isinstance(outcome, BaseException):
+                raise outcome
 
     @property
     def queue_depth(self) -> int:
@@ -391,7 +402,7 @@ class Pipeline:
         )
         if isinstance(outcome, InferenceTimedOut):
             logger.error(
-                "ASRが %.0f 秒で返らないため、この発話を諦めます（スレッドは実行中のまま）",
+                "ASRが %.0f 秒で返らないため、この発話の処理を打ち切ります",
                 self._limits.asr_timeout_s,
             )
             await self._notify_overload("asr_timeout", "音声認識が応答しません。処理を1件飛ばしました")
