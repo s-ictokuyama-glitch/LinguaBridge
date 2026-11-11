@@ -1,0 +1,1668 @@
+{
+  "sync_commit": "c39c85913ed4f1b12cc611464918c984520cff2c",
+  "python": "3.12.10",
+  "scope": "finite real-process schedules and synthetic PCM witnesses; no unbounded liveness proof",
+  "bounded": {
+    "status": "PASS",
+    "cases": 60,
+    "violations": [],
+    "operations": [
+      "deadline",
+      "cancel"
+    ],
+    "max_length": 3,
+    "phases": [
+      "factory",
+      "warmup"
+    ],
+    "terminals": [
+      "release",
+      "close"
+    ]
+  },
+  "native": [
+    {
+      "kind": "asr",
+      "phase": "factory",
+      "release_startup": true,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold asr operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its factory blocks",
+        "continue feeding audio 2, 3, 4",
+        "release slow startup after its first request deadline"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 10572,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "startup_never_released": false,
+      "blocked_generation_alive": true,
+      "notices": [
+        "asr_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 6,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        10572,
+        14516,
+        27256
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18054.921,
+          "pid": 27256,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18054.921,
+          "pid": 27256,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18055.078,
+          "pid": 14516,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18055.078,
+          "pid": 14516,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18055.156,
+          "pid": 27256,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18055.156,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18055.171,
+          "pid": 27256,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18055.171,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18056.375,
+          "pid": 10572,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18057.234,
+          "pid": 10572,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18057.343,
+          "pid": 10572,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18057.343,
+          "pid": 10572,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18057.343,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18057.343,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18057.343,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18057.343,
+          "pid": 14516,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "zh"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "kind": "asr",
+      "phase": "factory",
+      "release_startup": false,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold asr operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its factory blocks",
+        "continue feeding audio 2, 3, 4"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 27660,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [],
+        "zh": []
+      },
+      "startup_never_released": true,
+      "blocked_generation_alive": true,
+      "notices": [
+        "asr_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 2,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        27660,
+        29232,
+        29792
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18058.156,
+          "pid": 29792,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18058.156,
+          "pid": 29792,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18058.359,
+          "pid": 29232,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18058.359,
+          "pid": 29232,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18058.468,
+          "pid": 29792,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18058.468,
+          "pid": 29792,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18058.468,
+          "pid": 29232,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18058.468,
+          "pid": 29232,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18059.703,
+          "pid": 27660,
+          "method": "factory",
+          "arguments": []
+        }
+      ],
+      "status": "FAIL",
+      "violation": {
+        "property": "startup_recovery",
+        "expected": {
+          "en": [
+            "en:授業の発話3です。",
+            "en:授業の発話4です。"
+          ],
+          "zh": [
+            "zh:授業の発話3です。",
+            "zh:授業の発話4です。"
+          ]
+        },
+        "actual": {
+          "en": [],
+          "zh": []
+        },
+        "trace": [
+          "warm up both models",
+          "audio 0 reaches English and Chinese students",
+          "hold asr operation for audio 1",
+          "expire operation deadline",
+          "next request starts replacement; its factory blocks",
+          "continue feeding audio 2, 3, 4"
+        ]
+      }
+    },
+    {
+      "kind": "asr",
+      "phase": "warmup",
+      "release_startup": true,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold asr operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its warmup blocks",
+        "continue feeding audio 2, 3, 4",
+        "release slow startup after its first request deadline"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 12388,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "startup_never_released": false,
+      "blocked_generation_alive": true,
+      "notices": [
+        "asr_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 6,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        12388,
+        27256,
+        27596
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18063.328,
+          "pid": 27256,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18063.328,
+          "pid": 27256,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18063.546,
+          "pid": 27596,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18063.546,
+          "pid": 27596,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18063.64,
+          "pid": 27256,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18063.64,
+          "pid": 27256,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18063.64,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18063.64,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18064.875,
+          "pid": 12388,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18064.875,
+          "pid": 12388,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18065.781,
+          "pid": 12388,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18065.781,
+          "pid": 12388,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18065.781,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18065.781,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18065.781,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18065.781,
+          "pid": 27596,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "zh"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "kind": "asr",
+      "phase": "warmup",
+      "release_startup": false,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold asr operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its warmup blocks",
+        "continue feeding audio 2, 3, 4"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 31432,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [],
+        "zh": []
+      },
+      "startup_never_released": true,
+      "blocked_generation_alive": true,
+      "notices": [
+        "asr_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 2,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        31004,
+        31064,
+        31432
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18066.75,
+          "pid": 31004,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18066.75,
+          "pid": 31004,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18066.968,
+          "pid": 31064,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18066.968,
+          "pid": 31064,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18067.078,
+          "pid": 31004,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18067.078,
+          "pid": 31004,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18067.078,
+          "pid": 31064,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18067.078,
+          "pid": 31064,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18068.296,
+          "pid": 31432,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18068.296,
+          "pid": 31432,
+          "method": "warmup",
+          "arguments": []
+        }
+      ],
+      "status": "FAIL",
+      "violation": {
+        "property": "startup_recovery",
+        "expected": {
+          "en": [
+            "en:授業の発話3です。",
+            "en:授業の発話4です。"
+          ],
+          "zh": [
+            "zh:授業の発話3です。",
+            "zh:授業の発話4です。"
+          ]
+        },
+        "actual": {
+          "en": [],
+          "zh": []
+        },
+        "trace": [
+          "warm up both models",
+          "audio 0 reaches English and Chinese students",
+          "hold asr operation for audio 1",
+          "expire operation deadline",
+          "next request starts replacement; its warmup blocks",
+          "continue feeding audio 2, 3, 4"
+        ]
+      }
+    },
+    {
+      "kind": "mt",
+      "phase": "factory",
+      "release_startup": true,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold mt operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its factory blocks",
+        "continue feeding audio 2, 3, 4",
+        "release slow startup after its first request deadline"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 30872,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "startup_never_released": false,
+      "blocked_generation_alive": true,
+      "notices": [
+        "mt_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        30872,
+        31080,
+        31104
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18071.937,
+          "pid": 31080,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18071.937,
+          "pid": 31080,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18072.125,
+          "pid": 31104,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18072.125,
+          "pid": 31104,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18072.218,
+          "pid": 31080,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18072.218,
+          "pid": 31104,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18072.234,
+          "pid": 31080,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18072.234,
+          "pid": 31104,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18072.234,
+          "pid": 31104,
+          "method": "translate",
+          "arguments": [
+            "授業の発話1です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18073.453,
+          "pid": 30872,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18074.25,
+          "pid": 31080,
+          "method": "transcribe",
+          "arguments": [
+            2
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18076.296,
+          "pid": 31080,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18076.296,
+          "pid": 31080,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18076.296,
+          "pid": 30872,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18076.296,
+          "pid": 30872,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18076.296,
+          "pid": 30872,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18076.296,
+          "pid": 30872,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18076.296,
+          "pid": 30872,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "zh"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "kind": "mt",
+      "phase": "factory",
+      "release_startup": false,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold mt operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its factory blocks",
+        "continue feeding audio 2, 3, 4"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 31204,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [],
+        "zh": []
+      },
+      "startup_never_released": true,
+      "blocked_generation_alive": true,
+      "notices": [
+        "mt_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        9512,
+        30980,
+        31204
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18077.015,
+          "pid": 30980,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18077.015,
+          "pid": 30980,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18077.187,
+          "pid": 9512,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18077.187,
+          "pid": 9512,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18077.265,
+          "pid": 30980,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18077.281,
+          "pid": 30980,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18077.281,
+          "pid": 9512,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18077.281,
+          "pid": 9512,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18077.281,
+          "pid": 9512,
+          "method": "translate",
+          "arguments": [
+            "授業の発話1です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18078.484,
+          "pid": 31204,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18079.328,
+          "pid": 30980,
+          "method": "transcribe",
+          "arguments": [
+            2
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18081.359,
+          "pid": 30980,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18083.375,
+          "pid": 30980,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        }
+      ],
+      "status": "FAIL",
+      "violation": {
+        "property": "startup_recovery",
+        "expected": {
+          "en": [
+            "en:授業の発話3です。",
+            "en:授業の発話4です。"
+          ],
+          "zh": [
+            "zh:授業の発話3です。",
+            "zh:授業の発話4です。"
+          ]
+        },
+        "actual": {
+          "en": [],
+          "zh": []
+        },
+        "trace": [
+          "warm up both models",
+          "audio 0 reaches English and Chinese students",
+          "hold mt operation for audio 1",
+          "expire operation deadline",
+          "next request starts replacement; its factory blocks",
+          "continue feeding audio 2, 3, 4"
+        ]
+      }
+    },
+    {
+      "kind": "mt",
+      "phase": "warmup",
+      "release_startup": true,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold mt operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its warmup blocks",
+        "continue feeding audio 2, 3, 4",
+        "release slow startup after its first request deadline"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 30936,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "startup_never_released": false,
+      "blocked_generation_alive": true,
+      "notices": [
+        "mt_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        20436,
+        30936,
+        31124
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18086.171,
+          "pid": 20436,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18086.171,
+          "pid": 20436,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18086.375,
+          "pid": 31124,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18086.375,
+          "pid": 31124,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18086.484,
+          "pid": 20436,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18086.484,
+          "pid": 20436,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18086.484,
+          "pid": 31124,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18086.484,
+          "pid": 31124,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18086.484,
+          "pid": 31124,
+          "method": "translate",
+          "arguments": [
+            "授業の発話1です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18087.718,
+          "pid": 30936,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18087.734,
+          "pid": 30936,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18088.515,
+          "pid": 20436,
+          "method": "transcribe",
+          "arguments": [
+            2
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18090.531,
+          "pid": 20436,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18090.546,
+          "pid": 20436,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18090.546,
+          "pid": 30936,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18090.546,
+          "pid": 30936,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18090.546,
+          "pid": 30936,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18090.546,
+          "pid": 30936,
+          "method": "translate",
+          "arguments": [
+            "授業の発話4です。",
+            "zh"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "kind": "mt",
+      "phase": "warmup",
+      "release_startup": false,
+      "timeout_s": 1.0,
+      "property": "startup_recovery",
+      "trace": [
+        "warm up both models",
+        "audio 0 reaches English and Chinese students",
+        "hold mt operation for audio 1",
+        "expire operation deadline",
+        "next request starts replacement; its warmup blocks",
+        "continue feeding audio 2, 3, 4"
+      ],
+      "healthy_captions": {
+        "en": [
+          "en:授業の発話0です。"
+        ],
+        "zh": [
+          "zh:授業の発話0です。"
+        ]
+      },
+      "startup_pid": 25968,
+      "startup_alive_after_audio_2": true,
+      "expected": {
+        "en": [
+          "en:授業の発話3です。",
+          "en:授業の発話4です。"
+        ],
+        "zh": [
+          "zh:授業の発話3です。",
+          "zh:授業の発話4です。"
+        ]
+      },
+      "actual": {
+        "en": [],
+        "zh": []
+      },
+      "startup_never_released": true,
+      "blocked_generation_alive": true,
+      "notices": [
+        "mt_timeout"
+      ],
+      "inputs": 5,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "pipeline_stop_returned": true,
+      "child_pids": [
+        21444,
+        25968,
+        30616
+      ],
+      "all_children_reaped": true,
+      "requests": [
+        {
+          "stage": "asr",
+          "at": 18091.312,
+          "pid": 21444,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18091.312,
+          "pid": 21444,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18091.468,
+          "pid": 30616,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18091.468,
+          "pid": 30616,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18091.578,
+          "pid": 21444,
+          "method": "transcribe",
+          "arguments": [
+            0
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18091.578,
+          "pid": 21444,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18091.578,
+          "pid": 30616,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18091.578,
+          "pid": 30616,
+          "method": "translate",
+          "arguments": [
+            "授業の発話0です。",
+            "zh"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18091.578,
+          "pid": 30616,
+          "method": "translate",
+          "arguments": [
+            "授業の発話1です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 18092.781,
+          "pid": 25968,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 18092.781,
+          "pid": 25968,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "asr",
+          "at": 18093.609,
+          "pid": 21444,
+          "method": "transcribe",
+          "arguments": [
+            2
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18095.625,
+          "pid": 21444,
+          "method": "transcribe",
+          "arguments": [
+            3
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 18097.64,
+          "pid": 21444,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        }
+      ],
+      "status": "FAIL",
+      "violation": {
+        "property": "startup_recovery",
+        "expected": {
+          "en": [
+            "en:授業の発話3です。",
+            "en:授業の発話4です。"
+          ],
+          "zh": [
+            "zh:授業の発話3です。",
+            "zh:授業の発話4です。"
+          ]
+        },
+        "actual": {
+          "en": [],
+          "zh": []
+        },
+        "trace": [
+          "warm up both models",
+          "audio 0 reaches English and Chinese students",
+          "hold mt operation for audio 1",
+          "expire operation deadline",
+          "next request starts replacement; its warmup blocks",
+          "continue feeding audio 2, 3, 4"
+        ]
+      }
+    }
+  ],
+  "mutations": [
+    {
+      "name": "cancel_shared_startup",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "startup_waiter_isolation",
+        "expected": "live generation with startup pending",
+        "actual": {
+          "alive": true,
+          "startup_done": true
+        },
+        "trace": [
+          "spawn and hold factory",
+          "initial request deadline expires"
+        ]
+      }
+    },
+    {
+      "name": "wrong_resumed_translation",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "startup_resumption",
+        "expected": "en:after-startup",
+        "actual": "wrong",
+        "trace": [
+          "spawn and hold factory",
+          "initial request deadline expires",
+          "release startup and request translation"
+        ]
+      }
+    },
+    {
+      "name": "skip_startup_cleanup",
+      "detected": true,
+      "restored": "PASS",
+      "violation": {
+        "property": "startup_shutdown",
+        "expected": "child reaped",
+        "actual": "child alive",
+        "trace": [
+          "spawn and hold factory",
+          "initial request deadline expires",
+          "release startup and request translation",
+          "close runner"
+        ]
+      }
+    },
+    {
+      "name": "retire_startup_sensitivity",
+      "detected": true,
+      "intervened": "PASS",
+      "restored": "FAIL",
+      "restored_property": "startup_recovery",
+      "cases": [
+        {
+          "kind": "asr",
+          "phase": "factory",
+          "intervened": "PASS",
+          "restored": "FAIL",
+          "restored_property": "startup_recovery"
+        },
+        {
+          "kind": "asr",
+          "phase": "warmup",
+          "intervened": "PASS",
+          "restored": "FAIL",
+          "restored_property": "startup_recovery"
+        },
+        {
+          "kind": "mt",
+          "phase": "factory",
+          "intervened": "PASS",
+          "restored": "FAIL",
+          "restored_property": "startup_recovery"
+        },
+        {
+          "kind": "mt",
+          "phase": "warmup",
+          "intervened": "PASS",
+          "restored": "FAIL",
+          "restored_property": "startup_recovery"
+        }
+      ],
+      "scope": "scratch sensitivity control only; violates slow-startup sharing, not a proposed fix"
+    }
+  ],
+  "status": "FAIL"
+}
