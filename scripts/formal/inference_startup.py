@@ -19,11 +19,12 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "c39c85913ed4f1b12cc611464918c984520cff2c"
+SYNC_COMMIT = "dc9c07088472dcaf94350836b33d4a9057020411"
 OPERATIONS = ("deadline", "cancel")
 PHASES = ("factory", "warmup")
 KINDS = ("asr", "mt")
 REQUEST_TIMEOUT = 1.0
+STARTUP_TIMEOUT = 5.0
 
 
 class Violation(Exception):
@@ -139,7 +140,7 @@ async def bounded_case(directory, phase, operations, terminal):
 
     engine = Engine(directory, phase, "always")
     runner = ProcessInferenceRunner(engine, partial(make_engine, directory, phase, "always"),
-                                    name="startup-enumeration")
+                                    startup_timeout_s=STARTUP_TIMEOUT, name="startup-enumeration")
     trace = [f"spawn and hold {phase}", "initial request deadline expires"]
     observation = dict(phase=phase, operations=list(operations), terminal=terminal)
     try:
@@ -221,14 +222,16 @@ async def native_case(directory, kind, phase, release):
         mode = "replacement" if stage == kind else "healthy"
         engines[stage] = Engine(folder, phase, mode)
         runners[stage] = ProcessInferenceRunner(
-            engines[stage], partial(make_engine, folder, phase, mode), name=f"startup-{stage}")
+            engines[stage], partial(make_engine, folder, phase, mode),
+            startup_timeout_s=STARTUP_TIMEOUT, name=f"startup-{stage}")
     scenario.pipeline = Pipeline(scenario.roster, scenario.config, engines["asr"], engines["mt"],
                                  asr_runner=runners["asr"], mt_runner=runners["mt"])
     target = directory / kind
     trace = ["warm up both models", "audio 0 reaches English and Chinese students",
              f"hold {kind} operation for audio 1", "expire operation deadline",
-             f"next request starts replacement; its {phase} blocks", "continue feeding audio 2, 3, 4"]
+             f"next request starts replacement; its {phase} blocks", "feed audio 2"]
     result = dict(kind=kind, phase=phase, release_startup=release, timeout_s=REQUEST_TIMEOUT,
+                  startup_timeout_s=STARTUP_TIMEOUT,
                   property="startup_recovery", trace=trace)
     failure = None
     try:
@@ -261,8 +264,15 @@ async def native_case(directory, kind, phase, release):
         result["startup_alive_after_audio_2"] = pid_exists(blocked_pid)
         if release:
             (target / "release-startup").touch()
-            trace.append("release slow startup after its first request deadline")
+            trace.append("release slow startup after short request deadlines")
             await observe(lambda: runners[kind]._generation.startup.done())
+        else:
+            trace.append("wait for startup deadline and child reaping without new requests")
+            observation_deadline = time.monotonic() + STARTUP_TIMEOUT + 1
+            while pid_exists(blocked_pid) and time.monotonic() < observation_deadline:
+                await asyncio.sleep(0.01)
+            result["reaped_without_new_requests"] = not pid_exists(blocked_pid)
+        trace.append("feed audio 3 and 4 and observe both student languages")
         for identity in (3, 4):
             await scenario.feed(identity)
             await asyncio.wait_for(scenario.pipeline.drain(timeout=None), 5)
@@ -278,6 +288,10 @@ async def native_case(directory, kind, phase, release):
                       notices=[f["code"] for f in scenario.teacher.frames if f["type"] == "error"],
                       inputs=len(scenario.inputs), asr_calls=scenario.pipeline.asr_calls,
                       mt_calls=scenario.pipeline.captions.metrics().calls)
+        if not release:
+            require(result["reaped_without_new_requests"], "startup_recovery",
+                    dict(reaped_without_new_requests=True, captions=expected),
+                    dict(reaped_without_new_requests=False, captions=actual), trace)
         require(actual == expected, "startup_recovery", expected, actual, trace)
         if release:
             require(runners[kind]._generation.process.pid == blocked_pid, "startup_waiter_isolation",
@@ -370,31 +384,28 @@ def mutations(source_root):
             if restored["status"] != "PASS":
                 raise RuntimeError(f"restored bounded controls failed: {restored}")
             reports.append(dict(name=name, detected=True, restored="PASS", violation=violation))
-    with tempfile.TemporaryDirectory(prefix="startup-intervention-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="startup-deadline-mutation-") as temporary:
         scratch = Path(temporary)
         shutil.copytree(source_root / "server", scratch / "server",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         target = scratch / "server/inference_process.py"
         original = target.read_text(encoding="utf-8")
-        before = "                    failure = await asyncio.shield(generation.startup)"
+        before = "                deadline = asyncio.get_running_loop().time() + self._startup_timeout_s"
         if original.count(before) != 1:
-            raise RuntimeError("startup intervention site changed")
+            raise RuntimeError("startup deadline mutation site changed")
         cases = []
         for kind, phase in itertools.product(KINDS, PHASES):
-            target.write_text(original.replace(before, "                    active = generation\n" + before),
+            target.write_text(original.replace(before, "                deadline = float('inf')"),
                               encoding="utf-8")
-            corrected = child_run(scratch, "native", kind=kind, phase=phase)
+            broken = child_run(scratch, "native", kind=kind, phase=phase)
             target.write_text(original, encoding="utf-8")
             restored = child_run(scratch, "native", kind=kind, phase=phase)
-            if corrected["status"] != "PASS" or restored["status"] != "FAIL" or (
-                    restored["violation"]["property"] != "startup_recovery"):
-                raise RuntimeError(f"recovery sensitivity control failed: {corrected}, {restored}")
-            cases.append(dict(kind=kind, phase=phase, intervened="PASS", restored="FAIL",
-                              restored_property="startup_recovery"))
-        reports.append(dict(name="retire_startup_sensitivity", detected=True, intervened="PASS",
-                            restored="FAIL", restored_property="startup_recovery",
-                            cases=cases,
-                            scope="scratch sensitivity control only; violates slow-startup sharing, not a proposed fix"))
+            if broken["status"] != "FAIL" or restored["status"] != "PASS" or (
+                    broken["violation"]["property"] != "startup_recovery"):
+                raise RuntimeError(f"startup deadline mutation failed: {broken}, {restored}")
+            cases.append(dict(kind=kind, phase=phase, detected=True, restored="PASS",
+                              violation=broken["violation"]))
+        reports.append(dict(name="disable_startup_deadline", detected=True, restored="PASS", cases=cases))
     return reports
 
 
