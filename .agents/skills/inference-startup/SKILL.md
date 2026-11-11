@@ -40,7 +40,7 @@ Traceback、外側監視の期限超過、破壊箇所の置換不一致、結�
 
 ## 実装との同期を確認する
 
-最終同期コミットは `dc9c07088472dcaf94350836b33d4a9057020411`。
+最終同期コミットは `4bdd9b28b9076f913ba82363dba947f7f1689d74`。
 
 | 対象 | 確認する契約 |
 |---|---|
@@ -54,12 +54,12 @@ Traceback、外側監視の期限超過、破壊箇所の置換不一致、結�
 | `scripts/formal/lesson_endurance.py` | 再利用する `pid_exists` のOS上の生存確認 |
 
 ```powershell
-git diff dc9c07088472dcaf94350836b33d4a9057020411 -- server/inference_process.py server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/config.py config.yaml scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py
+git diff 4bdd9b28b9076f913ba82363dba947f7f1689d74 -- server/inference_process.py server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/config.py config.yaml scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py
 ```
 
 世代の所有権、準備待ちの共有、await 境界、期限の起点、取消し、子プロセス回収との対応を確認する。
 準備期限は `process.start()` の直前から計測し、要求の期限・取消しで更新しない。準備タスク自身が期限や失敗で回収を予約して戻り、次世代は旧世代の回収後に作る。初回準備の失敗ログと `/ready` の503も通常テストで確認する。正常な遅い準備を共有する対照は維持する。
-実コードとの一致、全ケース、破壊検出と復元を確認した後だけ、この同期コミット、検証器の `SYNC_COMMIT`、基準結果を更新する。
+実コードとの一致、全ケース、破壊検出と復元を確認した後だけ、この同期コミット、検証器の `SYNC_COMMIT`、基準結果を更新する。同期先は、検証した対象ファイルと同じ内容を持つマージ先ブランチの履歴から選ぶ。squash マージ後はマージ後の SHA を使い、そのブランチだけを取得した新規 clone で上記の差分照合が実行できることを確認する。
 未確認の変更が溜まった場合は `/maintain-formal-verification-skill` を使う。
 
 ## 保証範囲を守る

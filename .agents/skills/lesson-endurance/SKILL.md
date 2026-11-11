@@ -59,7 +59,7 @@ $report = Join-Path $run $manifest.primary_report
 
 ## 実装と同期する
 
-最終同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。
+最終同期コミットは `1f5bc911317534a3c6b93cf0941d27a0189c8745`。
 
 | 対象 | 対応する処理 |
 |---|---|
@@ -74,11 +74,12 @@ $report = Join-Path $run $manifest.primary_report
 | `scripts/replay_client.py`、`scripts/acceptance.py`、`scripts/performance_evidence.py` | 実時間の入力・計測・受け入れ・証拠照合。別コマンド |
 
 ```powershell
-git diff 5aa0ca374beb563376b247eee60fd811e954e977 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
+git diff 1f5bc911317534a3c6b93cf0941d27a0189c8745 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
 ```
 
 対応するawait、時計、完了・取消し、保持先、計測フィールドが変わったら検証側との一致を見直す。
 実コードとの一致、全ケースの結果、破壊と復元を確認した後だけ、この同期コミット、検証器の `SYNC_COMMIT`、基準結果を更新する。
+同期先の選定は [inference-startup の同期手順](../inference-startup/SKILL.md#実装との同期を確認する) に従い、新規 clone で上記の差分照合を確認する。
 未確認の変更が溜まった場合は `/maintain-formal-verification-skill` を使う。
 
 ## 保証範囲を守る
