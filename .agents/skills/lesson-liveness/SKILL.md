@@ -45,11 +45,13 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_liveness_view.py .audit/lesson-liveness-real-screens.json --json .audit/lesson-liveness-real-view.json
 ```
 
-同じPipelineとモデルを使い、翻訳キャッシュを無効にして32回処理する。有限回の観測であり、形式証明や授業時間中の性能保証として扱わない。
+`create_app` の未注入経路でASR・MTを別プロセスに構築し、同じPipelineとモデルで翻訳キャッシュを無効にして32回処理する。
+`status: PASS`、英中各32字幕、`pipeline_stop_returned: true`、`all_children_reaped: true` とコマンドの終了コード0を確認する。
+有限回の観測であり、形式証明や授業時間中の性能保証として扱わない。
 
 ## 実装との同期を確認する
 
-最終同期コミットは `a15aea2288be88165acb3f9c9f4792d5a0a13f59`。
+最終同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。
 
 | 対象 | 照合する処理 |
 |---|---|
@@ -60,11 +62,11 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 | `server/caption_history.py`、`server/mt/cache.py` | 採番、履歴失効、翻訳キャッシュ |
 | `server/roster.py`、`server/delivery.py` | 言語別受信者とClientSenderの送信 |
 | `server/config.py`、`config.yaml` | 容量、期限、既定モデル構成 |
-| `server/main.py`、`server/asr/haas_onnx_engine.py`、`server/mt/hymt_engine.py` | 別コマンドで32回観測したモデルの構築・認識・翻訳 |
+| `server/main.py`、`server/inference_process.py`、`server/asr/haas_onnx_engine.py`、`server/mt/hymt_engine.py` | 別コマンドで32回観測するプロセス構築・認識・翻訳・停止 |
 | `web/index.html`、`web/student.js`、`web/caption-recovery.js` | 別コマンドで実行する受信とDOM表示 |
 
 ```powershell
-git diff a15aea2288be88165acb3f9c9f4792d5a0a13f59 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
+git diff 5aa0ca374beb563376b247eee60fd811e954e977 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/inference_process.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
 ```
 
 実行順序、await境界、容量、失敗時の処理単位が変わったら、操作列と期待値を見直す。
@@ -78,6 +80,7 @@ git diff a15aea2288be88165acb3f9c9f4792d5a0a13f59 -- server/pipeline.py server/c
 Python実装に対する有限操作列の全列挙と長い固定ケースであり、SMT検証や無制限の形式証明ではない。
 計算は決定的な代役、VADはenergy、Turnはsimpleとする。実モデルと画面は別コマンドで確認する。
 保留した推論が最終的に返り、正常な接続へ送信できることを前提とする。
-タイムアウトは呼出側の待機だけを終了するため、永久に戻らないnative推論からの復旧は保証しない。
+有界探索へ注入するスレッド版Runnerのタイムアウトは待機だけを終了する。
+本番のプロセス版Runnerの永久ハング復旧は [lesson-endurance](../lesson-endurance/SKILL.md) で別に確認する。
 マイク、実WebSocket、LAN、実時間での入力速度、精度、50分授業、メモリー上限、全asyncio順序の網羅は対象外。
 先生交代、再接続復元、録音保存、ASR容量超過の規則は既存の各スキルを併用する。

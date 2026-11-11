@@ -1,6 +1,6 @@
 ---
 name: lesson-endurance
-description: 50分授業の連続音声入力、処理待ち・保持量、正の推論期限、永久ハング後の字幕再開と終了を検証する。Use when changing Pipeline workers, InferenceRunner timeout or executor ownership, CaptionDelivery queue/cache, or claiming long-lesson performance and hang recovery.
+description: 50分授業の連続音声入力、処理待ち・保持量、正の推論期限、永久ハング後の字幕再開と終了を検証する。Use when changing Pipeline workers, InferenceRunner or ProcessInferenceRunner timeout and lifecycle, CaptionDelivery queue/cache, or claiming long-lesson performance and hang recovery.
 ---
 
 # 50分授業の継続とハング復旧を確認する
@@ -18,15 +18,17 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 同じ依存がある場合は `.venv/Scripts/python.exe` でも実行できる。
 Windowsの制限環境でasyncioの初期化が停止した場合は、実行権限を確認して再実行する。
-正の期限6ケース、3000秒の8構成、実スレッド4ケース、5破壊の `detected: true` と `restored: PASS` を確認する。
-`--quick` は3000秒の1構成だけ、`--controlled-only` は実スレッドを省く。変更後の最終判定には既定の全ケースを使う。
+正の期限6ケース、3000秒の8構成、実プロセス4ケース、5破壊の `detected: true` と `restored: PASS` を確認する。
+`--quick` は3000秒の1構成だけ、`--controlled-only` は実プロセスを省く。変更後の最終判定には既定の全ケースを使う。
 
-現行の[基準結果](../../../scripts/formal/lesson_endurance_baseline.json)は終了コード1、全体 `FAIL` である。
-制御ケースと解除対照は成功するが、ASR・MTの永久ハングは `native_hang_recovery` と `process_exit` に違反する。
-このFAILを既知だからという理由でPASSへ変更しない。製品の修正は依頼された場合に行う。
+[基準結果](../../../scripts/formal/lesson_endurance_baseline.json)は終了コード0、全体 `PASS` である。
+ASR・MTの永久ハングでは、停止を解除せず旧PIDの回収と後続の英中字幕を確認する。
+各ケースで再度ハングさせ、`stop_hang_pid_alive: true` を確認してから停止する。
+`all_children_reaped: true` と `process_exit.status: PASS` の両方を要求する。
+修正前後の結果と実モデルの確認は[検証記録](../../../scripts/formal/inference_recovery_run.md)を参照する。
 
 `violations` の `property`、`trace`、`expected`、`actual` を読む。
-実スレッドでは `released_control`、`pipeline_stop_returned`、`process_exit` を区別する。
+実プロセスでは `released_control`、`pipeline_stop_returned`、`process_exit` を区別する。
 Traceback、結果なし、破壊の置換不一致は検証器または環境の失敗であり、検出成功ではない。
 範囲と実装の対応は [検証の説明](../../../scripts/formal/lesson_endurance.md) と照合する。
 
@@ -57,11 +59,12 @@ $report = Join-Path $run $manifest.primary_report
 
 ## 実装と同期する
 
-最終同期コミットは `dcb03548822b9b8e0ca0e8200c2b378f2a80ed39`。
+最終同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。
 
 | 対象 | 対応する処理 |
 |---|---|
-| `server/inference.py` | runの期限、標準Future、既定Executor、stop |
+| `server/inference.py` | 注入するスレッド経路の期限、標準Future、Executor、stopと共通の停止待機 |
+| `server/inference_process.py`、`server/main.py` | 本番のモデル構築、プロセス世代、期限切れ後の再生成と停止時の回収 |
 | `server/pipeline.py` | start、warmup、feed_audio、ASR worker、確定発話、stop、統計 |
 | `server/audio/ingest.py`、`server/audio/vad.py`、`server/asr_backlog.py`、`server/turn/assembler.py` | PCM変換、分割、音声容量、Turn確定 |
 | `server/caption_delivery.py`、`server/caption_history.py`、`server/mt/cache.py` | MT投入・起床・翻訳、履歴、キャッシュ、受信記録 |
@@ -71,7 +74,7 @@ $report = Join-Path $run $manifest.primary_report
 | `scripts/replay_client.py`、`scripts/acceptance.py`、`scripts/performance_evidence.py` | 実時間の入力・計測・受け入れ・証拠照合。別コマンド |
 
 ```powershell
-git diff dcb03548822b9b8e0ca0e8200c2b378f2a80ed39 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
+git diff 5aa0ca374beb563376b247eee60fd811e954e977 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
 ```
 
 対応するawait、時計、完了・取消し、保持先、計測フィールドが変わったら検証側との一致を見直す。
@@ -83,5 +86,7 @@ git diff dcb03548822b9b8e0ca0e8200c2b378f2a80ed39 -- server config.yaml scripts/
 Python実コードへの有限入力の検査であり、全入力・全asyncio順序・全native動作の形式証明ではない。
 仮想時間ではenergy VAD・simple Turn・決定的な計算を使う。保持量は指定したコンテナーとタスク数だけを扱う。
 実時間の試験は記録した開発機・合成音源・10接続の1回の観測であり、サーバーPCや全授業音声への性能保証ではない。
-マイク、実LAN、DOM、認識・翻訳の意味的な精度、warmupの永久ハング、記録保存は対象外。
+マイク、実LAN、DOM、認識・翻訳の意味的な精度、記録保存は対象外。
+本検証の永久ハングは認識・翻訳処理への注入であり、実モデルでの発生頻度は測らない。
+warmup中の停止や要求のキャンセルは `tests/unit/test_inference_process.py` で別に確認する。
 既存の `lesson-liveness`、`inference-lifecycle`、`asr-backlog` などの保証を置き換えない。

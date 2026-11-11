@@ -2,7 +2,7 @@
 
 対象は `server/inference.py` の InferenceRunner である。非同期の待機終了と、スレッドでのモデル処理の終了を分けて扱う。待機が期限切れになっても、実行中のモデルを中断できない。次の要求は同じ実行先で順番を待つ必要がある。
 
-既存の asr-backlog はASR推論の成否・期限・Executor残留処理を、caption-recovery は翻訳失敗・期限切れを除外している。ASRと翻訳の両方がこの実装を使うため、次の対象に選んだ。次点は、caption-recovery が除外している字幕履歴の失効と再送の交錯である。
+これは明示的なエンジン・Executor注入で使うスレッド実行の契約である。設定から起動するASRと翻訳は `ProcessInferenceRunner` を使い、準備後の実行中の要求が期限切れになった子を回収する。その保証は [lesson-endurance](lesson_endurance.md) と `tests/unit/test_inference_process.py` で別に確認する。
 
 ## 道具と実装の対応
 
@@ -55,7 +55,7 @@ run の submit は最初の await より前に実行される。取消しと Fut
 
 nonblocking_stop は実スレッドでの帰還の観測であり、shutdown の引数そのものは比較しない。OSによる停止スレッドの開始には2秒の待機上限を設け、開始失敗は実行失敗として扱う。開始後2秒以内の帰還を要求するため、OSがその間スレッドを止める環境では結果を再確認する。
 
-[基準結果](inference_lifecycle_baseline.json) は同期コミット `5381edb92062d1a35972b3a7dee8d387c5b0aa1b` の製品コードに対応する。有効列1,850、実スレッド4ケースはPASS、6破壊はすべて検出した。製品コードの反例は見つからなかった。
+[基準結果](inference_lifecycle_baseline.json) は同期コミット `5aa0ca374beb563376b247eee60fd811e954e977` の製品コードに対応する。有効列1,850、実スレッド4ケースはPASS、6破壊はすべて検出した。製品コードの反例は見つからなかった。
 
 ## 対象外
 

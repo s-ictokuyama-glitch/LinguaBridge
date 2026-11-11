@@ -14,7 +14,9 @@ from functools import partial
 from server import ws_protocol as proto
 from server.caption_history import CaptionHistory, Translation, Utterance
 from server.config import AppConfig
-from server.inference import InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut
+from server.inference import (
+    InferenceFailed, InferenceRunner, InferenceSucceeded, InferenceTimedOut, Runner, finish_cleanup,
+)
 from server.model_files import TranslationModelError
 from server.mt.base import TranslationEngine
 from server.mt.cache import CacheKey, CacheStats, TranslationCache
@@ -59,7 +61,7 @@ class CaptionDelivery:
     def __init__(
         self, roster: Roster, config: AppConfig, mt_engine: TranslationEngine,
         notify_overload: Callable[[proto.ErrorCode, str], Awaitable[None]],
-        *, runner: InferenceRunner | None = None,
+        *, runner: Runner | None = None,
     ) -> None:
         self.roster = roster
         self.history = CaptionHistory(config.history_resend)
@@ -67,6 +69,7 @@ class CaptionDelivery:
         self._notify_overload = notify_overload
         self._mt_runner = runner if runner is not None else InferenceRunner(name="mt")
         self._worker_task: asyncio.Task[None] | None = None
+        self._stop_task: asyncio.Task[None] | None = None
         self._calls = 0
         self._delay_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
         self._mt_ms_samples: deque[int] = deque(maxlen=_DELAY_SAMPLE_SIZE)
@@ -92,12 +95,17 @@ class CaptionDelivery:
         self._worker_task = asyncio.create_task(self._mt_worker(), name="mt-worker")
 
     async def stop(self) -> None:
+        if self._stop_task is None:
+            self._stop_task = asyncio.create_task(self._stop())
+        await finish_cleanup(self._stop_task)
+
+    async def _stop(self) -> None:
         if self._worker_task is not None:
             self._worker_task.cancel()
             await asyncio.gather(self._worker_task, return_exceptions=True)
             self._worker_task = None
         self._history_refreshes.clear()
-        self._mt_runner.stop()
+        await self._mt_runner.aclose()
 
     async def warmup(self) -> InferenceSucceeded[None] | InferenceTimedOut | InferenceFailed:
         return await self._mt_runner.run(self._mt.warmup, timeout=None)

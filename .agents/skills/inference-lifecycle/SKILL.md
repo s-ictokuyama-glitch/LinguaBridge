@@ -7,6 +7,9 @@ description: 推論の期限切れ・キャンセル・停止後も直列性と�
 
 同じ InferenceRunner の推論は、呼出側が期限切れやキャンセルになっても直列に実行し、各要求に対応する結果だけを返す。違反すると、ASRや翻訳モデルの並行呼出し、不要な待ち行列、別要求の結果の混入につながる。
 
+この有界探索は、明示的なエンジン・Executor注入で使うスレッド版 `InferenceRunner` を対象とする。
+本番の `ProcessInferenceRunner` の永久ハング復旧は [lesson-endurance](../lesson-endurance/SKILL.md)、起動・取消し・停止の競合は `tests/unit/test_inference_process.py` で確認する。
+
 ## 実行する
 
 リポジトリ直下で実行する。Python 3.12.10 の標準ライブラリだけを使う。
@@ -35,7 +38,7 @@ uv run --python 3.12.10 --no-project python -X utf8 -B scripts/formal/inference_
 
 ## 実装との同期を確認する
 
-最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。検証器の `SYNC_COMMIT` と [基準結果](../../../scripts/formal/inference_lifecycle_baseline.json) にも記録する。
+最終同期コミットは `5aa0ca374beb563376b247eee60fd811e954e977`。検証器の `SYNC_COMMIT` と [基準結果](../../../scripts/formal/inference_lifecycle_baseline.json) にも記録する。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -46,7 +49,7 @@ uv run --python 3.12.10 --no-project python -X utf8 -B scripts/formal/inference_
 | `tests/unit/test_inference.py` | Executor の制御方式と通常テストとの対応 |
 
 ```powershell
-git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/asr/ server/config.py config.yaml tests/unit/test_inference.py
+git diff 5aa0ca374beb563376b247eee60fd811e954e977 -- server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/asr/ server/config.py config.yaml tests/unit/test_inference.py
 ```
 
 対応する実装が変わったら、Futureの状態遷移、待機のキャンセル伝播、Executorの直列性を照合する。通常版の全探索、実スレッド、全破壊の検出を確認した後で、同期コミットと基準結果を更新する。破壊の置換箇所が一致しなければ、新実装に合う破壊へ更新する。未確認の変更から同期を戻すときは `/maintain-formal-verification-skill` を使える。

@@ -15,9 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from server.config import load_config
-from server.main import build_asr_engine, build_mt_engine
-from server.pipeline import Pipeline
-from server.roster import Roster
+from server.main import create_app
+from server.inference_process import ProcessInferenceRunner
+from server.publication import Publication
+from scripts.formal.lesson_endurance import pid_exists
 
 
 class Socket:
@@ -96,17 +97,17 @@ async def run(args):
         'model_files_scope': 'inventory of selected model files or directories; includes unused variants in those directories',
         'config': config.model_dump(mode='json'),
         'iterations': [],
-        'scope': 'same Pipeline, real ASR/MT/VAD/Turn, captured ClientSender socket messages; no browser or real network',
+        'scope': 'create_app process backend, real ASR/MT/VAD/Turn, captured ClientSender socket messages; no browser or real network',
     }
     def save():
         save_json(args.json, report)
 
     save()
-    roster = Roster(config.limits)
     pipeline = None
     try:
         print('building real engines', flush=True)
-        pipeline = Pipeline(roster, config, build_asr_engine(config), build_mt_engine(config))
+        pipeline = create_app(config, Publication(config.server)).state.pipeline
+        roster = pipeline.roster
         teacher = Socket()
         students = {lang: Socket() for lang in ('en', 'zh')}
         await roster.add(teacher, 'teacher')
@@ -115,6 +116,11 @@ async def run(args):
         await pipeline.start()
         await asyncio.wait_for(pipeline._warmup_task, timeout=180)
         assert pipeline.ready, 'warmup did not become ready'
+        runners = (pipeline._asr_runner, pipeline.captions._mt_runner)
+        assert all(isinstance(runner, ProcessInferenceRunner) for runner in runners)
+        pids = [runner._generation.process.pid for runner in runners]
+        report['child_pids'] = pids
+        assert all(pid_exists(pid) for pid in pids)
         await pipeline.set_accepting_audio(True)
         print('warmup complete', flush=True)
         for iteration in range(1, args.repeats + 1):
@@ -158,13 +164,17 @@ async def run(args):
         all_finals = [f for f in teacher.frames if f['type'] == 'asr_final']
         assert [f['seq'] for f in all_finals] == list(range(1, len(all_finals) + 1))
         assert pipeline.captions.metrics().calls == 2 * len(all_finals)
-        report['status'] = 'PASS'
         report['totals'] = {
             'iterations': args.repeats, 'asr_calls': pipeline.asr_calls,
             'mt_calls': pipeline.captions.metrics().calls,
             'asr_finals': len(all_finals),
             'captions': {lang: len([f for f in s.frames if f['type'] == 'caption']) for lang, s in students.items()},
         }
+        await pipeline.stop()
+        report['pipeline_stop_returned'] = True
+        report['all_children_reaped'] = all(not pid_exists(pid) for pid in pids)
+        assert report['all_children_reaped'], 'inference child survived Pipeline.stop'
+        report['status'] = 'PASS'
         if args.screens is not None:
             save_json(args.screens, [{
                 'name': f'real-model-{args.repeats}',
@@ -183,8 +193,6 @@ async def run(args):
     finally:
         if pipeline is not None:
             await pipeline.stop()
-        else:
-            await roster.aclose()
 
 
 def main():

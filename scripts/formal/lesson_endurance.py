@@ -5,21 +5,22 @@ import argparse
 import asyncio
 from contextlib import ExitStack
 from dataclasses import dataclass
+from functools import partial
 import itertools
 import json
 import logging
+import os
 from pathlib import Path
 import platform
 import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "dcb03548822b9b8e0ca0e8200c2b378f2a80ed39"
+SYNC_COMMIT = "5aa0ca374beb563376b247eee60fd811e954e977"
 sys.path.insert(0, str(Path(__file__).parent))
 from lesson_liveness import ControlledExecutor, Recognition, Scenario, Translation, Violation, callbacks, japanese
 
@@ -199,79 +200,153 @@ async def deadline_case(service_ticks, release_before_timer):
 
 
 class HungRecognition(Recognition):
-    def __init__(self):
-        self.entered = threading.Event()
-        self.release = threading.Event()
+    def __init__(self, directory, hang=True):
+        self.directory = Path(directory)
+        self.hang = hang
+
+    def warmup(self):
+        (self.directory / f"loaded-asr-{os.getpid()}").touch()
 
     def transcribe(self, pcm, sample_rate):
-        if not self.entered.is_set():
-            self.entered.set()
-            self.release.wait()
+        identity = int(pcm[pcm != 0][0]) - 1000
+        if self.hang and identity in (1, 3):
+            block_operation(self.directory, "asr", identity)
         return super().transcribe(pcm, sample_rate)
 
 
 class HungTranslation(Translation):
-    def __init__(self):
-        self.entered = threading.Event()
-        self.release = threading.Event()
+    def __init__(self, directory, hang=True):
+        self.directory = Path(directory)
+        self.hang = hang
+
+    def warmup(self):
+        (self.directory / f"loaded-mt-{os.getpid()}").touch()
 
     def translate(self, text, lang):
-        if not self.entered.is_set():
-            self.entered.set()
-            self.release.wait()
+        if self.hang and lang == "en":
+            for identity in (1, 3):
+                if text == japanese(identity):
+                    block_operation(self.directory, "mt", identity)
         return super().translate(text, lang)
 
 
+def block_operation(directory, kind, identity):
+    (directory / f"entered-{kind}-{identity}").write_text(str(os.getpid()), encoding="ascii")
+    while not (directory / f"release-{kind}-{identity}").exists():
+        time.sleep(0.01)
+
+
+def pid_exists(pid):
+    if sys.platform == "win32":
+        import _winapi
+        try:
+            handle = _winapi.OpenProcess(_winapi.SYNCHRONIZE, False, pid)
+        except OSError as error:
+            if error.winerror == 87:  # PID does not exist.
+                return False
+            raise
+        try:
+            return _winapi.WaitForSingleObject(handle, 0) == _winapi.WAIT_TIMEOUT
+        finally:
+            _winapi.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+async def observe_until(predicate, timeout):
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.01)
+    return True
+
+
 async def native_hang(kind, destination, release_hang=False):
-    from server.inference import InferenceRunner
+    from server.inference_process import ProcessInferenceRunner
     from server.pipeline import Pipeline
 
     scenario = Scenario(defaults=True)
-    scenario.config.limits.asr_timeout_s = 0.1
-    scenario.config.limits.mt_timeout_s = 0.1
-    engine = HungRecognition() if kind == "asr" else HungTranslation()
-    scenario.pipeline = Pipeline(scenario.roster, scenario.config,
-                                 engine if kind == "asr" else Recognition(),
-                                 engine if kind == "mt" else Translation(),
-                                 asr_runner=InferenceRunner(name="endurance-asr"),
-                                 mt_runner=InferenceRunner(name="endurance-mt"))
+    scenario.config.limits.asr_timeout_s = 2
+    scenario.config.limits.mt_timeout_s = 2
+    directory = destination.parent
+    make_asr = partial(HungRecognition, directory, hang=kind == "asr")
+    make_mt = partial(HungTranslation, directory, hang=kind == "mt")
+    asr, mt = make_asr(), make_mt()
+    scenario.pipeline = Pipeline(
+        scenario.roster, scenario.config, asr, mt,
+        asr_runner=ProcessInferenceRunner(asr, make_asr, name="endurance-asr"),
+        mt_runner=ProcessInferenceRunner(mt, make_mt, name="endurance-mt"),
+    )
+    report = dict(kind=kind, released_control=release_hang, status="FAIL",
+                  property="native_hang_recovery", timeout_s=2, recovery_observation_s=8,
+                  expected="second utterance reaches both languages and every child is reaped",
+                  pipeline_stop_returned=False,
+                  scope="real process backend; finite test watchdogs, not a recovery latency SLO")
     try:
         await scenario.roster.add(scenario.teacher, "teacher")
         for lang, socket in scenario.students.items():
             await scenario.roster.add(socket, "student", lang)
+        startup_started = time.monotonic()
         await scenario.pipeline.start()
-        await asyncio.wait_for(scenario.pipeline._warmup_task, timeout=2)
+        await asyncio.wait_for(scenario.pipeline._warmup_task, timeout=10)
         if not scenario.pipeline.ready:
             raise RuntimeError("native witness warmup failed")
+        report["initial_startup_s"] = round(time.monotonic() - startup_started, 3)
         await scenario.pipeline.set_accepting_audio(True)
         await scenario.feed(1)
-        for _ in range(100):
-            if engine.entered.is_set():
-                break
-            await asyncio.sleep(0.01)
-        if not engine.entered.is_set():
+        entered = directory / f"entered-{kind}-1"
+        if not await observe_until(entered.exists, 5):
             raise RuntimeError("native operation did not enter the injected hang")
-        await asyncio.sleep(0.25)
+        old_pid = int(entered.read_text(encoding="ascii"))
         if release_hang:
-            engine.release.set()
+            (directory / f"release-{kind}-1").touch()
+        else:
+            await observe_until(lambda: any(f.get("code") == f"{kind}_timeout"
+                                            for f in scenario.teacher.frames), 5)
+        report["old_pid"] = old_pid
+        report["old_pid_reaped_after_timeout"] = None if release_hang else not pid_exists(old_pid)
+        recovery_started = time.monotonic()
         await scenario.feed(2)
-        await asyncio.sleep(0.6)
-        reached = {lang: any(f["type"] == "caption" and f["ja"] == japanese(2)
-                            for f in socket.frames) for lang, socket in scenario.students.items()}
-        report = dict(kind=kind, released_control=release_hang,
-                      status="PASS" if all(reached.values()) else "FAIL",
-                      property="native_hang_recovery", timeout_s=0.1, recovery_observation_s=0.6,
-                      expected="second utterance reaches both languages",
-                      actual=reached, injected_operation_still_blocked=not engine.release.is_set(),
-                      trace=[f"{kind} enters blocking operation", "caller deadline expires",
-                             "release operation" if release_hang else "keep operation blocked",
-                             "feed second utterance", "observe both languages after six deadlines"],
+        expected_seq = 1 if kind == "asr" and not release_hang else 2
+        expected = {lang: [dict(seq=expected_seq, ja=japanese(2), lang=lang, text=f"{lang}:{japanese(2)}")]
+                    for lang in scenario.students}
+        def captions():
+            return {lang: [{key: frame[key] for key in ("seq", "ja", "lang", "text")}
+                           for frame in socket.frames if frame["type"] == "caption" and frame["ja"] == japanese(2)]
+                    for lang, socket in scenario.students.items()}
+        def reached():
+            return {lang: frames == expected[lang] for lang, frames in captions().items()}
+        await observe_until(lambda: all(reached().values()), 8)
+        report.update(actual=reached(), recovery_elapsed_s=round(time.monotonic() - recovery_started, 3),
+                      expected_captions=expected, actual_captions=captions(),
+                      injected_operation_never_released=not release_hang,
+                      trace=[f"{kind} enters input-specific blocking operation",
+                             "release control" if release_hang else "deadline expires and old process is reaped",
+                             "feed second utterance", "observe both language captions",
+                             "feed third utterance and stop while blocked"],
                       notices=[f["code"] for f in scenario.teacher.frames if f["type"] == "error"])
-        report["pipeline_stop_returned"] = False
+        await scenario.feed(3)
+        stop_marker = directory / f"entered-{kind}-3"
+        report["stop_while_blocked"] = await observe_until(stop_marker.exists, 5)
+        report["stop_hang_pid"] = int(stop_marker.read_text()) if stop_marker.exists() else None
+        report["stop_hang_pid_alive"] = (report["stop_hang_pid"] is not None
+                                         and pid_exists(report["stop_hang_pid"]))
         destination.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
     finally:
         await scenario.close()
     report["pipeline_stop_returned"] = True
+    pids = sorted(int(path.name.rsplit("-", 1)[1]) for path in directory.glob("loaded-*-*"))
+    report["child_pids"] = pids
+    report["all_children_reaped"] = all(not pid_exists(pid) for pid in pids)
+    report["status"] = "PASS" if (
+        all(report["actual"].values()) and report["all_children_reaped"]
+        and report["stop_while_blocked"] and report["stop_hang_pid_alive"]
+        and (release_hang or (report["old_pid_reaped_after_timeout"] and f"{kind}_timeout" in report["notices"]))
+    ) else "FAIL"
     destination.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
 
 
@@ -284,7 +359,7 @@ def hang_witness(kind, source_root, release_hang=False):
             command.append("--release-hang")
         child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
         try:
-            deadline = time.monotonic() + 10
+            deadline = time.monotonic() + 35
             while not result_path.exists() and child.poll() is None and time.monotonic() < deadline:
                 time.sleep(0.02)
             try:

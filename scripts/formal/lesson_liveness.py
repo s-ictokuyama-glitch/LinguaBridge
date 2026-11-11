@@ -18,7 +18,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "a15aea2288be88165acb3f9c9f4792d5a0a13f59"
+SYNC_COMMIT = "5aa0ca374beb563376b247eee60fd811e954e977"
 OPERATIONS = ("feed", "asr_ok", "mt_ok", "asr_fail", "mt_fail")
 WITNESSES = ("distinct", "repeated", "capacity", "asr_timeout", "mt_timeout", "held_drain")
 CALLBACK_ROUNDS = 16
