@@ -367,7 +367,7 @@ class ControlledASR(FakeASREngine):
 
 
 class Screens:
-    def __init__(self, browser, port, *, lan_ip=None):
+    def __init__(self, browser, port, *, lan_ip=None, evidence_dir=None):
         self.browser, self.port = browser, port
         self.contexts, self.pages, self.errors = [], [], []
         self.lan_ip = lan_ip
@@ -375,10 +375,13 @@ class Screens:
         if lan_ip is not None:
             self.allowed_hosts.add(lan_ip)
         self.navigations = []
+        self.evidence_dir = evidence_dir
 
     def open(self, role="student", lang="en", *, native_media=False, host="127.0.0.1"):
         context = self.browser.new_context(viewport={"width": 1280, "height": 900})
         self.contexts.append(context)
+        if self.evidence_dir is not None:
+            context.tracing.start(screenshots=True, snapshots=True, sources=True)
         context.add_init_script(("" if native_media else MEDIA_ONLY) + NATIVE_TRACE)
         page = context.new_page()
         self.pages.append(page)
@@ -411,12 +414,14 @@ class Screens:
         return page
 
     def close(self):
-        for context in self.contexts:
+        for index, context in enumerate(self.contexts):
+            if self.evidence_dir is not None:
+                context.tracing.stop(path=str(self.evidence_dir / f"{index}-trace.zip"))
             context.close()
 
 
 @contextmanager
-def live_screens(browser, *, scenario="", lan_ip=None):
+def live_screens(browser, *, scenario="", lan_ip=None, evidence_dir=None):
     config = make_ws_test_config()
     temporary_cert_dir = None
     temporary_recording_dir = None
@@ -431,6 +436,10 @@ def live_screens(browser, *, scenario="", lan_ip=None):
             prefix="linguabridge-qa-recording-", dir=ROOT / "docs" / "qa"
         )
         config.recording.out_dir = temporary_recording_dir.name
+    if scenario == "native_recording_save_failure_end_retry":
+        assert evidence_dir is not None
+        config.recording.out_dir = str(evidence_dir / "recordings")
+        Path(config.recording.out_dir).write_text("QA blocked destination", encoding="utf-8")
     assert config.monitoring.stats_interval_s == 2
     gate = threading.Event()
     gate.set()
@@ -472,7 +481,8 @@ def live_screens(browser, *, scenario="", lan_ip=None):
         except BaseException:
             thread_errors.append(traceback.format_exc())
     thread = threading.Thread(target=run_server, daemon=True)
-    screens = Screens(browser, port, lan_ip=lan_ip)
+    screens = Screens(browser, port, lan_ip=lan_ip, evidence_dir=evidence_dir)
+    screens.recording_dir = Path(config.recording.out_dir)
     screens.mt, screens.gate = mt, gate
     screens.asr = asr
     screens.pipeline = app.state.pipeline
@@ -991,6 +1001,132 @@ def recording(screens):
         expect(page.locator("#record-indicator")).to_be_hidden()
 
 
+def recording_save_failure_end_retry(screens):
+    teacher, student = started_pair(screens)
+    teacher.locator("#record-toggle").check()
+    expect(student.locator("#record-indicator")).to_be_visible()
+    audio(teacher)
+    phrase = "光合成には日光が必要です。"
+    expect(teacher.locator("#transcript li")).to_have_text("#1 " + phrase)
+    expect(student.locator("#cards .text")).to_have_text("[en] " + phrase)
+    before = teacher.evaluate("qaNativeFrames.map(x => x.message)")
+    live_count = sum(m.get("type") == "session" and m.get("state") == "live" for m in before)
+
+    def capture(stage):
+        observations = {}
+        for role, page in (("teacher", teacher), ("student", student)):
+            page.screenshot(path=str(screens.evidence_dir / f"{stage}-{role}.png"), full_page=True)
+            (screens.evidence_dir / f"{stage}-{role}.aria.txt").write_text(
+                page.locator("body").aria_snapshot(), encoding="utf-8"
+            )
+            observations[role] = page.evaluate("""() => ({
+                frames: qaNativeFrames,
+                closed: qaNativeClosed,
+                sockets: qaNativeSocketUrls,
+                connected: state.ws.readyState === WebSocket.OPEN
+            })""")
+        observations["end_enabled"] = teacher.locator("#end-btn").is_enabled()
+        observations["destination_is_file"] = screens.recording_dir.is_file()
+        (screens.evidence_dir / f"{stage}.json").write_text(
+            json.dumps(observations, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return observations
+
+    assert screens.recording_dir.is_file()
+    teacher.locator("#end-btn").click()
+    teacher.wait_for_function(
+        "qaNativeFrames.some(x => x.message.type === 'error' && x.message.code === 'recording_save_failed')"
+    )
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    expect(student.locator("#session-banner")).to_have_text("Class has ended")
+    failed = capture("save-failed")
+    for role in ("teacher", "student"):
+        assert failed[role]["connected"], failed
+        assert failed[role]["closed"] == [], failed
+        assert len(failed[role]["sockets"]) == 1, failed
+    assert failed["destination_is_file"], failed
+
+    expect(teacher.locator("#end-btn"), "保存失敗後も終了ボタンから再試行できる").to_be_enabled()
+    teacher.locator("#end-btn").click()
+    teacher.wait_for_function(
+        "qaNativeFrames.filter(x => x.message.code === 'recording_save_failed').length === 2"
+    )
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#mic-status")).to_contain_text("もう一度「終了」を押してください")
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    capture("retry-save-failed")
+
+    teacher.locator("#start-btn").click()
+    teacher.wait_for_function(
+        "qaNativeFrames.filter(x => x.message.code === 'recording_save_failed').length === 3"
+    )
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    capture("start-save-failed")
+
+    screens.recording_dir.unlink()
+    screens.recording_dir.mkdir()
+    capture("destination-restored")
+    expect(teacher.locator("#end-btn"), "保存先復旧後も終了ボタンから同じ授業の記録を再保存できる").to_be_enabled()
+
+    def end_and_wait_for_save():
+        off_count = teacher.evaluate(
+            "qaNativeFrames.filter(x => x.message.type === 'recording' && !x.message.on).length"
+        )
+        teacher.locator("#end-btn").click()
+        teacher.locator("#record-toggle").uncheck()
+        teacher.wait_for_function(
+            "count => qaNativeFrames.filter(x => x.message.type === 'recording' && !x.message.on).length > count",
+            arg=off_count,
+        )
+
+    end_and_wait_for_save()
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    expect(teacher.locator("#mic-status")).not_to_contain_text("授業記録を保存できませんでした")
+    expect(teacher.locator("#session-state")).to_have_text("終了")
+    expect(student.locator("#session-banner")).to_have_text("Class has ended")
+    expect(teacher.locator("#transcript li")).to_have_text("#1 " + phrase)
+    expect(student.locator("#cards .text")).to_have_text("[en] " + phrase)
+    saved = capture("saved")
+    messages = [frame["message"] for frame in saved["teacher"]["frames"]]
+    assert sum(m.get("type") == "session" and m.get("state") == "live" for m in messages) == live_count
+    assert sum(m.get("code") == "recording_save_failed" for m in messages) == 3
+    for role in ("teacher", "student"):
+        assert saved[role]["connected"] and saved[role]["closed"] == [], saved
+        assert len(saved[role]["sockets"]) == 1, saved
+
+    (transcript,) = screens.recording_dir.glob("*/transcript.jsonl")
+    (line,) = transcript.read_text(encoding="utf-8").splitlines()
+    entry = json.loads(line)
+    assert entry["seq"] == 1 and entry["ja"] == phrase, entry
+    assert entry["translations"]["en"]["text"] == "[en] " + phrase, entry
+    assert {path.name for path in transcript.parent.iterdir()} == {
+        "transcript.jsonl", "transcript.ja.md", "transcript.en.md"
+    }
+    assert list(screens.recording_dir.iterdir()) == [transcript.parent]
+    for lang, text in (("ja", phrase), ("en", "[en] " + phrase)):
+        markdown = (transcript.parent / f"transcript.{lang}.md").read_text(encoding="utf-8")
+        assert markdown.count(text) == 1, markdown
+    saved_files = {path.name: path.read_bytes() for path in transcript.parent.iterdir()}
+    teacher.locator("#record-toggle").check()
+    expect(student.locator("#record-indicator")).to_be_visible()
+    end_and_wait_for_save()
+    assert list(screens.recording_dir.iterdir()) == [transcript.parent]
+    assert {path.name: path.read_bytes() for path in transcript.parent.iterdir()} == saved_files
+    expect(teacher.locator("#end-btn")).to_be_enabled()
+    capture("saved-again")
+    return {
+        "save_failure_code": "recording_save_failed",
+        "teacher_connection_retained": True,
+        "retry_control": "end",
+        "new_lesson_started": False,
+        "saved_seq": [entry["seq"]],
+        "repeated_end_preserves_files": True,
+        "recording_directory": str(transcript.parent),
+        "evidence_directory": str(screens.evidence_dir),
+    }
+
+
 def next_stats(teacher):
     count = teacher.evaluate("qaNativeFrames.filter(x=>x.message.type==='stats').length")
     teacher.wait_for_function("n => qaNativeFrames.filter(x=>x.message.type==='stats').length > n", arg=count, timeout=5000)
@@ -1328,6 +1464,7 @@ def main():
         cases = [("TEACH-01", "native_audio_to_caption", delivery),
                  ("TEACH-02", "native_mic_denied_same_tab_retry_to_caption", mic_denied_retry_delivery),
                  ("STU-06", "native_language_switch_and_rejection", language_switch), ("MON-04", "native_join_change_leave_stats", stats), ("REC-02", "native_recording_all_screens", recording),
+                 ("REC-07", "native_recording_save_failure_end_retry", recording_save_failure_end_retry),
                  ("TEACH-03", "native_pause_flush_gate_resume", pause_resume),
                  ("TEACH-04", "native_end_live_flush_and_gate", end_session),
                  ("TEACH-04", "native_end_paused_and_gate", lambda screens: end_session(screens, from_paused=True)),
@@ -1379,7 +1516,11 @@ def main():
                     "fake ASR/MT・模擬マイク。別端末到達、実DHCP変更、スマホカメラ読取は未検証"
                 )
             try:
-                with live_screens(browser, scenario=name, lan_ip=lan_ip) as screens:
+                evidence_dir = None
+                if name == "native_recording_save_failure_end_retry":
+                    evidence_dir = out / name
+                    evidence_dir.mkdir()
+                with live_screens(browser, scenario=name, lan_ip=lan_ip, evidence_dir=evidence_dir) as screens:
                     result["test_configuration"] = screens.settings
                     try:
                         result["observations"] = fn(screens)
