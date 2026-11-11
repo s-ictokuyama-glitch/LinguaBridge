@@ -291,8 +291,9 @@ const media={
  getUserMedia:async constraints=>{ qa.micCalls.push(constraints);
    const requested=constraints.audio.deviceId?.exact || '';
    const makeStream=()=>{
-     const track={deviceId:requested,stopped:false,stop(){this.stopped=true;}};
-     const stream={deviceId:requested,track,getTracks:()=>[track]};
+     const track={deviceId:requested,stopped:false,readyState:'live',
+       stop(){this.stopped=true;this.readyState='ended';}};
+     const stream={deviceId:requested,track,getTracks:()=>[track],getAudioTracks:()=>[track]};
      rememberMicPermission(); qa.streams.push(stream); return stream;
    };
    if(qa.failMic) throw new DOMException('denied','NotAllowedError');
@@ -310,8 +311,8 @@ const media={
 };
 Object.defineProperty(navigator,'mediaDevices',{value:media,configurable:true});
 window.AudioContext=class {
- constructor(){ this.destination={}; this.audioWorklet={addModule:async()=>{}}; }
- async resume(){} createMediaStreamSource(stream){
+ constructor(){ this.state='suspended'; this.destination={}; this.audioWorklet={addModule:async()=>{}}; }
+ async resume(){this.state='running';} createMediaStreamSource(stream){
    const source={connected:false,connectedTo:null,stream,
      connect(target){this.connected=true;this.connectedTo=target;},
      disconnect(){this.connected=false;this.connectedTo=null;}};
