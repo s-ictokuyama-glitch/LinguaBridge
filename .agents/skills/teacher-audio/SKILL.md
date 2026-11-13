@@ -77,4 +77,4 @@ git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- web/teacher.js web/audio-wo
 Node VMで実JSへの有限入力を全列挙する。別言語へ実装を写すモデルより、実コードの早期returnを直接検査する方法を選んだ。SMT・無制限の証明ではない。
 初回開始を固定し、pause・start・suspend・end_trackの長さ0〜3を全列挙する。pauseはlive、startはpaused、suspendはrunning、end_trackはlive trackに限る。クリック後は200msの新しい値の音声で判定する。DOM・Media API・WS応答は決定的な代役で、Promise完了順序の全探索ではない。
 50分ケースは48kHz・128サンプル入力、4秒の声と1秒の無音、600発話を実Workletと先生の送信処理に渡す。全PCM値を独立した入力計画と比較し、実Connectionから英中字幕まで通す。ASR 0.1仮想秒、言語ごとのMT 0.2仮想秒、100msごとの入力と各16周回のcallback処理、末尾10仮想秒の排出を使用する。発話ごとのdrain待ちは行わない。
-計算はIDを返す代役、VADはenergy、Turnはsimple、partialは無効。正常50分ケースと障害後の短い再開確認は別の保証。実時間の50分性能、物理機器の抜去・OSスリープの発生条件、実モデル精度、LAN、全ブラウザー、送信buffer容量、マイク取得拒否、既定マイクへの切替、マイク切替の競合、新しい先生タブ、既定morphの網羅は対象外。取得拒否と選択競合は通常の先生画面テストで確認する。
+計算はIDを返す代役、VADはenergy、Turnはsimple、partialは無効。正常50分ケースと障害後の短い再開確認は別の保証。実時間の50分性能、物理機器の抜去・OSスリープの発生条件、実モデル精度、LAN、全ブラウザー、送信buffer容量、マイク取得拒否、既定マイクへの切替、マイク切替の競合、新しい先生タブ、既定morphの網羅は対象外。取得拒否・既定マイクへの切替・再取得と選択の競合は [teacher-microphone](../teacher-microphone/SKILL.md) の有界探索で確認する。

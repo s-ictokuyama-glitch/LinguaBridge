@@ -1,0 +1,390 @@
+{
+  "status": "FAIL",
+  "counts": {
+    "cases": 160,
+    "delivered_notification": 80,
+    "passed": 80,
+    "lost_notification": 80,
+    "failed": 80
+  },
+  "violations": [
+    {
+      "property": "retry_available",
+      "trace": [
+        "failure=before_write",
+        "start",
+        "confirmed_turn",
+        "click_end",
+        "save_failure_notification_lost_at_disconnect",
+        "disconnect",
+        "reconnect_joined_ended"
+      ],
+      "expected": "enabled end button",
+      "actual": {
+        "end_disabled": true,
+        "start_disabled": false,
+        "warning": "マイク取得済み。",
+        "page_state": "ended",
+        "outgoing": []
+      },
+      "candidate_count": 40
+    },
+    {
+      "property": "retry_available",
+      "trace": [
+        "failure=after_jsonl",
+        "start",
+        "confirmed_turn",
+        "click_end",
+        "save_failure_notification_lost_at_disconnect",
+        "disconnect",
+        "reconnect_joined_ended"
+      ],
+      "expected": "enabled end button",
+      "actual": {
+        "end_disabled": true,
+        "start_disabled": false,
+        "warning": "マイク取得済み。",
+        "page_state": "ended",
+        "outgoing": []
+      },
+      "candidate_count": 40
+    }
+  ],
+  "mutations": {
+    "control": "PASS",
+    "results": [
+      {
+        "mutation": "disable_retry",
+        "property": "retry_available",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "retry_available",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end"
+          ],
+          "expected": "enabled end button",
+          "actual": {
+            "end_disabled": true,
+            "start_disabled": false,
+            "warning": "サーバーからの警告: 授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
+            "page_state": "ended",
+            "outgoing": []
+          },
+          "candidate_count": 40
+        }
+      },
+      {
+        "mutation": "clear_other_warning",
+        "property": "warning_ownership",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "warning_ownership",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "warning",
+            "retry"
+          ],
+          "expected": "サーバーからの警告: 別の警告",
+          "actual": "",
+          "candidate_count": 4
+        }
+      },
+      {
+        "mutation": "forget_retry_on_disconnect",
+        "property": "retry_available",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "retry_available",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "disconnect",
+            "disconnect",
+            "reconnect_joined_ended"
+          ],
+          "expected": "enabled end button",
+          "actual": {
+            "end_disabled": true,
+            "start_disabled": false,
+            "warning": "サーバーからの警告: 授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
+            "page_state": "ended",
+            "outgoing": []
+          },
+          "candidate_count": 13
+        }
+      },
+      {
+        "mutation": "allow_disconnected_end",
+        "property": "disconnected_controls",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "disconnected_controls",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "disconnect",
+            "disconnect"
+          ],
+          "expected": true,
+          "actual": false,
+          "candidate_count": 13
+        }
+      },
+      {
+        "mutation": "drop_end_command",
+        "property": "retry_command",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "retry_command",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end"
+          ],
+          "expected": [
+            {
+              "type": "control",
+              "action": "end"
+            }
+          ],
+          "actual": [],
+          "candidate_count": 40
+        }
+      },
+      {
+        "mutation": "skip_unsaved_guard",
+        "property": "unsaved_retained",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "unsaved_retained",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails"
+          ],
+          "expected": "ended with original recorder",
+          "actual": "live",
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "seal_partial_save",
+        "property": "unsaved_retained",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "unsaved_retained",
+          "trace": [
+            "failure=after_jsonl",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails"
+          ],
+          "expected": "ended with original recorder",
+          "actual": "live",
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "empty_markdown",
+        "property": "saved_complete",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "saved_complete",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails",
+            "repair_disk_then_click_end"
+          ],
+          "expected": "first-lesson in JSONL and Markdown",
+          "actual": [
+            "first-lesson"
+          ],
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "reuse_previous_recorder",
+        "property": "recording_ownership",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "recording_ownership",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails",
+            "repair_disk_then_click_end",
+            "repeat_end_after_success",
+            "start_next_lesson"
+          ],
+          "expected": [
+            [
+              "first-lesson"
+            ],
+            [
+              "second-lesson"
+            ]
+          ],
+          "actual": [
+            [
+              "first-lesson"
+            ]
+          ],
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "retain_retry_next_lesson",
+        "property": "retry_reset",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "retry_reset",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails",
+            "repair_disk_then_click_end",
+            "repeat_end_after_success",
+            "start_next_lesson"
+          ],
+          "expected": "ordinary ended disables end",
+          "actual": {
+            "end_disabled": false,
+            "start_disabled": false,
+            "warning": "マイク取得済み。",
+            "page_state": "ended",
+            "outgoing": []
+          },
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "allocate_retry_destination",
+        "property": "saved_destination",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "saved_destination",
+          "trace": [
+            "failure=after_jsonl",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails",
+            "repair_disk_then_click_end"
+          ],
+          "expected": "C:\\Users\\esesm\\AppData\\Local\\Temp\\teacher-recording-retry-3v5e_nnc\\tmpo9hokosw\\2026-11-14_0900_1",
+          "actual": "C:\\Users\\esesm\\AppData\\Local\\Temp\\teacher-recording-retry-3v5e_nnc\\tmpo9hokosw\\2026-11-14_0900_2",
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "overwrite_previous_recording",
+        "property": "saved_immutable",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "saved_immutable",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end",
+            "attempt_start_while_save_fails",
+            "repair_disk_then_click_end",
+            "repeat_end_after_success",
+            "start_next_lesson"
+          ],
+          "expected": "previous lesson unchanged",
+          "actual": [
+            "2026-11-14_0900\\transcript.ja.md",
+            "2026-11-14_0900\\transcript.jsonl"
+          ],
+          "candidate_count": 1
+        }
+      },
+      {
+        "mutation": "mislabel_save_error",
+        "property": "save_error_notified",
+        "exit_code": 1,
+        "detected": true,
+        "counterexample": {
+          "property": "save_error_notified",
+          "trace": [
+            "failure=before_write",
+            "start",
+            "confirmed_turn",
+            "click_end"
+          ],
+          "expected": "recording_save_failed",
+          "actual": [
+            {
+              "type": "session",
+              "state": "ended"
+            },
+            {
+              "type": "error",
+              "code": "recording_pending",
+              "message": "授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。"
+            }
+          ],
+          "candidate_count": 40
+        }
+      }
+    ],
+    "restored": "FAIL",
+    "restored_matches": true
+  },
+  "sync_commit": "df2dd6e93f83fd85a5186898071392599b7e2875",
+  "scope": {
+    "depth": 3,
+    "suite": "all",
+    "python": "3.12.10",
+    "node": "v24.22.1",
+    "operations": [
+      "retry",
+      "disconnect",
+      "warning"
+    ],
+    "failures": [
+      "before_write",
+      "after_jsonl"
+    ],
+    "notification": [
+      "delivered",
+      "lost_at_disconnect"
+    ],
+    "source_root": "C:\\Users\\esesm\\OneDrive\\ドキュメント\\GitHub\\LinguaBridge"
+  }
+}

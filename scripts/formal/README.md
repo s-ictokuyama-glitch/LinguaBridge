@@ -1,6 +1,8 @@
 # 授業記録の有界検証
 
-全14検証の同期履歴、再実行結果、検証器の修正は [2026年11月14日の同期記録](maintenance_20261114.md) を参照する。
+既存14検証の同期履歴、再実行結果、検証器の修正は [2026年11月14日の同期記録](maintenance_20261114.md) を参照する。
+
+その後に追加したマイク再取得・切替の競合は [teacher-microphone スキル](../../.agents/skills/teacher-microphone/SKILL.md)、先生画面の終了ボタンからの保存再試行は [teacher-recording-retry スキル](../../.agents/skills/teacher-recording-retry/SKILL.md) を使う。選定理由、探索範囲、基準結果は [先生操作の追加検証](teacher_controls.md) を参照する。
 
 先生ページの音声処理休止・マイク終了後の再開、実Workletの50分PCMから英中字幕までの継続は [teacher-audio スキル](../../.agents/skills/teacher-audio/SKILL.md) を使う。正常な音声入力と、休止・終了後の復旧を分けて検査する。
 
