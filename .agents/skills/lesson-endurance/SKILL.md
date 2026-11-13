@@ -31,6 +31,7 @@ ASR・MTの永久ハングでは、停止を解除せず旧PIDの回収と後続
 実プロセスでは `released_control`、`pipeline_stop_returned`、`process_exit` を区別する。
 Traceback、結果なし、破壊の置換不一致は検証器または環境の失敗であり、検出成功ではない。
 範囲と実装の対応は [検証の説明](../../../scripts/formal/lesson_endurance.md) と照合する。
+検証器のPID通知を変更した場合は `.venv/Scripts/python.exe -X utf8 -B -m pytest scripts/formal/test_process_markers.py -q` も実行する。書込み途中のPIDが観測されず、公開後に完全なPIDを読めることを確認する。
 
 ## 実モデルの50分性能を確認する
 
@@ -59,7 +60,7 @@ $report = Join-Path $run $manifest.primary_report
 
 ## 実装と同期する
 
-最終同期コミットは `1f5bc911317534a3c6b93cf0941d27a0189c8745`。
+最終同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 | 対象 | 対応する処理 |
 |---|---|
@@ -74,7 +75,7 @@ $report = Join-Path $run $manifest.primary_report
 | `scripts/replay_client.py`、`scripts/acceptance.py`、`scripts/performance_evidence.py` | 実時間の入力・計測・受け入れ・証拠照合。別コマンド |
 
 ```powershell
-git diff 1f5bc911317534a3c6b93cf0941d27a0189c8745 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
+git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- server config.yaml scripts/formal/lesson_liveness.py scripts/replay_client.py scripts/acceptance.py scripts/performance_evidence.py
 ```
 
 対応するawait、時計、完了・取消し、保持先、計測フィールドが変わったら検証側との一致を見直す。

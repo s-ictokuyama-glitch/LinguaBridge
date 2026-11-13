@@ -51,7 +51,7 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 
 ## 実装との同期を確認する
 
-最終同期コミットは `1f5bc911317534a3c6b93cf0941d27a0189c8745`。
+最終同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 | 対象 | 照合する処理 |
 |---|---|
@@ -66,7 +66,7 @@ uv run --python 3.12.10 --no-project --with playwright==1.64.1 python -X utf8 -B
 | `web/index.html`、`web/student.js`、`web/caption-recovery.js` | 別コマンドで実行する受信とDOM表示 |
 
 ```powershell
-git diff 1f5bc911317534a3c6b93cf0941d27a0189c8745 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/inference_process.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
+git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- server/pipeline.py server/caption_delivery.py server/audio server/asr_backlog.py server/inference.py server/turn/assembler.py server/caption_history.py server/mt/cache.py server/roster.py server/delivery.py server/config.py server/main.py server/inference_process.py server/asr/haas_onnx_engine.py server/mt/hymt_engine.py config.yaml web/index.html web/student.js web/caption-recovery.js
 ```
 
 実行順序、await境界、容量、失敗時の処理単位が変わったら、操作列と期待値を見直す。

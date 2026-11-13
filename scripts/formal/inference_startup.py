@@ -19,7 +19,7 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "4bdd9b28b9076f913ba82363dba947f7f1689d74"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 OPERATIONS = ("deadline", "cancel")
 PHASES = ("factory", "warmup")
 KINDS = ("asr", "mt")
@@ -39,7 +39,10 @@ def require(condition, property_name, expected, actual, trace):
 
 
 def block(directory, marker):
-    (directory / marker).write_text(str(os.getpid()), encoding="ascii")
+    destination = directory / marker
+    pending = destination.with_suffix(".tmp")
+    pending.write_text(str(os.getpid()), encoding="ascii")
+    pending.replace(destination)
     while not (directory / f"release-{marker}").exists():
         time.sleep(0.01)
 

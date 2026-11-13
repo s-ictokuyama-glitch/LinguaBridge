@@ -74,7 +74,7 @@ ASGI検査はASR/MTフェイクとenergy VADを使い、lifespanを開始しな�
 
 検出成功には終了コード1と、各破壊に指定した `violation.property` の両方を要求する。クラッシュ、タイムアウト、置換不一致では検出成功にならない。破壊検出後は元の実装の全検査を再実行し、`after_mutations.status: PASS` も完了条件にする。
 
-同期対象は `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。保存した通常版は全群PASS、破壊版は30件すべて指定の性質でFAIL。製品の不具合は確認されなかった。初回の観測関数を `router.app` へ置く方法は、Starletteが構築済みmiddleware_stackに保持した参照に届かず、許可済み入力にも未到達と報告した。実ルートの成功と実Routerの呼出しを照合し、観測点を `router.middleware_stack` に修正した。これは検証器の誤りで、製品のガードは変更していない。
+同期対象は `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。保存した通常版は全群PASS、破壊版は30件すべて指定の性質でFAIL。製品の不具合は確認されなかった。初回の観測関数を `router.app` へ置く方法は、Starletteが構築済みmiddleware_stackに保持した参照に届かず、許可済み入力にも未到達と報告した。実ルートの成功と実Routerの呼出しを照合し、観測点を `router.middleware_stack` に修正した。これは検証器の誤りで、製品のガードは変更していない。
 
 再実行と結果の読取りは [school-access スキル](../../.agents/skills/school-access/SKILL.md)、通常版・破壊版の具体的反例は [school_access_baseline.json](school_access_baseline.json) を参照する。既存スキルの拡張実行は [ws_teacher_ingress_school_access_baseline.json](ws_teacher_ingress_school_access_baseline.json) に保存した。260シナリオと従来の7破壊、参加制限の全検査と13破壊がすべて期待どおりとなった。
 

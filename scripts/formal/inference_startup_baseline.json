@@ -1,5 +1,5 @@
 {
-  "sync_commit": "4bdd9b28b9076f913ba82363dba947f7f1689d74",
+  "sync_commit": "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1",
   "python": "3.12.10",
   "scope": "finite real-process schedules and synthetic PCM witnesses; no unbounded liveness proof",
   "bounded": {
@@ -46,7 +46,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 14036,
+      "startup_pid": 21264,
       "startup_alive_after_audio_2": true,
       "expected": {
         "en": [
@@ -78,44 +78,44 @@
       "mt_calls": 6,
       "pipeline_stop_returned": true,
       "child_pids": [
-        14036,
-        26092,
-        31428
+        2112,
+        21264,
+        34456
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20427.156,
-          "pid": 26092,
+          "at": 213961.234,
+          "pid": 2112,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20427.156,
-          "pid": 26092,
+          "at": 213961.234,
+          "pid": 2112,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20427.359,
-          "pid": 31428,
+          "at": 213961.39,
+          "pid": 34456,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20427.359,
-          "pid": 31428,
+          "at": 213961.39,
+          "pid": 34456,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20427.453,
-          "pid": 26092,
+          "at": 213961.453,
+          "pid": 2112,
           "method": "transcribe",
           "arguments": [
             0
@@ -123,8 +123,8 @@
         },
         {
           "stage": "mt",
-          "at": 20427.453,
-          "pid": 31428,
+          "at": 213961.453,
+          "pid": 34456,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -133,8 +133,8 @@
         },
         {
           "stage": "mt",
-          "at": 20427.453,
-          "pid": 31428,
+          "at": 213961.453,
+          "pid": 34456,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -143,8 +143,8 @@
         },
         {
           "stage": "asr",
-          "at": 20427.468,
-          "pid": 26092,
+          "at": 213961.468,
+          "pid": 2112,
           "method": "transcribe",
           "arguments": [
             1
@@ -152,41 +152,31 @@
         },
         {
           "stage": "asr",
-          "at": 20428.687,
-          "pid": 14036,
+          "at": 213962.671,
+          "pid": 21264,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20429.515,
-          "pid": 14036,
+          "at": 213963.531,
+          "pid": 21264,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20429.609,
-          "pid": 14036,
+          "at": 213963.625,
+          "pid": 21264,
           "method": "transcribe",
           "arguments": [
             3
           ]
         },
         {
-          "stage": "mt",
-          "at": 20429.609,
-          "pid": 31428,
-          "method": "translate",
-          "arguments": [
-            "授業の発話3です。",
-            "en"
-          ]
-        },
-        {
           "stage": "asr",
-          "at": 20429.625,
-          "pid": 14036,
+          "at": 213963.625,
+          "pid": 21264,
           "method": "transcribe",
           "arguments": [
             4
@@ -194,8 +184,18 @@
         },
         {
           "stage": "mt",
-          "at": 20429.625,
-          "pid": 31428,
+          "at": 213963.625,
+          "pid": 34456,
+          "method": "translate",
+          "arguments": [
+            "授業の発話3です。",
+            "en"
+          ]
+        },
+        {
+          "stage": "mt",
+          "at": 213963.625,
+          "pid": 34456,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -204,8 +204,8 @@
         },
         {
           "stage": "mt",
-          "at": 20429.625,
-          "pid": 31428,
+          "at": 213963.625,
+          "pid": 34456,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -214,8 +214,8 @@
         },
         {
           "stage": "mt",
-          "at": 20429.625,
-          "pid": 31428,
+          "at": 213963.625,
+          "pid": 34456,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -250,7 +250,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 26916,
+      "startup_pid": 38696,
       "startup_alive_after_audio_2": true,
       "reaped_without_new_requests": true,
       "expected": {
@@ -283,45 +283,45 @@
       "mt_calls": 6,
       "pipeline_stop_returned": true,
       "child_pids": [
-        21092,
-        22780,
-        24080,
-        26916
+        4840,
+        13348,
+        22644,
+        38696
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20430.546,
-          "pid": 22780,
+          "at": 213964.359,
+          "pid": 4840,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20430.546,
-          "pid": 22780,
+          "at": 213964.359,
+          "pid": 4840,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20430.765,
-          "pid": 24080,
+          "at": 213964.5,
+          "pid": 13348,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20430.765,
-          "pid": 24080,
+          "at": 213964.5,
+          "pid": 13348,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20430.875,
-          "pid": 22780,
+          "at": 213964.578,
+          "pid": 4840,
           "method": "transcribe",
           "arguments": [
             0
@@ -329,8 +329,8 @@
         },
         {
           "stage": "asr",
-          "at": 20430.875,
-          "pid": 22780,
+          "at": 213964.578,
+          "pid": 4840,
           "method": "transcribe",
           "arguments": [
             1
@@ -338,8 +338,8 @@
         },
         {
           "stage": "mt",
-          "at": 20430.875,
-          "pid": 24080,
+          "at": 213964.578,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -348,8 +348,8 @@
         },
         {
           "stage": "mt",
-          "at": 20430.875,
-          "pid": 24080,
+          "at": 213964.578,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -358,29 +358,29 @@
         },
         {
           "stage": "asr",
-          "at": 20432.125,
-          "pid": 26916,
+          "at": 213965.765,
+          "pid": 38696,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20437.046,
-          "pid": 21092,
+          "at": 213970.796,
+          "pid": 22644,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20437.046,
-          "pid": 21092,
+          "at": 213970.796,
+          "pid": 22644,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20437.14,
-          "pid": 21092,
+          "at": 213970.859,
+          "pid": 22644,
           "method": "transcribe",
           "arguments": [
             3
@@ -388,8 +388,8 @@
         },
         {
           "stage": "asr",
-          "at": 20437.14,
-          "pid": 21092,
+          "at": 213970.859,
+          "pid": 22644,
           "method": "transcribe",
           "arguments": [
             4
@@ -397,8 +397,8 @@
         },
         {
           "stage": "mt",
-          "at": 20437.14,
-          "pid": 24080,
+          "at": 213970.859,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -407,8 +407,8 @@
         },
         {
           "stage": "mt",
-          "at": 20437.14,
-          "pid": 24080,
+          "at": 213970.859,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -417,8 +417,8 @@
         },
         {
           "stage": "mt",
-          "at": 20437.14,
-          "pid": 24080,
+          "at": 213970.859,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -427,8 +427,8 @@
         },
         {
           "stage": "mt",
-          "at": 20437.156,
-          "pid": 24080,
+          "at": 213970.875,
+          "pid": 13348,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -463,7 +463,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 7612,
+      "startup_pid": 21832,
       "startup_alive_after_audio_2": true,
       "expected": {
         "en": [
@@ -495,62 +495,53 @@
       "mt_calls": 6,
       "pipeline_stop_returned": true,
       "child_pids": [
-        4844,
-        7612,
-        28884
+        12356,
+        21832,
+        27968
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20437.968,
-          "pid": 4844,
+          "at": 213971.703,
+          "pid": 27968,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20437.968,
-          "pid": 4844,
+          "at": 213971.703,
+          "pid": 27968,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20438.171,
-          "pid": 28884,
+          "at": 213971.921,
+          "pid": 12356,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20438.171,
-          "pid": 28884,
+          "at": 213971.921,
+          "pid": 12356,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20438.281,
-          "pid": 4844,
+          "at": 213972.015,
+          "pid": 27968,
           "method": "transcribe",
           "arguments": [
             0
           ]
         },
         {
-          "stage": "asr",
-          "at": 20438.281,
-          "pid": 4844,
-          "method": "transcribe",
-          "arguments": [
-            1
-          ]
-        },
-        {
           "stage": "mt",
-          "at": 20438.281,
-          "pid": 28884,
+          "at": 213972.015,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -559,8 +550,8 @@
         },
         {
           "stage": "mt",
-          "at": 20438.281,
-          "pid": 28884,
+          "at": 213972.015,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -569,22 +560,31 @@
         },
         {
           "stage": "asr",
-          "at": 20439.5,
-          "pid": 7612,
+          "at": 213972.031,
+          "pid": 27968,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 213973.25,
+          "pid": 21832,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20439.5,
-          "pid": 7612,
+          "at": 213973.25,
+          "pid": 21832,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20440.406,
-          "pid": 7612,
+          "at": 213974.156,
+          "pid": 21832,
           "method": "transcribe",
           "arguments": [
             3
@@ -592,8 +592,8 @@
         },
         {
           "stage": "asr",
-          "at": 20440.406,
-          "pid": 7612,
+          "at": 213974.156,
+          "pid": 21832,
           "method": "transcribe",
           "arguments": [
             4
@@ -601,8 +601,8 @@
         },
         {
           "stage": "mt",
-          "at": 20440.406,
-          "pid": 28884,
+          "at": 213974.156,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -611,8 +611,8 @@
         },
         {
           "stage": "mt",
-          "at": 20440.406,
-          "pid": 28884,
+          "at": 213974.156,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -621,8 +621,8 @@
         },
         {
           "stage": "mt",
-          "at": 20440.406,
-          "pid": 28884,
+          "at": 213974.156,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -631,8 +631,8 @@
         },
         {
           "stage": "mt",
-          "at": 20440.421,
-          "pid": 28884,
+          "at": 213974.171,
+          "pid": 12356,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -667,7 +667,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 24748,
+      "startup_pid": 36888,
       "startup_alive_after_audio_2": true,
       "reaped_without_new_requests": true,
       "expected": {
@@ -700,63 +700,54 @@
       "mt_calls": 6,
       "pipeline_stop_returned": true,
       "child_pids": [
-        14788,
-        24748,
-        27064,
-        29588
+        12736,
+        16076,
+        23744,
+        36888
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20441.265,
-          "pid": 29588,
+          "at": 213975.078,
+          "pid": 16076,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20441.265,
-          "pid": 29588,
+          "at": 213975.078,
+          "pid": 16076,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20441.484,
-          "pid": 27064,
+          "at": 213975.312,
+          "pid": 23744,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20441.484,
-          "pid": 27064,
+          "at": 213975.312,
+          "pid": 23744,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20441.578,
-          "pid": 29588,
+          "at": 213975.421,
+          "pid": 16076,
           "method": "transcribe",
           "arguments": [
             0
           ]
         },
         {
-          "stage": "asr",
-          "at": 20441.578,
-          "pid": 29588,
-          "method": "transcribe",
-          "arguments": [
-            1
-          ]
-        },
-        {
           "stage": "mt",
-          "at": 20441.578,
-          "pid": 27064,
+          "at": 213975.421,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -765,8 +756,8 @@
         },
         {
           "stage": "mt",
-          "at": 20441.578,
-          "pid": 27064,
+          "at": 213975.421,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -775,36 +766,45 @@
         },
         {
           "stage": "asr",
-          "at": 20442.812,
-          "pid": 24748,
+          "at": 213975.437,
+          "pid": 16076,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
+          "stage": "asr",
+          "at": 213976.671,
+          "pid": 36888,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20442.828,
-          "pid": 24748,
+          "at": 213976.671,
+          "pid": 36888,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20447.828,
-          "pid": 14788,
+          "at": 213981.656,
+          "pid": 12736,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20447.828,
-          "pid": 14788,
+          "at": 213981.656,
+          "pid": 12736,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20447.937,
-          "pid": 14788,
+          "at": 213981.765,
+          "pid": 12736,
           "method": "transcribe",
           "arguments": [
             3
@@ -812,8 +812,8 @@
         },
         {
           "stage": "asr",
-          "at": 20447.937,
-          "pid": 14788,
+          "at": 213981.765,
+          "pid": 12736,
           "method": "transcribe",
           "arguments": [
             4
@@ -821,8 +821,8 @@
         },
         {
           "stage": "mt",
-          "at": 20447.937,
-          "pid": 27064,
+          "at": 213981.765,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -831,8 +831,8 @@
         },
         {
           "stage": "mt",
-          "at": 20447.937,
-          "pid": 27064,
+          "at": 213981.765,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -841,8 +841,8 @@
         },
         {
           "stage": "mt",
-          "at": 20447.937,
-          "pid": 27064,
+          "at": 213981.765,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -851,8 +851,8 @@
         },
         {
           "stage": "mt",
-          "at": 20447.937,
-          "pid": 27064,
+          "at": 213981.781,
+          "pid": 23744,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -887,7 +887,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 19384,
+      "startup_pid": 15544,
       "startup_alive_after_audio_2": true,
       "expected": {
         "en": [
@@ -919,62 +919,53 @@
       "mt_calls": 10,
       "pipeline_stop_returned": true,
       "child_pids": [
-        9392,
-        19384,
-        29640
+        15544,
+        19812,
+        32884
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20448.828,
-          "pid": 9392,
+          "at": 213982.64,
+          "pid": 32884,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20448.828,
-          "pid": 9392,
+          "at": 213982.64,
+          "pid": 32884,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20449.031,
-          "pid": 29640,
+          "at": 213982.843,
+          "pid": 19812,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20449.031,
-          "pid": 29640,
+          "at": 213982.843,
+          "pid": 19812,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20449.125,
-          "pid": 9392,
+          "at": 213982.921,
+          "pid": 32884,
           "method": "transcribe",
           "arguments": [
             0
           ]
         },
         {
-          "stage": "asr",
-          "at": 20449.125,
-          "pid": 9392,
-          "method": "transcribe",
-          "arguments": [
-            1
-          ]
-        },
-        {
           "stage": "mt",
-          "at": 20449.125,
-          "pid": 29640,
+          "at": 213982.921,
+          "pid": 19812,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -982,9 +973,18 @@
           ]
         },
         {
+          "stage": "asr",
+          "at": 213982.937,
+          "pid": 32884,
+          "method": "transcribe",
+          "arguments": [
+            1
+          ]
+        },
+        {
           "stage": "mt",
-          "at": 20449.125,
-          "pid": 29640,
+          "at": 213982.937,
+          "pid": 19812,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -993,8 +993,8 @@
         },
         {
           "stage": "mt",
-          "at": 20449.125,
-          "pid": 29640,
+          "at": 213982.937,
+          "pid": 19812,
           "method": "translate",
           "arguments": [
             "授業の発話1です。",
@@ -1003,15 +1003,15 @@
         },
         {
           "stage": "mt",
-          "at": 20450.343,
-          "pid": 19384,
+          "at": 213984.156,
+          "pid": 15544,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20451.156,
-          "pid": 9392,
+          "at": 213984.968,
+          "pid": 32884,
           "method": "transcribe",
           "arguments": [
             2
@@ -1019,8 +1019,8 @@
         },
         {
           "stage": "asr",
-          "at": 20453.203,
-          "pid": 9392,
+          "at": 213987.0,
+          "pid": 32884,
           "method": "transcribe",
           "arguments": [
             3
@@ -1028,8 +1028,8 @@
         },
         {
           "stage": "asr",
-          "at": 20453.203,
-          "pid": 9392,
+          "at": 213987.0,
+          "pid": 32884,
           "method": "transcribe",
           "arguments": [
             4
@@ -1037,15 +1037,15 @@
         },
         {
           "stage": "mt",
-          "at": 20453.203,
-          "pid": 19384,
+          "at": 213987.0,
+          "pid": 15544,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20453.203,
-          "pid": 19384,
+          "at": 213987.0,
+          "pid": 15544,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1054,8 +1054,8 @@
         },
         {
           "stage": "mt",
-          "at": 20453.203,
-          "pid": 19384,
+          "at": 213987.0,
+          "pid": 15544,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1064,8 +1064,8 @@
         },
         {
           "stage": "mt",
-          "at": 20453.203,
-          "pid": 19384,
+          "at": 213987.0,
+          "pid": 15544,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1074,8 +1074,8 @@
         },
         {
           "stage": "mt",
-          "at": 20453.203,
-          "pid": 19384,
+          "at": 213987.0,
+          "pid": 15544,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1110,7 +1110,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 3708,
+      "startup_pid": 28100,
       "startup_alive_after_audio_2": true,
       "reaped_without_new_requests": true,
       "expected": {
@@ -1143,45 +1143,45 @@
       "mt_calls": 10,
       "pipeline_stop_returned": true,
       "child_pids": [
-        3708,
-        13184,
-        15572,
-        25952
+        22456,
+        28100,
+        31464,
+        36572
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20454.171,
-          "pid": 25952,
+          "at": 213987.796,
+          "pid": 22456,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20454.171,
-          "pid": 25952,
+          "at": 213987.796,
+          "pid": 22456,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20454.39,
-          "pid": 15572,
+          "at": 213987.984,
+          "pid": 36572,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20454.39,
-          "pid": 15572,
+          "at": 213987.984,
+          "pid": 36572,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20454.5,
-          "pid": 25952,
+          "at": 213988.109,
+          "pid": 22456,
           "method": "transcribe",
           "arguments": [
             0
@@ -1189,8 +1189,8 @@
         },
         {
           "stage": "asr",
-          "at": 20454.5,
-          "pid": 25952,
+          "at": 213988.109,
+          "pid": 22456,
           "method": "transcribe",
           "arguments": [
             1
@@ -1198,8 +1198,8 @@
         },
         {
           "stage": "mt",
-          "at": 20454.5,
-          "pid": 15572,
+          "at": 213988.109,
+          "pid": 36572,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1208,8 +1208,8 @@
         },
         {
           "stage": "mt",
-          "at": 20454.5,
-          "pid": 15572,
+          "at": 213988.109,
+          "pid": 36572,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1218,8 +1218,8 @@
         },
         {
           "stage": "mt",
-          "at": 20454.5,
-          "pid": 15572,
+          "at": 213988.109,
+          "pid": 36572,
           "method": "translate",
           "arguments": [
             "授業の発話1です。",
@@ -1228,15 +1228,15 @@
         },
         {
           "stage": "mt",
-          "at": 20455.734,
-          "pid": 3708,
+          "at": 213989.312,
+          "pid": 28100,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20456.546,
-          "pid": 25952,
+          "at": 213990.14,
+          "pid": 22456,
           "method": "transcribe",
           "arguments": [
             2
@@ -1244,8 +1244,8 @@
         },
         {
           "stage": "asr",
-          "at": 20460.546,
-          "pid": 25952,
+          "at": 213994.14,
+          "pid": 22456,
           "method": "transcribe",
           "arguments": [
             3
@@ -1253,8 +1253,8 @@
         },
         {
           "stage": "asr",
-          "at": 20460.765,
-          "pid": 25952,
+          "at": 213994.312,
+          "pid": 22456,
           "method": "transcribe",
           "arguments": [
             4
@@ -1262,22 +1262,22 @@
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1286,8 +1286,8 @@
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1296,8 +1296,8 @@
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1306,8 +1306,8 @@
         },
         {
           "stage": "mt",
-          "at": 20460.765,
-          "pid": 13184,
+          "at": 213994.312,
+          "pid": 31464,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1342,7 +1342,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 9728,
+      "startup_pid": 4860,
       "startup_alive_after_audio_2": true,
       "expected": {
         "en": [
@@ -1374,44 +1374,44 @@
       "mt_calls": 10,
       "pipeline_stop_returned": true,
       "child_pids": [
-        9728,
-        26936,
-        29576
+        4860,
+        22648,
+        38804
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20461.703,
-          "pid": 29576,
+          "at": 213995.203,
+          "pid": 38804,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20461.703,
-          "pid": 29576,
+          "at": 213995.203,
+          "pid": 38804,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20461.906,
-          "pid": 26936,
+          "at": 213995.421,
+          "pid": 22648,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20461.906,
-          "pid": 26936,
+          "at": 213995.421,
+          "pid": 22648,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20462.015,
-          "pid": 29576,
+          "at": 213995.531,
+          "pid": 38804,
           "method": "transcribe",
           "arguments": [
             0
@@ -1419,8 +1419,8 @@
         },
         {
           "stage": "asr",
-          "at": 20462.015,
-          "pid": 29576,
+          "at": 213995.531,
+          "pid": 38804,
           "method": "transcribe",
           "arguments": [
             1
@@ -1428,8 +1428,8 @@
         },
         {
           "stage": "mt",
-          "at": 20462.015,
-          "pid": 26936,
+          "at": 213995.531,
+          "pid": 22648,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1438,8 +1438,8 @@
         },
         {
           "stage": "mt",
-          "at": 20462.015,
-          "pid": 26936,
+          "at": 213995.531,
+          "pid": 22648,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1448,8 +1448,8 @@
         },
         {
           "stage": "mt",
-          "at": 20462.015,
-          "pid": 26936,
+          "at": 213995.546,
+          "pid": 22648,
           "method": "translate",
           "arguments": [
             "授業の発話1です。",
@@ -1458,22 +1458,22 @@
         },
         {
           "stage": "mt",
-          "at": 20463.25,
-          "pid": 9728,
+          "at": 213996.765,
+          "pid": 4860,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20463.25,
-          "pid": 9728,
+          "at": 213996.765,
+          "pid": 4860,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20464.046,
-          "pid": 29576,
+          "at": 213997.562,
+          "pid": 38804,
           "method": "transcribe",
           "arguments": [
             2
@@ -1481,26 +1481,17 @@
         },
         {
           "stage": "asr",
-          "at": 20466.062,
-          "pid": 29576,
+          "at": 213999.578,
+          "pid": 38804,
           "method": "transcribe",
           "arguments": [
             3
           ]
         },
         {
-          "stage": "asr",
-          "at": 20466.062,
-          "pid": 29576,
-          "method": "transcribe",
-          "arguments": [
-            4
-          ]
-        },
-        {
           "stage": "mt",
-          "at": 20466.062,
-          "pid": 9728,
+          "at": 213999.578,
+          "pid": 4860,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1509,8 +1500,8 @@
         },
         {
           "stage": "mt",
-          "at": 20466.062,
-          "pid": 9728,
+          "at": 213999.578,
+          "pid": 4860,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1518,9 +1509,18 @@
           ]
         },
         {
+          "stage": "asr",
+          "at": 213999.593,
+          "pid": 38804,
+          "method": "transcribe",
+          "arguments": [
+            4
+          ]
+        },
+        {
           "stage": "mt",
-          "at": 20466.062,
-          "pid": 9728,
+          "at": 213999.593,
+          "pid": 4860,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1529,8 +1529,8 @@
         },
         {
           "stage": "mt",
-          "at": 20466.062,
-          "pid": 9728,
+          "at": 213999.593,
+          "pid": 4860,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1565,7 +1565,7 @@
           "zh:授業の発話0です。"
         ]
       },
-      "startup_pid": 20236,
+      "startup_pid": 37516,
       "startup_alive_after_audio_2": true,
       "reaped_without_new_requests": true,
       "expected": {
@@ -1598,45 +1598,45 @@
       "mt_calls": 10,
       "pipeline_stop_returned": true,
       "child_pids": [
-        10896,
-        20236,
-        25492,
-        29308
+        16804,
+        37516,
+        38252,
+        38808
       ],
       "all_children_reaped": true,
       "requests": [
         {
           "stage": "asr",
-          "at": 20466.968,
-          "pid": 25492,
+          "at": 214000.39,
+          "pid": 16804,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20466.968,
-          "pid": 25492,
+          "at": 214000.39,
+          "pid": 16804,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20467.203,
-          "pid": 10896,
+          "at": 214000.593,
+          "pid": 38252,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20467.203,
-          "pid": 10896,
+          "at": 214000.593,
+          "pid": 38252,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20467.312,
-          "pid": 25492,
+          "at": 214000.671,
+          "pid": 16804,
           "method": "transcribe",
           "arguments": [
             0
@@ -1644,8 +1644,8 @@
         },
         {
           "stage": "asr",
-          "at": 20467.312,
-          "pid": 25492,
+          "at": 214000.671,
+          "pid": 16804,
           "method": "transcribe",
           "arguments": [
             1
@@ -1653,8 +1653,8 @@
         },
         {
           "stage": "mt",
-          "at": 20467.312,
-          "pid": 10896,
+          "at": 214000.671,
+          "pid": 38252,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1663,8 +1663,8 @@
         },
         {
           "stage": "mt",
-          "at": 20467.312,
-          "pid": 10896,
+          "at": 214000.671,
+          "pid": 38252,
           "method": "translate",
           "arguments": [
             "授業の発話0です。",
@@ -1673,8 +1673,8 @@
         },
         {
           "stage": "mt",
-          "at": 20467.312,
-          "pid": 10896,
+          "at": 214000.687,
+          "pid": 38252,
           "method": "translate",
           "arguments": [
             "授業の発話1です。",
@@ -1683,22 +1683,22 @@
         },
         {
           "stage": "mt",
-          "at": 20468.531,
-          "pid": 20236,
+          "at": 214001.859,
+          "pid": 37516,
           "method": "factory",
           "arguments": []
         },
         {
           "stage": "mt",
-          "at": 20468.531,
-          "pid": 20236,
+          "at": 214001.859,
+          "pid": 37516,
           "method": "warmup",
           "arguments": []
         },
         {
           "stage": "asr",
-          "at": 20469.343,
-          "pid": 25492,
+          "at": 214002.718,
+          "pid": 16804,
           "method": "transcribe",
           "arguments": [
             2
@@ -1706,31 +1706,17 @@
         },
         {
           "stage": "asr",
-          "at": 20473.343,
-          "pid": 25492,
+          "at": 214006.703,
+          "pid": 16804,
           "method": "transcribe",
           "arguments": [
             3
           ]
         },
         {
-          "stage": "mt",
-          "at": 20473.562,
-          "pid": 29308,
-          "method": "factory",
-          "arguments": []
-        },
-        {
-          "stage": "mt",
-          "at": 20473.562,
-          "pid": 29308,
-          "method": "warmup",
-          "arguments": []
-        },
-        {
           "stage": "asr",
-          "at": 20473.578,
-          "pid": 25492,
+          "at": 214006.906,
+          "pid": 16804,
           "method": "transcribe",
           "arguments": [
             4
@@ -1738,8 +1724,22 @@
         },
         {
           "stage": "mt",
-          "at": 20473.578,
-          "pid": 29308,
+          "at": 214006.906,
+          "pid": 38808,
+          "method": "factory",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 214006.906,
+          "pid": 38808,
+          "method": "warmup",
+          "arguments": []
+        },
+        {
+          "stage": "mt",
+          "at": 214006.906,
+          "pid": 38808,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1748,8 +1748,8 @@
         },
         {
           "stage": "mt",
-          "at": 20473.578,
-          "pid": 29308,
+          "at": 214006.906,
+          "pid": 38808,
           "method": "translate",
           "arguments": [
             "授業の発話3です。",
@@ -1758,8 +1758,8 @@
         },
         {
           "stage": "mt",
-          "at": 20473.578,
-          "pid": 29308,
+          "at": 214006.921,
+          "pid": 38808,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",
@@ -1768,8 +1768,8 @@
         },
         {
           "stage": "mt",
-          "at": 20473.578,
-          "pid": 29308,
+          "at": 214006.921,
+          "pid": 38808,
           "method": "translate",
           "arguments": [
             "授業の発話4です。",

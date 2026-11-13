@@ -43,7 +43,7 @@
         "pcm": {
           "frames": 15,
           "nonzero_frames": 12,
-          "peak": 32139
+          "peak": 32122
         },
         "captions": {
           "en": 1,
@@ -61,7 +61,7 @@
         "pcm": {
           "frames": 16,
           "nonzero_frames": 13,
-          "peak": 32139
+          "peak": 32122
         },
         "captions": {
           "en": 2,
@@ -74,7 +74,7 @@
       }
     },
     {
-      "status": "FAIL",
+      "status": "PASS",
       "fault": "suspend",
       "property": "capture_liveness",
       "trace": [
@@ -106,17 +106,17 @@
         }
       },
       "resumed": {
-        "binary": 15,
-        "audio": "suspended",
+        "binary": 31,
+        "audio": "running",
         "tracks": [
           "live"
         ],
         "micReady": true,
         "lesson": "live",
         "pcm": {
-          "frames": 0,
-          "nonzero_frames": 0,
-          "peak": 0
+          "frames": 16,
+          "nonzero_frames": 15,
+          "peak": 32139
         },
         "captions": {
           "en": 1,
@@ -124,30 +124,30 @@
         }
       },
       "after_final_pause": {
-        "binary": 15,
-        "audio": "suspended",
+        "binary": 31,
+        "audio": "running",
         "tracks": [
           "live"
         ],
         "micReady": true,
         "lesson": "paused",
         "pcm": {
-          "frames": 0,
-          "nonzero_frames": 0,
-          "peak": 0
+          "frames": 16,
+          "nonzero_frames": 15,
+          "peak": 32139
         },
         "captions": {
-          "en": 1,
-          "zh": 1
+          "en": 2,
+          "zh": 2
         }
       },
       "new_captions": {
-        "en": 0,
-        "zh": 0
+        "en": 1,
+        "zh": 1
       }
     },
     {
-      "status": "FAIL",
+      "status": "PASS",
       "fault": "ended",
       "property": "capture_liveness",
       "trace": [
@@ -182,14 +182,14 @@
         "binary": 30,
         "audio": "running",
         "tracks": [
-          "ended"
+          "live"
         ],
         "micReady": true,
         "lesson": "live",
         "pcm": {
           "frames": 15,
-          "nonzero_frames": 0,
-          "peak": 0
+          "nonzero_frames": 9,
+          "peak": 32767
         },
         "captions": {
           "en": 1,
@@ -197,37 +197,37 @@
         }
       },
       "after_final_pause": {
-        "binary": 30,
+        "binary": 31,
         "audio": "running",
         "tracks": [
-          "ended"
+          "live"
         ],
         "micReady": true,
         "lesson": "paused",
         "pcm": {
-          "frames": 15,
-          "nonzero_frames": 0,
-          "peak": 0
+          "frames": 16,
+          "nonzero_frames": 10,
+          "peak": 32767
         },
         "captions": {
-          "en": 1,
-          "zh": 1
+          "en": 2,
+          "zh": 2
         }
       },
       "new_captions": {
-        "en": 0,
-        "zh": 0
+        "en": 1,
+        "zh": 1
       }
     }
   ],
   "playwright": "1.64.1",
   "browser": "157.0.4341.46",
-  "status": "FAIL",
+  "status": "PASS",
   "source_sha256": {
-    "web/teacher.js": "881c6717e78547f114badd7ca9f02671fa8a609835aa97e850ecb719fa8f2758",
+    "web/teacher.js": "93081132015a3361963fc24df69204fa3ca7e089150b663083d09ce4b22706a6",
     "web/audio-worklet.js": "35604f3ed8c18f439529189ccb1fcfae7f63df6ef26b272fac95fe3a544904e2",
     "server/connection.py": "f2428f8ff939d06f77aef62e371e3418c4f122cea792493973ff364803ed8f09",
     "server/pipeline.py": "849358d2d7da78a0bdc6db2ad3bc062bfedf56fe6a0fff4f6b3c9d0a79e63267",
-    "scripts/qa_native_browser.py": "cbc6673ea77769ecdb63df7ae3c0f59add5d18b84f14dfe0846c7bec4e861bbe"
+    "scripts/qa_native_browser.py": "3d16948c7c4e5200e0ae32709b8e99d9dd8c43b4d90f1cf027d54c5e269fca5d"
   }
 }

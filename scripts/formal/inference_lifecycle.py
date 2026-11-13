@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from server.inference import InferenceRunner
 
-SYNC_COMMIT = "1f5bc911317534a3c6b93cf0941d27a0189c8745"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 OPERATIONS = ("ok", "error", "timeout_error", "expire", "finish", "cancel0", "cancel1", "stop",
               "finish_cancel", "cancel_finish")
 MAX_CALLS = 2

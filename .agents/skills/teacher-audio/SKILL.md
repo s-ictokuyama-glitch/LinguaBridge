@@ -22,8 +22,8 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 終了コードとJSONの `status` を両方読む。0は全性質の成功、1は性質の違反、2は検証器・環境の失敗。終了コード1を期待するテストとして包んで成功扱いにしない。
 
-[基準結果](../../../scripts/formal/teacher_audio_baseline.json) は総合 `FAIL`。`capture.bounded` は85候補、合法24列、成功20列、違反4列。`capture.sustained` と `translation` は `PASS`、30,000フレーム、英中各600字幕を確認する。
-`mutations.results` は5件すべて `detected: true`。正常対照が `PASS` で、指定した性質の違反を検出したことまで確認する。`restored_bounded_matches: true` と `restored_translation: PASS` は元の既知反例集合と正常入力へ戻ったことを示す。
+[基準結果](../../../scripts/formal/teacher_audio_baseline.json) は総合 `PASS`。`capture.bounded` は85候補、合法24列、成功24列、違反0列。`capture.sustained` と `translation` は `PASS`、30,000フレーム、英中各600字幕を確認する。
+`mutations.results` は7件すべて `detected: true`。Contextの再開と終了trackの再取得をそれぞれ無効化した場合も `capture_liveness` 違反を検出する。正常対照が `PASS` で、指定した性質の違反を検出したことまで確認する。`restored: PASS`、`restored_bounded_matches: true` と `restored_translation: PASS` は元の成功結果へ戻ったことを示す。
 
 `--seconds 5` と `--case initial|paused|resume_suspended|resume_ended` は短い切分け用。`--case` には列挙した名前を1つ渡す。最終確認には既定の全探索・3000秒入力を使う。
 
@@ -37,27 +37,27 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_a
 
 通常のアプリ依存と同じPlaywrightがある `.venv/Scripts/python.exe` も使える。
 実getUserMedia、MediaStream、AudioContext、AudioWorklet、ループバックHTTP/WS、授業と字幕処理を通す。機器とASR・MT計算は代役。物理マイクを使用しない。
-[ブラウザー基準結果](../../../scripts/formal/teacher_audio_browser_baseline.json) は通常対照 `PASS`、`suspend` と `ended` が `FAIL`、終了コード1。再開後1.5秒の音声と、最後のpauseから1秒後の英中字幕増分を読む。通常対照が失敗した場合は `ERROR` として環境・検証器を調べる。
+[ブラウザー基準結果](../../../scripts/formal/teacher_audio_browser_baseline.json) は通常対照、`suspend`、`ended` の全3ケース `PASS`、終了コード0。再開後1.5秒の音声と、最後のpauseから1秒後の英中字幕増分を読む。通常対照が失敗した場合は `ERROR` として環境・検証器を調べる。
 
 ## 反例を判断する
 
-現行実装では次の順序が失敗する。
+`0710fa3` で修正する前は次の順序が失敗した。
 
 1. 開始して音声と字幕が届くことを確認する。
 2. 一時停止する。Contextを `suspend()` するか、現在のtrackを `stop()` する。
 3. 再開ボタンを押す。`ensureMic` が `micReady` だけで戻り、開始制御は送信される。
 4. Context休止ではPCMが止まる。track終了では無音PCMが届き続ける。両方とも新しい英中字幕は届かない。
 
-有界探索では故障とpauseを逆順にした2列も失敗する。自動復旧は要求せず、先生が再開を押した後を判定する。送信件数だけの確認はtrack終了を見逃すため、新しいPCM値を比較する。
-実コードの反例は保持する。製品修正は依頼された場合に行い、修正後は同じ性質のまま全列が成功することを確認する。
+修正前の有界探索では故障とpauseを逆順にした2列も失敗した。現行実装はContextを再開し、生きたtrackがなければ再取得してから開始する。自動復旧は要求せず、先生が再開を押した後を判定する。送信件数だけの確認はtrack終了を見逃すため、新しいPCM値を比較する。
+同じ性質で全列が成功することを確認する。新しい反例が出たら保持し、製品修正は依頼された場合に行う。
 
 ## 実装との同期を確認する
 
-同期コミットは `e97e06890846bb48de7b5f16dfa65bd8cbb86a77`。
+同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 | 対象 | 照合する契約 |
 |---|---|
-| `web/teacher.js` | `init` のクリック、`ensureMic`、`attachStream`、Workletからの送信、`connect`、`applySessionState`、`setButtons` |
+| `web/teacher.js` | `init` のクリック、`ensureMic`、`requestMic`、`hasLiveMic`、`attachStream`、Workletからの送信、`connect`、`applySessionState`、`setButtons`。マイク選択・列挙は再開経路との対応を読む |
 | `web/audio-worklet.js` | `PCM16Downsampler.process` の48kHz→16kHz変換と1600サンプル送信 |
 | `server/connection.py`、`server/lesson.py` | 参加、開始、音声を実Pipelineへ渡す処理 |
 | `server/pipeline.py`、`server/caption_delivery.py` | PCM受理、ASR、Turn確定、翻訳、先生と英中生徒への配信、停止 |
@@ -67,7 +67,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_a
 | `scripts/qa_native_browser.py`、`scripts/qa_browser.py`、`tests/conftest.py`、`tests/helpers.py`、`server/main.py`、`web/student.js` | 別コマンドの実サーバー起動・合成機器・字幕観測 |
 
 ```powershell
-git diff e97e06890846bb48de7b5f16dfa65bd8cbb86a77 -- web/teacher.js web/audio-worklet.js server scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py scripts/qa_native_browser.py scripts/qa_browser.py tests/conftest.py tests/helpers.py web/student.js
+git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- web/teacher.js web/audio-worklet.js server scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py scripts/qa_native_browser.py scripts/qa_browser.py tests/conftest.py tests/helpers.py web/student.js
 ```
 
 メディア状態・クリック処理・await境界が変わったら操作の合法性と代役を照合する。実ブラウザーとの一致、全探索、正常50分入力、破壊検出と復元を確認した後だけ、この同期コミット、Pythonの `SYNC_COMMIT`、基準結果を更新する。同期先は検証した対象ファイルと同じ内容を持つ基のブランチの履歴から選ぶ。未確認の変更が溜まった場合は `/maintain-formal-verification-skill` を使う。
@@ -77,4 +77,4 @@ git diff e97e06890846bb48de7b5f16dfa65bd8cbb86a77 -- web/teacher.js web/audio-wo
 Node VMで実JSへの有限入力を全列挙する。別言語へ実装を写すモデルより、実コードの早期returnを直接検査する方法を選んだ。SMT・無制限の証明ではない。
 初回開始を固定し、pause・start・suspend・end_trackの長さ0〜3を全列挙する。pauseはlive、startはpaused、suspendはrunning、end_trackはlive trackに限る。クリック後は200msの新しい値の音声で判定する。DOM・Media API・WS応答は決定的な代役で、Promise完了順序の全探索ではない。
 50分ケースは48kHz・128サンプル入力、4秒の声と1秒の無音、600発話を実Workletと先生の送信処理に渡す。全PCM値を独立した入力計画と比較し、実Connectionから英中字幕まで通す。ASR 0.1仮想秒、言語ごとのMT 0.2仮想秒、100msごとの入力と各16周回のcallback処理、末尾10仮想秒の排出を使用する。発話ごとのdrain待ちは行わない。
-計算はIDを返す代役、VADはenergy、Turnはsimple、partialは無効。正常50分ケースと障害後の短い再開確認は別の保証。実時間の50分性能、物理機器の抜去・OSスリープの発生条件、実モデル精度、LAN、全ブラウザー、送信buffer容量、マイク切替の競合、新しい先生タブ、既定morphの網羅は対象外。
+計算はIDを返す代役、VADはenergy、Turnはsimple、partialは無効。正常50分ケースと障害後の短い再開確認は別の保証。実時間の50分性能、物理機器の抜去・OSスリープの発生条件、実モデル精度、LAN、全ブラウザー、送信buffer容量、マイク取得拒否、既定マイクへの切替、マイク切替の競合、新しい先生タブ、既定morphの網羅は対象外。取得拒否と選択競合は通常の先生画面テストで確認する。

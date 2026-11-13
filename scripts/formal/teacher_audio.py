@@ -15,7 +15,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "e97e06890846bb48de7b5f16dfa65bd8cbb86a77"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 CAPTURE = Path(__file__).with_suffix(".cjs")
 
 
@@ -124,6 +124,10 @@ def check(source_root, seconds, case=None):
 MUTATIONS = (
     ("initial_context_never_resumed", "initial", "capture_liveness", "web/teacher.js",
      "await ctx.resume();", "// injected: leave the initial context suspended"),
+    ("suspended_context_never_resumed", "resume_suspended", "capture_liveness", "web/teacher.js",
+     "await state.audioCtx.resume();", "void 0;"),
+    ("ended_track_never_reacquired", "resume_ended", "capture_liveness", "web/teacher.js",
+     'request = requestMic("recover", storageGet(STORAGE_MIC_DEVICE) || "");', 'request = null;'),
     ("audio_sent_while_paused", "paused", "inactive_quiet", "web/teacher.js",
      'state.sessionState === "live" &&', 'true &&'),
     ("wrong_pcm_packet_size", "initial", "pcm_framing", "web/audio-worklet.js",

@@ -25,6 +25,7 @@ Windows の制限環境で `socket.socketpair` の初期化が停止したら、
 `bounded` は60ケース、`native` は全8ケースの `PASS` を確認する。準備を解放する4対照は同じPIDを再利用し、解放しない4ケースは `reaped_without_new_requests: true` と後続ID 3・4の英中字幕を確認する。全8ケースで `pipeline_stop_returned` と `all_children_reaped` を確認する。
 `mutations` は破壊4種の `detected: true` と `restored: PASS` を確認する。準備期限の無効化は4条件すべてで `startup_recovery` 違反を検出する。破壊は一時コピーにだけ適用する。
 Traceback、外側監視の期限超過、破壊箇所の置換不一致、結果なしは検証器か環境の失敗として調査する。
+検証器のPID通知を変更した場合は `.venv/Scripts/python.exe -X utf8 -B -m pytest scripts/formal/test_process_markers.py -q` も実行する。書込み途中のPIDが観測されず、公開後に完全なPIDを読めることを確認する。
 
 ## 反例を判断する
 
@@ -40,7 +41,7 @@ Traceback、外側監視の期限超過、破壊箇所の置換不一致、結�
 
 ## 実装との同期を確認する
 
-最終同期コミットは `4bdd9b28b9076f913ba82363dba947f7f1689d74`。
+最終同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 | 対象 | 確認する契約 |
 |---|---|
@@ -54,7 +55,7 @@ Traceback、外側監視の期限超過、破壊箇所の置換不一致、結�
 | `scripts/formal/lesson_endurance.py` | 再利用する `pid_exists` のOS上の生存確認 |
 
 ```powershell
-git diff 4bdd9b28b9076f913ba82363dba947f7f1689d74 -- server/inference_process.py server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/config.py config.yaml scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py
+git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- server/inference_process.py server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/config.py config.yaml scripts/formal/lesson_liveness.py scripts/formal/lesson_endurance.py
 ```
 
 世代の所有権、準備待ちの共有、await 境界、期限の起点、取消し、子プロセス回収との対応を確認する。

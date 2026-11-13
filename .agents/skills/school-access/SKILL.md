@@ -30,6 +30,6 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_a
 
 ## 同期を保つ
 
-同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。対応する製品ファイルは `server/source_access.py`、`main.py`、`serving.py`、`rate_limit.py`、`lesson.py`、呼出し経路の `connection.py`。関数単位の対応と原子性は[性質の定義](../../../scripts/formal/school_access.md)に置く。
+同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。対応する製品ファイルは `server/source_access.py`、`main.py`、`serving.py`、`rate_limit.py`、`lesson.py`、呼出し経路の `connection.py`。関数単位の対応と原子性は[性質の定義](../../../scripts/formal/school_access.md)に置く。
 
 変更時はガードの位置、await、時計の読取り、ASGI の送信元、Uvicorn 設定を照合する。検査対象の分岐が増えたら入力分類と破壊版も追加する。通常版と対応する破壊版の結果が意図どおりになった後で、このファイルと検証器の `SYNC_COMMIT` を進める。追随作業には `/maintain-formal-verification-skill` を使える。

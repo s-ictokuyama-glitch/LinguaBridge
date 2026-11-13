@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 OPERATIONS = ("send", "send_history", "dispatch", "success", "error", "timeout", "close", "abort")
 
 

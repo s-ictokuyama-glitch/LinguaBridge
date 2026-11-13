@@ -77,7 +77,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 `Lesson.join` は `Roster.add` の完了後、返された先生がまだ名簿に在籍する場合だけ参加後の処理を行う。
 除去済み先生は自動再開と無音警告の再武装を行わない。
 修正後は全4,356候補列のうち668列が合法で、違反は0件となる。専用再現も `PASS` となる。
-同期コミットと基準結果は修正前の比較元として保持する。
+基準結果は修正前の比較元として保持する。現在の同期コミットは [teacher-lifecycle スキル](../../.agents/skills/teacher-lifecycle/SKILL.md) に記録する。
 
 ## 検出器を壊して確認する
 
