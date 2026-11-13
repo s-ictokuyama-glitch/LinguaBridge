@@ -29,7 +29,7 @@ TEACHER_CODE = "604831"
 CODES = {"teacher": TEACHER_CODE, "student": JOIN_CODE}
 JOIN_EVENTS = tuple(itertools.product(CODES, (*CODES, "unknown")))
 MAX_JOINS = 3
-SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 
 
 class Wire:

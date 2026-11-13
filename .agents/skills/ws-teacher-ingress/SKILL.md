@@ -21,7 +21,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 送信元の制限、役割違いのコードに対する応答、参加制限をまたぐ再試行を変更したときは、境界テストも実行する。
 
-参加の失敗回数・制限時間・役割別消去・IPの引渡しを変更したときは、次の拡張検査を実行する。認可の260シナリオに加え、実 `Lesson.join` と `JoinRateLimiter` の4,891状態・28,586遷移、解除時刻の960ケース、実WebSocketの13ケース、参加制限に対する13件の破壊検出を確認する。参加制限部分の同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。
+参加の失敗回数・制限時間・役割別消去・IPの引渡しを変更したときは、次の拡張検査を実行する。認可の260シナリオに加え、実 `Lesson.join` と `JoinRateLimiter` の4,891状態・28,586遷移、解除時刻の960ケース、実WebSocketの13ケース、参加制限に対する13件の破壊検出を確認する。参加制限部分の同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 ```powershell
 uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_access_requirements.txt python -X utf8 -B scripts/formal/ws_teacher_ingress.py --mutation-check --join-limit-check
@@ -44,7 +44,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/school_a
 
 ## 実装との対応
 
-同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。
+同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。
 
 - [server/connection.py](../../../server/connection.py) の `Connection.receive` が各受信フレームのサイズ、役割、在籍を確認して処理へ渡す。
 - [server/lesson.py](../../../server/lesson.py) の `Lesson.join` が役割に対応するコードを照合し、拒否時は接続の役割を保持する。

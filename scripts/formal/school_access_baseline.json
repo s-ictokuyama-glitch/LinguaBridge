@@ -974,8 +974,8 @@
       }
     }
   },
-  "sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
-  "product_root": "C:\\Users\\esesm\\OneDrive\\\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\\GitHub\\LinguaBridge",
+  "sync_commit": "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1",
+  "product_root": "C:\\Users\\esesm\\OneDrive\\ドキュメント\\GitHub\\LinguaBridge",
   "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
   "dependencies": {
     "fastapi": "0.141.1",

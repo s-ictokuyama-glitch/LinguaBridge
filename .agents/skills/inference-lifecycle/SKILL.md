@@ -38,7 +38,7 @@ uv run --python 3.12.10 --no-project python -X utf8 -B scripts/formal/inference_
 
 ## 実装との同期を確認する
 
-最終同期コミットは `1f5bc911317534a3c6b93cf0941d27a0189c8745`。検証器の `SYNC_COMMIT` と [基準結果](../../../scripts/formal/inference_lifecycle_baseline.json) にも記録する。
+最終同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。検証器の `SYNC_COMMIT` と [基準結果](../../../scripts/formal/inference_lifecycle_baseline.json) にも記録する。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -49,7 +49,7 @@ uv run --python 3.12.10 --no-project python -X utf8 -B scripts/formal/inference_
 | `tests/unit/test_inference.py` | Executor の制御方式と通常テストとの対応 |
 
 ```powershell
-git diff 1f5bc911317534a3c6b93cf0941d27a0189c8745 -- server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/asr/ server/config.py config.yaml tests/unit/test_inference.py
+git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- server/inference.py server/pipeline.py server/caption_delivery.py server/main.py server/asr/ server/config.py config.yaml tests/unit/test_inference.py
 ```
 
 対応する実装が変わったら、Futureの状態遷移、待機のキャンセル伝播、Executorの直列性を照合する。通常版の全探索、実スレッド、全破壊の検出を確認した後で、同期コミットと基準結果を更新する。破壊の置換箇所が一致しなければ、新実装に合う破壊へ更新する。未確認の変更から同期を戻すときは `/maintain-formal-verification-skill` を使える。

@@ -1,5 +1,5 @@
 {
-  "sync_commit": "1f5bc911317534a3c6b93cf0941d27a0189c8745",
+  "sync_commit": "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1",
   "python": "3.12.10",
   "coverage": {
     "deadline_cases": 6,
@@ -208,7 +208,7 @@
       "pipeline_stop_returned": true,
       "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
       "initial_startup_s": 0.437,
-      "old_pid": 28428,
+      "old_pid": 38840,
       "old_pid_reaped_after_timeout": null,
       "actual": {
         "en": true,
@@ -261,11 +261,11 @@
       ],
       "notices": [],
       "stop_while_blocked": true,
-      "stop_hang_pid": 28428,
+      "stop_hang_pid": 38840,
       "stop_hang_pid_alive": true,
       "child_pids": [
-        27268,
-        28428
+        304,
+        38840
       ],
       "all_children_reaped": true,
       "process_exit": {
@@ -285,14 +285,14 @@
       "expected": "second utterance reaches both languages and every child is reaped",
       "pipeline_stop_returned": true,
       "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
-      "initial_startup_s": 0.734,
-      "old_pid": 29788,
+      "initial_startup_s": 0.422,
+      "old_pid": 27856,
       "old_pid_reaped_after_timeout": true,
       "actual": {
         "en": true,
         "zh": true
       },
-      "recovery_elapsed_s": 0.843,
+      "recovery_elapsed_s": 0.25,
       "expected_captions": {
         "en": [
           {
@@ -341,12 +341,12 @@
         "asr_timeout"
       ],
       "stop_while_blocked": true,
-      "stop_hang_pid": 21780,
+      "stop_hang_pid": 29656,
       "stop_hang_pid_alive": true,
       "child_pids": [
-        21780,
-        29788,
-        30240
+        21668,
+        27856,
+        29656
       ],
       "all_children_reaped": true,
       "process_exit": {
@@ -366,8 +366,8 @@
       "expected": "second utterance reaches both languages and every child is reaped",
       "pipeline_stop_returned": true,
       "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
-      "initial_startup_s": 0.64,
-      "old_pid": 29312,
+      "initial_startup_s": 0.344,
+      "old_pid": 4716,
       "old_pid_reaped_after_timeout": null,
       "actual": {
         "en": true,
@@ -420,11 +420,11 @@
       ],
       "notices": [],
       "stop_while_blocked": true,
-      "stop_hang_pid": 29312,
+      "stop_hang_pid": 4716,
       "stop_hang_pid_alive": true,
       "child_pids": [
-        3648,
-        29312
+        4716,
+        16740
       ],
       "all_children_reaped": true,
       "process_exit": {
@@ -444,14 +444,14 @@
       "expected": "second utterance reaches both languages and every child is reaped",
       "pipeline_stop_returned": true,
       "scope": "real process backend; finite test watchdogs, not a recovery latency SLO",
-      "initial_startup_s": 0.656,
-      "old_pid": 29608,
+      "initial_startup_s": 0.359,
+      "old_pid": 37824,
       "old_pid_reaped_after_timeout": true,
       "actual": {
         "en": true,
         "zh": true
       },
-      "recovery_elapsed_s": 0.25,
+      "recovery_elapsed_s": 0.156,
       "expected_captions": {
         "en": [
           {
@@ -500,12 +500,12 @@
         "mt_timeout"
       ],
       "stop_while_blocked": true,
-      "stop_hang_pid": 27444,
+      "stop_hang_pid": 21944,
       "stop_hang_pid_alive": true,
       "child_pids": [
-        1916,
-        27444,
-        29608
+        21944,
+        34464,
+        37824
       ],
       "all_children_reaped": true,
       "process_exit": {

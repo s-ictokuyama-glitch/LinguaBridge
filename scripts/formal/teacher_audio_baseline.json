@@ -1,135 +1,18 @@
 {
-  "status": "FAIL",
-  "sync_commit": "e97e06890846bb48de7b5f16dfa65bd8cbb86a77",
+  "status": "PASS",
+  "sync_commit": "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1",
   "tools": {
     "python": "3.12.10",
     "node": "v24.22.1"
   },
   "capture": {
-    "status": "FAIL",
+    "status": "PASS",
     "bounded": {
       "attempted": 85,
       "legal": 24,
-      "passed": 20,
-      "failed": 4,
-      "violations": [
-        {
-          "property": "capture_liveness",
-          "trace": [
-            "start",
-            "pause",
-            "suspend",
-            "start"
-          ],
-          "expected": {
-            "new_pcm_sample": 1003,
-            "minimum_packets": 1
-          },
-          "actual": {
-            "audio_state": "suspended",
-            "tracks": [
-              "live"
-            ],
-            "mic_ready": true,
-            "session_state": "live",
-            "packets": 2,
-            "nonzero_packets": 2,
-            "matching_packets": 2,
-            "frame_sizes": [
-              3200
-            ],
-            "packets_since_start": 0,
-            "matching_since_start": 0
-          }
-        },
-        {
-          "property": "capture_liveness",
-          "trace": [
-            "start",
-            "pause",
-            "end_track",
-            "start"
-          ],
-          "expected": {
-            "new_pcm_sample": 1003,
-            "minimum_packets": 1
-          },
-          "actual": {
-            "audio_state": "running",
-            "tracks": [
-              "ended"
-            ],
-            "mic_ready": true,
-            "session_state": "live",
-            "packets": 4,
-            "nonzero_packets": 2,
-            "matching_packets": 2,
-            "frame_sizes": [
-              3200
-            ],
-            "packets_since_start": 2,
-            "matching_since_start": 0
-          }
-        },
-        {
-          "property": "capture_liveness",
-          "trace": [
-            "start",
-            "suspend",
-            "pause",
-            "start"
-          ],
-          "expected": {
-            "new_pcm_sample": 1003,
-            "minimum_packets": 1
-          },
-          "actual": {
-            "audio_state": "suspended",
-            "tracks": [
-              "live"
-            ],
-            "mic_ready": true,
-            "session_state": "live",
-            "packets": 2,
-            "nonzero_packets": 2,
-            "matching_packets": 2,
-            "frame_sizes": [
-              3200
-            ],
-            "packets_since_start": 0,
-            "matching_since_start": 0
-          }
-        },
-        {
-          "property": "capture_liveness",
-          "trace": [
-            "start",
-            "end_track",
-            "pause",
-            "start"
-          ],
-          "expected": {
-            "new_pcm_sample": 1003,
-            "minimum_packets": 1
-          },
-          "actual": {
-            "audio_state": "running",
-            "tracks": [
-              "ended"
-            ],
-            "mic_ready": true,
-            "session_state": "live",
-            "packets": 4,
-            "nonzero_packets": 2,
-            "matching_packets": 2,
-            "frame_sizes": [
-              3200
-            ],
-            "packets_since_start": 2,
-            "matching_since_start": 0
-          }
-        }
-      ]
+      "passed": 24,
+      "failed": 0,
+      "violations": []
     },
     "sustained": {
       "status": "PASS",
@@ -191,6 +74,74 @@
             "nonzero_packets": 0,
             "matching_packets": 0,
             "frame_sizes": [],
+            "packets_since_start": 0,
+            "matching_since_start": 0
+          }
+        }
+      },
+      {
+        "name": "suspended_context_never_resumed",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "pause",
+            "suspend",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "suspended",
+            "tracks": [
+              "live"
+            ],
+            "mic_ready": true,
+            "session_state": "paused",
+            "packets": 2,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
+            "packets_since_start": 0,
+            "matching_since_start": 0
+          }
+        }
+      },
+      {
+        "name": "ended_track_never_reacquired",
+        "healthy": "PASS",
+        "detected": true,
+        "violation": {
+          "property": "capture_liveness",
+          "trace": [
+            "start",
+            "pause",
+            "end_track",
+            "start"
+          ],
+          "expected": {
+            "new_pcm_sample": 1003,
+            "minimum_packets": 1
+          },
+          "actual": {
+            "audio_state": "running",
+            "tracks": [
+              "ended"
+            ],
+            "mic_ready": true,
+            "session_state": "paused",
+            "packets": 2,
+            "nonzero_packets": 2,
+            "matching_packets": 2,
+            "frame_sizes": [
+              3200
+            ],
             "packets_since_start": 0,
             "matching_since_start": 0
           }
@@ -280,12 +231,12 @@
         }
       }
     ],
-    "restored": "FAIL",
+    "restored": "PASS",
     "restored_bounded_matches": true,
     "restored_translation": "PASS"
   },
   "source_sha256": {
-    "web/teacher.js": "881c6717e78547f114badd7ca9f02671fa8a609835aa97e850ecb719fa8f2758",
+    "web/teacher.js": "93081132015a3361963fc24df69204fa3ca7e089150b663083d09ce4b22706a6",
     "web/audio-worklet.js": "35604f3ed8c18f439529189ccb1fcfae7f63df6ef26b272fac95fe3a544904e2",
     "server/connection.py": "f2428f8ff939d06f77aef62e371e3418c4f122cea792493973ff364803ed8f09",
     "server/lesson.py": "307c6a3cf472e4fce509258006f6e7a6078d65e4b42bd0f335681d222e57086e",

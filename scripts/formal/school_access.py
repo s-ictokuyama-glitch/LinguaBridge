@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 JOIN, TEACHER = "4831", "604831"
 DEPTH = 8
 TIMES = (0.0, 59.9, 60.0, 60.1, 120.1)

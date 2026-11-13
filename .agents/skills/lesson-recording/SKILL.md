@@ -34,7 +34,7 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 
 ## 変更との同期を確認する
 
-最終同期コミットは `5381edb92062d1a35972b3a7dee8d387c5b0aa1b`。結果 JSON の `sync_commit` に出る。
+最終同期コミットは `4efcb9f6edd2b1e39aea9c173d9b8b29870861f1`。結果 JSON の `sync_commit` に出る。
 
 | ファイル | 照合する処理 |
 |---|---|
@@ -47,7 +47,7 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 | `server/asr/fake_engine.py`、`server/inference.py` | 入力振幅と認識文の対応、制御可能な executor を使う ASR 待機 |
 | `server/caption_delivery.py` | `confirm`、`publish`、`drain`。生徒不在で翻訳ジョブは発生しない |
 
-`git diff 5381edb92062d1a35972b3a7dee8d387c5b0aa1b -- server/lesson.py server/pipeline.py server/recorder.py server/asr_backlog.py server/turn/assembler.py server/config.py server/asr/fake_engine.py server/inference.py server/caption_delivery.py` を確認する。
+`git diff 4efcb9f6edd2b1e39aea9c173d9b8b29870861f1 -- server/lesson.py server/pipeline.py server/recorder.py server/asr_backlog.py server/turn/assembler.py server/config.py server/asr/fake_engine.py server/inference.py server/caption_delivery.py` を確認する。
 対象処理が変わったら、操作集合、障害注入、時間予算、期待する所属を実装に照らして更新する。
 `--mutation-check` は一時コピーで記録器の交換と再開前の保存待ちを削除し、暫定保存を誤って封印する破壊も加えて検出を確認する。
 実行元の製品コードは変更しない。破壊用の置換箇所が見つからなければ、新しい実装に合わせて見直す。
@@ -63,5 +63,5 @@ Windows の制限環境で asyncio が内部 socketpair の生成に停止した
 ASR 上限は90秒とする。保存完了を待つ間にイベントループの時計を30秒進め、保存待機の期限切れを最大2回起こす。バックグラウンドの排出は継続し、拒否された再開は完了後に再試行する。実時間の経過は検証しない。
 保存失敗は write 前と最初の Markdown 書込前の OSError を対象とする。
 暫定保存は遅着結果を補うため更新し、最終保存されたファイルだけ不変性を確認する。
-発話順、seq、時刻、翻訳、Markdown の内容、実モデル、通信、サーバー停止、クラッシュ、同時 control はこの有界探索の対象外。
+発話順、seq、時刻、翻訳、Markdown の内容、実モデル、通信、サーバー停止、クラッシュ、同時 control、先生画面の終了ボタンからの保存再試行はこの有界探索の対象外。
 通常の pytest は別途、morph、複数 ASR、遅延翻訳、記録OFFでの再開拒否、WebSocket を閉じる前の終了通知と保存を確認する。

@@ -1,0 +1,751 @@
+{
+  "checked_commit": "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1",
+  "product_changes": false,
+  "reduced_bounds": false,
+  "checks": [
+    {
+      "name": "asr_backlog",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "attempted": 22621,
+          "legal": 4981,
+          "violations": 0
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "ignore_active",
+          "detected": true
+        },
+        {
+          "name": "reverse_queue",
+          "detected": true
+        },
+        {
+          "name": "leak_active",
+          "detected": true
+        },
+        {
+          "name": "forget_done",
+          "detected": true
+        },
+        {
+          "name": "busy_interim",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "caption_recovery",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "schedules": 1562,
+          "admission": 2,
+          "witnesses": 4,
+          "violating_scenarios": 0,
+          "screens": 1568
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "mutations[0]",
+          "detected": true
+        },
+        {
+          "name": "mutations[1]",
+          "detected": true
+        },
+        {
+          "name": "mutations[2]",
+          "detected": true
+        },
+        {
+          "name": "mutations[3]",
+          "detected": true
+        },
+        {
+          "name": "mutations[4]",
+          "detected": true
+        },
+        {
+          "name": "mutations[5]",
+          "detected": true
+        },
+        {
+          "name": "mutations[6]",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "client_delivery",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "attempted": 9362,
+          "legal": 1211,
+          "violations": 0
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "unbounded_queue",
+          "detected": true
+        },
+        {
+          "name": "fill_reserved_slot",
+          "detected": true
+        },
+        {
+          "name": "disconnect_on_history_drop",
+          "detected": true
+        },
+        {
+          "name": "reverse_queue",
+          "detected": true
+        },
+        {
+          "name": "accept_after_close",
+          "detected": true
+        },
+        {
+          "name": "forget_retry",
+          "detected": true
+        },
+        {
+          "name": "lose_drain",
+          "detected": true
+        },
+        {
+          "name": "ignore_timeout",
+          "detected": true
+        },
+        {
+          "name": "ignore_transport_error",
+          "detected": true
+        },
+        {
+          "name": "shared_sender",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "inference_lifecycle",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "1f5bc911317534a3c6b93cf0941d27a0189c8745",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "attempted": 111111,
+        "legal": 1850
+      },
+      "detected_mutations": [
+        {
+          "name": "parallel_workers",
+          "detected": true
+        },
+        {
+          "name": "keep_queued_on_stop",
+          "detected": true
+        },
+        {
+          "name": "swallow_cancel",
+          "detected": true
+        },
+        {
+          "name": "operation_timeout_as_deadline",
+          "detected": true
+        },
+        {
+          "name": "duplicate_execution",
+          "detected": true
+        },
+        {
+          "name": "blocking_stop",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "inference_startup",
+      "outcome": "updated",
+      "initial_status": "PASS",
+      "initial_sync_commit": "4bdd9b28b9076f913ba82363dba947f7f1689d74",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {},
+      "detected_mutations": [
+        {
+          "name": "cancel_shared_startup",
+          "detected": true
+        },
+        {
+          "name": "wrong_resumed_translation",
+          "detected": true
+        },
+        {
+          "name": "skip_startup_cleanup",
+          "detected": true
+        },
+        {
+          "name": "disable_startup_deadline",
+          "detected": true
+        },
+        {
+          "name": "mutations[3].cases[0]",
+          "detected": true
+        },
+        {
+          "name": "mutations[3].cases[1]",
+          "detected": true
+        },
+        {
+          "name": "mutations[3].cases[2]",
+          "detected": true
+        },
+        {
+          "name": "mutations[3].cases[3]",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "lesson_endurance",
+      "outcome": "updated",
+      "initial_status": "ERROR",
+      "initial_sync_commit": null,
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "coverage": {
+          "deadline_cases": 6,
+          "lesson_profiles": 8,
+          "seconds_per_profile": 3000,
+          "native_cases": 4
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "double_deadline",
+          "detected": true
+        },
+        {
+          "name": "stop_asr_after_300",
+          "detected": true
+        },
+        {
+          "name": "lose_mt_wakeup",
+          "detected": true
+        },
+        {
+          "name": "unbounded_translation_cache",
+          "detected": true
+        },
+        {
+          "name": "wrong_caption",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "lesson_liveness",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "1f5bc911317534a3c6b93cf0941d27a0189c8745",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "attempted": 19531,
+        "legal": 413
+      },
+      "detected_mutations": [
+        {
+          "name": "stop_asr_after_16",
+          "detected": true
+        },
+        {
+          "name": "lose_mt_wakeup",
+          "detected": true
+        },
+        {
+          "name": "drop_full_live_job",
+          "detected": true
+        },
+        {
+          "name": "drain_before_mt",
+          "detected": true
+        },
+        {
+          "name": "wrong_translation",
+          "detected": true
+        },
+        {
+          "name": "wrong_recognition",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "lesson_recording",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "commands": 1555,
+          "pending": 8,
+          "injected_drain_timeouts": 10,
+          "save": 4
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "mutations[0]",
+          "detected": true
+        },
+        {
+          "name": "mutations[1]",
+          "detected": true
+        },
+        {
+          "name": "mutations[2]",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "school_access",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {},
+      "detected_mutations": [
+        {
+          "name": "mutations.source_guard_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.source_global_reversed",
+          "detected": true
+        },
+        {
+          "name": "mutations.missing_source_allowed",
+          "detected": true
+        },
+        {
+          "name": "mutations.forwarded_source_trusted",
+          "detected": true
+        },
+        {
+          "name": "mutations.websocket_gate_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.app_middleware_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.static_gate_bypassed",
+          "detected": true
+        },
+        {
+          "name": "mutations.proxy_headers_enabled",
+          "detected": true
+        },
+        {
+          "name": "mutations.disclosure_guard_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.disclosure_condition_reversed",
+          "detected": true
+        },
+        {
+          "name": "mutations.remote_private_disclosed",
+          "detected": true
+        },
+        {
+          "name": "mutations.https_disclosed",
+          "detected": true
+        },
+        {
+          "name": "mutations.host_disclosed",
+          "detected": true
+        },
+        {
+          "name": "mutations.forwarded_disclosed",
+          "detected": true
+        },
+        {
+          "name": "mutations.loopback_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.equal_socket_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.public_equal_disclosed",
+          "detected": true
+        },
+        {
+          "name": "mutations.failure_not_counted",
+          "detected": true
+        },
+        {
+          "name": "mutations.roles_not_summed",
+          "detected": true
+        },
+        {
+          "name": "mutations.threshold_late",
+          "detected": true
+        },
+        {
+          "name": "mutations.success_clears_both_roles",
+          "detected": true
+        },
+        {
+          "name": "mutations.success_clears_neither",
+          "detected": true
+        },
+        {
+          "name": "mutations.expiry_late",
+          "detected": true
+        },
+        {
+          "name": "mutations.expiry_early",
+          "detected": true
+        },
+        {
+          "name": "mutations.deadline_shortened",
+          "detected": true
+        },
+        {
+          "name": "mutations.blocked_guard_removed",
+          "detected": true
+        },
+        {
+          "name": "mutations.success_wrong_role",
+          "detected": true
+        },
+        {
+          "name": "mutations.failure_wrong_role",
+          "detected": true
+        },
+        {
+          "name": "mutations.shared_ip_key",
+          "detected": true
+        },
+        {
+          "name": "mutations.ws_ip_shared",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "teacher_audio",
+      "outcome": "updated",
+      "initial_status": "PASS",
+      "initial_sync_commit": "e97e06890846bb48de7b5f16dfa65bd8cbb86a77",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {},
+      "detected_mutations": [
+        {
+          "name": "initial_context_never_resumed",
+          "detected": true
+        },
+        {
+          "name": "suspended_context_never_resumed",
+          "detected": true
+        },
+        {
+          "name": "ended_track_never_reacquired",
+          "detected": true
+        },
+        {
+          "name": "audio_sent_while_paused",
+          "detected": true
+        },
+        {
+          "name": "wrong_pcm_packet_size",
+          "detected": true
+        },
+        {
+          "name": "wrong_pcm_samples",
+          "detected": true
+        },
+        {
+          "name": "wrong_translation",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "teacher_lifecycle",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "attempted": 4356,
+          "legal": 668,
+          "violating_scenarios": 0
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "keep_old_teacher",
+          "detected": true
+        },
+        {
+          "name": "stale_leave_pauses",
+          "detected": true
+        },
+        {
+          "name": "forget_auto_pause",
+          "detected": true
+        },
+        {
+          "name": "resume_manual_pause",
+          "detected": true
+        },
+        {
+          "name": "pause_after_end",
+          "detected": true
+        },
+        {
+          "name": "forget_auto_resume",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "turn_assembly",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "counts": {
+          "sequences": 30941,
+          "scenarios": 123764,
+          "failed": 0
+        }
+      },
+      "detected_mutations": [
+        {
+          "name": "drop_part",
+          "detected": true
+        },
+        {
+          "name": "reverse_parts",
+          "detected": true
+        },
+        {
+          "name": "forget_asr_sum",
+          "detected": true
+        },
+        {
+          "name": "count_gap_as_audio",
+          "detected": true
+        },
+        {
+          "name": "ignore_count",
+          "detected": true
+        },
+        {
+          "name": "ignore_span",
+          "detected": true
+        },
+        {
+          "name": "keep_closed_id",
+          "detected": true
+        },
+        {
+          "name": "omit_preview_prefix",
+          "detected": true
+        },
+        {
+          "name": "freeze_revision",
+          "detected": true
+        },
+        {
+          "name": "discard_pending_id",
+          "detected": true
+        },
+        {
+          "name": "reuse_reset_id",
+          "detected": true
+        },
+        {
+          "name": "hide_pending",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "vad_segmentation",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "scenarios": 129768
+      },
+      "detected_mutations": [
+        {
+          "name": "drop_carry",
+          "detected": true
+        },
+        {
+          "name": "duplicate_carry",
+          "detected": true
+        },
+        {
+          "name": "drop_chunk_remainder",
+          "detected": true
+        },
+        {
+          "name": "drop_pre_roll",
+          "detected": true
+        },
+        {
+          "name": "raise_split_limit",
+          "detected": true
+        },
+        {
+          "name": "drop_flush_output",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "ws_teacher_ingress",
+      "outcome": "in sync",
+      "initial_status": "PASS",
+      "initial_sync_commit": "5381edb92062d1a35972b3a7dee8d387c5b0aa1b",
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {
+        "complete_scenarios": 260
+      },
+      "detected_mutations": [
+        {
+          "name": "mutations.student_audio",
+          "detected": true
+        },
+        {
+          "name": "mutations.replaced_audio",
+          "detected": true
+        },
+        {
+          "name": "mutations.replaced_control",
+          "detected": true
+        },
+        {
+          "name": "mutations.student_control",
+          "detected": true
+        },
+        {
+          "name": "mutations.student_recording",
+          "detected": true
+        },
+        {
+          "name": "mutations.audio_limit",
+          "detected": true
+        },
+        {
+          "name": "mutations.student_code_as_teacher",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.failure_not_counted",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.roles_not_summed",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.threshold_late",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.success_clears_both_roles",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.success_clears_neither",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.expiry_late",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.expiry_early",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.deadline_shortened",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.blocked_guard_removed",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.success_wrong_role",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.failure_wrong_role",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.shared_ip_key",
+          "detected": true
+        },
+        {
+          "name": "join_limit_mutations.ws_ip_shared",
+          "detected": true
+        }
+      ]
+    },
+    {
+      "name": "teacher_audio_browser",
+      "outcome": "updated",
+      "initial_status": "PASS",
+      "initial_sync_commit": null,
+      "status": "PASS",
+      "exit_code": 0,
+      "counts": {},
+      "detected_mutations": []
+    }
+  ]
+}

@@ -14,7 +14,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 VAD_SOURCE = ROOT / "server/audio/vad.py"
-SYNC_COMMIT = "5381edb92062d1a35972b3a7dee8d387c5b0aa1b"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 AMPLITUDE = {"s": 0, "q": 1000, "v": 2000}
 SAMPLE_RATE = 8
 FRAME_SAMPLES = 2

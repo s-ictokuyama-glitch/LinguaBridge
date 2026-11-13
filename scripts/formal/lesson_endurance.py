@@ -20,7 +20,7 @@ import time
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SYNC_COMMIT = "1f5bc911317534a3c6b93cf0941d27a0189c8745"
+SYNC_COMMIT = "4efcb9f6edd2b1e39aea9c173d9b8b29870861f1"
 sys.path.insert(0, str(Path(__file__).parent))
 from lesson_liveness import ControlledExecutor, Recognition, Scenario, Translation, Violation, callbacks, japanese
 
@@ -231,7 +231,10 @@ class HungTranslation(Translation):
 
 
 def block_operation(directory, kind, identity):
-    (directory / f"entered-{kind}-{identity}").write_text(str(os.getpid()), encoding="ascii")
+    marker = directory / f"entered-{kind}-{identity}"
+    pending = marker.with_suffix(".tmp")
+    pending.write_text(str(os.getpid()), encoding="ascii")
+    pending.replace(marker)
     while not (directory / f"release-{kind}-{identity}").exists():
         time.sleep(0.01)
 
