@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+既定morphの文中断片が長無音・文末・一時停止で確定し、英中字幕まで継続することは [morph-lesson スキル](../../.agents/skills/morph-lesson/SKILL.md) と [検証範囲](morph_lesson.md) を参照する。ASR・MT完了順の有限探索と、発話ごとに排出を待たない50分仮想入力を検査する。
+
 既存14検証の同期履歴、再実行結果、検証器の修正は [2026年11月14日の同期記録](maintenance_20261114.md) を参照する。
 
 その後に追加したマイク再取得・切替の競合は [teacher-microphone スキル](../../.agents/skills/teacher-microphone/SKILL.md)、先生画面の終了ボタンからの保存再試行は [teacher-recording-retry スキル](../../.agents/skills/teacher-recording-retry/SKILL.md) を使う。選定理由、探索範囲、基準結果は [先生操作の追加検証](teacher_controls.md) を参照する。
