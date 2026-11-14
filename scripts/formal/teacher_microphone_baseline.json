@@ -1,0 +1,239 @@
+{
+  "status": "PASS",
+  "sync_commit": "df2dd6e93f83fd85a5186898071392599b7e2875",
+  "node": "v24.22.1",
+  "source_sha256": "09f34509468a006c73983c2fd748cdbabf520d8dde1c785ea11c4d8ca3e57a26",
+  "bounds": {
+    "initial_states": 4,
+    "selections": 2,
+    "starts": 1,
+    "selection_devices": [
+      "mic-a",
+      "mic-b",
+      ""
+    ],
+    "completions": "every success/failure order of pending getUserMedia/resume promises"
+  },
+  "bounded": {
+    "status": "PASS",
+    "candidates": 9800,
+    "illegal": 372,
+    "legal": 9428,
+    "passed": 9428,
+    "failed": 0,
+    "settled_prefixes": 5886,
+    "violations": []
+  },
+  "mutations": {
+    "status": "PASS",
+    "results": [
+      {
+        "name": "stale_result_attaches",
+        "property": "input_ownership",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "input_ownership",
+          "expected": {
+            "identity": "old",
+            "device": "mic-a",
+            "live": true
+          },
+          "actual": {
+            "connected": [
+              "call-0"
+            ],
+            "identity": "call-0",
+            "device": "mic-b",
+            "saved": "mic-b",
+            "live": true
+          },
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "select:mic-b",
+            "select:mic-a",
+            "complete:0:resolve"
+          ]
+        }
+      },
+      {
+        "name": "stale_track_leaks",
+        "property": "superseded_cleanup",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "superseded_cleanup",
+          "expected": [],
+          "actual": [
+            "call-0"
+          ],
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "select:mic-b",
+            "select:mic-a",
+            "complete:0:resolve"
+          ]
+        }
+      },
+      {
+        "name": "start_does_not_follow_latest",
+        "property": "start_contract",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "start_contract",
+          "expected": [],
+          "actual": [
+            {
+              "context": "running",
+              "inputs": [
+                {
+                  "identity": "old",
+                  "device": "mic-a"
+                }
+              ]
+            }
+          ],
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "select:mic-b",
+            "click_start",
+            "select:mic-a"
+          ]
+        }
+      },
+      {
+        "name": "recover_does_not_fallback",
+        "property": "request_contract",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "request_contract",
+          "expected": [
+            {
+              "kind": "gum",
+              "device": "mic-a",
+              "pending": false
+            },
+            {
+              "kind": "gum",
+              "device": "",
+              "pending": true
+            }
+          ],
+          "actual": [
+            {
+              "kind": "gum",
+              "device": "mic-a",
+              "pending": false
+            }
+          ],
+          "initial": {
+            "live": false,
+            "context": "running"
+          },
+          "trace": [
+            "click_start",
+            "complete:0:reject"
+          ]
+        }
+      },
+      {
+        "name": "selection_display_not_updated",
+        "property": "selection_display",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "selection_display",
+          "expected": "mic-a",
+          "actual": "mic-b",
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "select:mic-b",
+            "complete:0:reject"
+          ]
+        }
+      },
+      {
+        "name": "fallback_notice_missing",
+        "property": "fallback_notice",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "fallback_notice",
+          "expected": "visible default microphone notice",
+          "actual": {
+            "hidden": true,
+            "text": ""
+          },
+          "initial": {
+            "live": false,
+            "context": "running"
+          },
+          "trace": [
+            "click_start",
+            "complete:0:reject",
+            "complete:1:resolve"
+          ]
+        }
+      },
+      {
+        "name": "failed_selection_notice_missing",
+        "property": "selection_failure_notice",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "selection_failure_notice",
+          "expected": "visible retained microphone notice",
+          "actual": {
+            "hidden": true,
+            "text": ""
+          },
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "select:mic-b",
+            "complete:0:reject"
+          ]
+        }
+      },
+      {
+        "name": "resume_control_disabled",
+        "property": "controls_available",
+        "exit_code": 1,
+        "detected": true,
+        "witness": {
+          "property": "controls_available",
+          "expected": "enabled control",
+          "actual": {
+            "kind": "start"
+          },
+          "initial": {
+            "live": true,
+            "context": "running"
+          },
+          "trace": [
+            "click_start"
+          ]
+        }
+      }
+    ],
+    "restored": "PASS",
+    "restored_matches": true
+  },
+  "elapsed_seconds": 14.200998
+}
