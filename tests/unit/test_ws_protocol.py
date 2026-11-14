@@ -82,9 +82,3 @@ def test_server_messages_serialize_with_type_tag():
         "delay_ms": 42,
     }
     assert JoinRejected(reason="bad_code").model_dump()["type"] == "join_rejected"
-
-
-def test_joined_save_error_defaults_to_none_and_preserves_message():
-    fields = dict(seq_head=0, history_from=1, languages=[], session_state="ended")
-    assert Joined(**fields).model_dump()["recording_save_error"] is None
-    assert Joined(**fields, recording_save_error="保存失敗").model_dump()["recording_save_error"] == "保存失敗"

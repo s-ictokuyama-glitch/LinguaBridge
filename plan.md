@@ -312,6 +312,8 @@ history_resend: 50
 **サーバー → 先生**
 
 ```jsonc
+{ "type": "joined", "seq_head": 12, "history_from": 3,
+  "languages": [...], "session_state": "ended", "recording_save_error": null }
 { "type": "asr_final", "seq": 13, "turn_id": 7, "ja": "...", "asr_ms": 1400 }
 // 確定前の暫定テキスト（#29）。**先生のみ**。履歴・記録・翻訳のいずれにも載らない。
 // 同じ turn_id 内で revision が単調増加し、後着が前を上書きする
@@ -320,6 +322,9 @@ history_resend: 50
   "median_delay_ms": 4100, "overloaded": false }   // 2秒ごと。overloadedは解消でfalseに戻る
 { "type": "error", "code": "mic_silent", "message": "..." }   // 過負荷はstats.overloadedで通知
 ```
+
+先生の `joined.recording_save_error` は、最終保存が失敗済みなら再試行を案内する文言、それ以外は `null` を返す。保存失敗を参加応答1件で復元し、終了ボタンから同じ授業を保存し直せる。生徒の応答にはこの項目を含めない。
+先生画面は明示的な `null` で古い保存警告だけを解除する。旧サーバーから項目が届かない場合は、画面が保持する保存再試行の状態を引き継ぐ。
 
 参加を拒否すると `{"type":"join_rejected", "reason":"bad_code" | "bad_lang" | "rate_limited"}` を返す。コードの照合に5回失敗したIPからの参加を60秒間拒否する。コードの照合に成功すると、同じ役割の失敗回数をリセットする。
 

@@ -20,6 +20,7 @@ from server.roster import Client, ClientSocket
 
 
 logger = logging.getLogger(__name__)
+RECORDING_SAVE_FAILED_MESSAGE = "授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。"
 
 
 def generate_join_code() -> str:
@@ -107,9 +108,16 @@ class Lesson:
             logger.exception("授業記録の保存に失敗しました")
             self.roster.send_teacher(proto.ErrorMsg(
                 code="recording_save_failed",
-                message="授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。",
+                message=RECORDING_SAVE_FAILED_MESSAGE,
             ).model_dump())
             raise RecordingSaveError("授業記録の保存に失敗しました") from error
+
+    def _failed_recording_message(self) -> str | None:
+        task = self._recording_task
+        if task is not None and task.done() and not task.cancelled():
+            if isinstance(task.exception(), RecordingSaveError):
+                return RECORDING_SAVE_FAILED_MESSAGE
+        return None
 
     async def _finish_recording(self) -> Path | None:
         await self.pipeline.drain(timeout=None)
@@ -214,7 +222,8 @@ class Lesson:
                 history_from=self.pipeline.captions.history.history_from,
                 languages=self._config.languages, session_state=self.state,
                 recording=self.recording, speaking=self.pipeline.speaking,
-            ).model_dump(),
+                recording_save_error=self._failed_recording_message(),
+            ).model_dump(exclude={"recording_save_error"} if msg.role == "student" else set()),
         )
         if msg.role == "student" and msg.last_seq is not None:
             await self.pipeline.captions.replay_history(client, msg.last_seq)
