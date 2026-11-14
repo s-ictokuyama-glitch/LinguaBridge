@@ -462,3 +462,47 @@ async def test_restart_retries_failed_save_before_accepting_audio(
         await speak(lesson, 3000)
         await lesson.control("end")
     assert saved_entries(tmp_path) == [[1], [2]]
+
+
+@pytest.mark.parametrize("failure", ["before_write", "after_jsonl"])
+@run_async
+async def test_rejoining_teacher_receives_failed_save_until_retry_succeeds(
+    tmp_path, monkeypatch, failure
+):
+    from server.recorder import SessionRecorder
+
+    async with classroom(recording_config(tmp_path)) as lesson:
+        teacher, original = await join(lesson, role="teacher")
+        await lesson.control("start")
+        await speak(lesson, 1000)
+        with monkeypatch.context() as patch:
+            def fail_write(*args, **kwargs):
+                raise OSError("disk unavailable")
+            method = "write" if failure == "before_write" else "_write_markdown"
+            patch.setattr(SessionRecorder, method, fail_write)
+            assert await lesson.control("end") is None
+            error = await wait_for(original, "error", code="recording_save_failed")
+            await lesson.leave(teacher)
+
+            student, observer = await join(lesson)
+            await lesson.leave(student)
+            assert [m["type"] for m in observer.sent] == ["joined"]
+
+            teacher, reconnected = await join(lesson, role="teacher")
+            await lesson.leave(teacher)
+            assert [m["type"] for m in reconnected.sent] == ["joined", "error"]
+            assert reconnected.sent[0]["session_state"] == "ended"
+            assert reconnected.sent[1] == error
+
+        assert await lesson.control("end") is not None
+        assert saved_entries(tmp_path) == [[1]]
+        teacher, saved = await join(lesson, role="teacher")
+        await lesson.leave(teacher)
+        assert [m["type"] for m in saved.sent] == ["joined"]
+        assert saved.sent[0]["session_state"] == "ended"
+
+        await lesson.control("start")
+        teacher, next_lesson = await join(lesson, role="teacher")
+        await lesson.leave(teacher)
+        assert [m["type"] for m in next_lesson.sent] == ["joined"]
+        assert next_lesson.sent[0]["session_state"] == "live"
