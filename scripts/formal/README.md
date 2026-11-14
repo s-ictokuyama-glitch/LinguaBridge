@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+生徒の再接続・言語切替による履歴復元中も、新着PCMから英中字幕まで継続することは [student-continuity スキル](../../.agents/skills/student-continuity/SKILL.md) と [検証範囲](student_continuity.md) を参照する。復元とライブの優先順位、MT満杯からの再開、1013切断後の回収、50分の仮想音声入力を検査する。
+
 既定morphの文中断片が長無音・文末・一時停止で確定し、英中字幕まで継続することは [morph-lesson スキル](../../.agents/skills/morph-lesson/SKILL.md) と [検証範囲](morph_lesson.md) を参照する。ASR・MT完了順の有限探索と、発話ごとに排出を待たない50分仮想入力を検査する。
 
 既存14検証の同期履歴、再実行結果、検証器の修正は [2026年11月14日の同期記録](maintenance_20261114.md) を参照する。

@@ -1,0 +1,438 @@
+{
+  "status": "PASS",
+  "sync_commit": "b86592318a919b0d1b934a56002e3fd457b8b0f7",
+  "python": "3.12.10",
+  "depth": 4,
+  "attempted": 2801,
+  "legal_passed": 1083,
+  "illegal": 1718,
+  "failed": 0,
+  "witnesses": {
+    "priority": {
+      "status": "PASS",
+      "fragments": 5,
+      "turns": 5,
+      "failed_asr": 0,
+      "asr_calls": 5,
+      "mt_calls": 7,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "backpressure": {
+      "status": "PASS",
+      "fragments": 3,
+      "turns": 3,
+      "failed_asr": 0,
+      "asr_calls": 3,
+      "mt_calls": 5,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "refresh": {
+      "status": "PASS",
+      "fragments": 5,
+      "turns": 5,
+      "failed_asr": 0,
+      "asr_calls": 5,
+      "mt_calls": 8,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "recovery": {
+      "status": "PASS",
+      "fragments": 3,
+      "turns": 3,
+      "failed_asr": 0,
+      "asr_calls": 3,
+      "mt_calls": 5,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    }
+  },
+  "sustained": [
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "pcm_frames": 30000,
+      "prelude_turns": 3,
+      "rejoins": 300,
+      "language_changes": 600,
+      "stats_frames": 1504,
+      "peaks": {
+        "audio_seconds": 1.7,
+        "asr_events": 1,
+        "mt_jobs": 2,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "refreshes": 1,
+        "refresh_entries": 18,
+        "students": 3,
+        "send_queue": 1,
+        "tasks": 8
+      },
+      "fragments": 903,
+      "turns": 603,
+      "failed_asr": 0,
+      "asr_calls": 903,
+      "mt_calls": 1206,
+      "captions": {
+        "en": 600,
+        "zh": 600
+      }
+    }
+  ],
+  "violations": [],
+  "mutations": [
+    {
+      "name": "replay_before_live",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "live_priority",
+        "expected": [
+          "【4】体積が増えます。",
+          "en"
+        ],
+        "actual": [
+          "【2】体積が増えます。",
+          "en"
+        ],
+        "trace": [
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "mt"
+        ],
+        "witness": "priority"
+      }
+    },
+    {
+      "name": "drop_full_live",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            2,
+            "【2】体積が増えます。",
+            "zh:【2】体積が増えます。",
+            "zh"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "disconnect visitor",
+          "rejoin(en, last_seq=0)"
+        ],
+        "witness": "backpressure"
+      }
+    },
+    {
+      "name": "skip_mt_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "no queued or active inference",
+        "actual": "work remains",
+        "trace": [
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "mt"
+        ],
+        "witness": "priority"
+      }
+    },
+    {
+      "name": "silent_replay_loss",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "recovery_retry",
+        "expected": "1013 with detached visitor",
+        "actual": null,
+        "trace": [
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "disconnect visitor",
+          "rejoin(en, last_seq=0)"
+        ],
+        "witness": "recovery"
+      }
+    },
+    {
+      "name": "omit_recovery",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "recovery_delivery",
+        "expected": [
+          2
+        ],
+        "actual": [],
+        "trace": [
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "disconnect visitor",
+          "rejoin(en, last_seq=0)",
+          "rejoin(en, last_seq=1)"
+        ],
+        "witness": "recovery"
+      }
+    },
+    {
+      "name": "stale_refresh",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "selected_language",
+        "expected": [],
+        "actual": [
+          [
+            "en",
+            {
+              "type": "caption",
+              "seq": 1,
+              "ja": "【1】体積が増えます。",
+              "text": "zh:【1】体積が増えます。",
+              "lang": "zh",
+              "delay_ms": 0
+            }
+          ]
+        ],
+        "trace": [
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "set_language(zh)",
+          "set_language(en)",
+          "sentence",
+          "asr"
+        ],
+        "witness": "refresh"
+      }
+    },
+    {
+      "name": "corrupt_final_text",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "morph_turns",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】体積が増えます。"
+          ]
+        },
+        "actual": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "broken"
+          ]
+        },
+        "trace": [
+          "sentence",
+          "asr"
+        ],
+        "witness": "backpressure"
+      }
+    },
+    {
+      "name": "unbounded_history",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30,
+          "asr_events": 8,
+          "mt_jobs": 4,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "refreshes": 1,
+          "refresh_entries": 50,
+          "students": 3,
+          "send_queue": 64,
+          "tasks": 11
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "asr_events": 0,
+          "mt_jobs": 1,
+          "history": 51,
+          "cache": 100,
+          "receipts": 50,
+          "refreshes": 0,
+          "refresh_entries": 0,
+          "students": 3,
+          "send_queue": 0,
+          "tasks": 8
+        },
+        "trace": [
+          "PCM 237.2s",
+          "ASR and MT service 0.8s"
+        ]
+      }
+    },
+    {
+      "name": "late_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_deadline",
+        "expected": {
+          "lang": "zh",
+          "at_least": 2
+        },
+        "actual": 1,
+        "trace": [
+          "PCM 14.9s",
+          "ASR and MT service 0.8s"
+        ]
+      }
+    },
+    {
+      "name": "reject_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "PCM 2.9s",
+          "ASR and MT service 0.8s"
+        ]
+      }
+    },
+    {
+      "name": "stop_stats",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "ASR, MT and stats workers alive",
+        "actual": [
+          "stats-worker"
+        ],
+        "trace": [
+          "PCM 2.0s",
+          "ASR and MT service 0.8s"
+        ]
+      }
+    },
+    {
+      "name": "lose_stats",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "stats_continuation",
+        "expected": 150,
+        "actual": 0,
+        "trace": [
+          "PCM 300.0s",
+          "ASR and MT service 0.8s"
+        ]
+      }
+    },
+    {
+      "name": "leave_senders",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "stop_completion",
+        "expected": "workers, senders and executors stopped",
+        "actual": "resources remain",
+        "trace": [
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "mt",
+          "sentence"
+        ],
+        "witness": "priority"
+      }
+    },
+    {
+      "name": "forget_live_workers",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "stop_completion",
+        "expected": "workers, senders and executors stopped",
+        "actual": "resources remain",
+        "trace": [
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "sentence",
+          "asr",
+          "rejoin(en, last_seq=0)",
+          "sentence",
+          "asr",
+          "mt",
+          "sentence"
+        ],
+        "witness": "priority"
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}
