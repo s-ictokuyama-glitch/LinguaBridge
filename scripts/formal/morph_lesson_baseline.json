@@ -1,0 +1,353 @@
+{
+  "status": "PASS",
+  "sync_commit": "1840857a512024404c3504cbe4465afb5d952c45",
+  "python": "3.12.10",
+  "depth": 4,
+  "attempted": 4681,
+  "legal_passed": 1548,
+  "failed": 0,
+  "witnesses": {
+    "boundary": {
+      "status": "PASS",
+      "fragments": 2,
+      "turns": 2,
+      "failed_asr": 0,
+      "asr_calls": 2,
+      "mt_calls": 4,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "flush": {
+      "status": "PASS",
+      "fragments": 2,
+      "turns": 2,
+      "failed_asr": 0,
+      "asr_calls": 2,
+      "mt_calls": 4,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "backpressure": {
+      "status": "PASS",
+      "fragments": 5,
+      "turns": 5,
+      "failed_asr": 0,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "captions": {
+        "en": 5,
+        "zh": 5
+      }
+    },
+    "count": {
+      "status": "PASS",
+      "fragments": 13,
+      "turns": 2,
+      "failed_asr": 0,
+      "asr_calls": 13,
+      "mt_calls": 4,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    },
+    "span": {
+      "status": "PASS",
+      "fragments": 10,
+      "turns": 2,
+      "failed_asr": 0,
+      "asr_calls": 10,
+      "mt_calls": 4,
+      "captions": {
+        "en": 2,
+        "zh": 2
+      }
+    }
+  },
+  "sustained": [
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "pcm_frames": 30000,
+      "asr_service_s": 0.1,
+      "mt_service_s": 0.2,
+      "peaks": {
+        "audio_seconds": 2.0,
+        "asr_events": 0,
+        "mt_jobs": 1,
+        "pending_parts": 1,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "tasks": 7
+      },
+      "fragments": 1500,
+      "turns": 1200,
+      "failed_asr": 0,
+      "asr_calls": 1500,
+      "mt_calls": 2400,
+      "captions": {
+        "en": 1200,
+        "zh": 1200
+      }
+    },
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "pcm_frames": 30000,
+      "asr_service_s": 0.8,
+      "mt_service_s": 0.8,
+      "peaks": {
+        "audio_seconds": 2.0,
+        "asr_events": 1,
+        "mt_jobs": 1,
+        "pending_parts": 1,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "tasks": 7
+      },
+      "fragments": 1500,
+      "turns": 1200,
+      "failed_asr": 0,
+      "asr_calls": 1500,
+      "mt_calls": 2400,
+      "captions": {
+        "en": 1200,
+        "zh": 1200
+      }
+    }
+  ],
+  "violations": [],
+  "mutations": [
+    {
+      "name": "lose_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "morph_turns",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "clause",
+          "boundary"
+        ],
+        "witness": "boundary"
+      }
+    },
+    {
+      "name": "boundary_before_asr",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "morph_turns",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "clause",
+          "boundary"
+        ],
+        "witness": "boundary"
+      }
+    },
+    {
+      "name": "lose_flush",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "morph_turns",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "clause",
+          "flush"
+        ],
+        "witness": "flush"
+      }
+    },
+    {
+      "name": "drop_full_mt",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 4,
+          "first_difference": 2,
+          "item": [
+            3,
+            "【3】温度が高いので",
+            "en:【3】温度が高いので",
+            "en"
+          ]
+        },
+        "actual": {
+          "count": 2,
+          "first_difference": 2,
+          "item": null
+        },
+        "trace": [
+          "clause",
+          "boundary",
+          "asr",
+          "clause",
+          "boundary",
+          "asr",
+          "clause",
+          "boundary",
+          "asr",
+          "clause",
+          "boundary",
+          "asr"
+        ],
+        "witness": "backpressure"
+      }
+    },
+    {
+      "name": "skip_mt_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "no queued or active inference",
+        "actual": "work remains",
+        "trace": [
+          "clause",
+          "boundary"
+        ],
+        "witness": "boundary"
+      }
+    },
+    {
+      "name": "stop_on_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "ASR, MT and stats workers alive",
+        "actual": [
+          "asr-worker"
+        ],
+        "trace": [
+          "clause",
+          "boundary"
+        ],
+        "witness": "boundary"
+      }
+    },
+    {
+      "name": "late_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_deadline",
+        "expected": {
+          "lang": "en",
+          "at_least": 8
+        },
+        "actual": 7,
+        "trace": [
+          "PCM 27.4s",
+          "ASR 0.1s, MT 0.2s per language"
+        ],
+        "service_ticks": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "unbounded_history",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30,
+          "asr_events": 8,
+          "mt_jobs": 1,
+          "pending_parts": 12,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 11
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "asr_events": 0,
+          "mt_jobs": 1,
+          "pending_parts": 0,
+          "history": 51,
+          "cache": 100,
+          "receipts": 50,
+          "tasks": 7
+        },
+        "trace": [
+          "PCM 127.5s",
+          "ASR 0.1s, MT 0.2s per language"
+        ],
+        "service_ticks": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "reject_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "PCM 1.4s",
+          "ASR 0.1s, MT 0.2s per language"
+        ],
+        "service_ticks": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}
