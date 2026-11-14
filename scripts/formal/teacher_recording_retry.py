@@ -18,7 +18,7 @@ import threading
 import time
 from unittest.mock import patch
 
-SYNC_COMMIT = "df2dd6e93f83fd85a5186898071392599b7e2875"
+SYNC_COMMIT = "69d06dfddfd1d36afd6f09e0cf45b4b95de08956"
 ROOT = Path(__file__).resolve().parents[2]
 BRIDGE = Path(__file__).with_suffix(".cjs")
 
@@ -142,8 +142,12 @@ async def case(page, directory, failure, lost, history):
         connection = Connection(socket, "127.0.0.1", lesson, config.limits)
         trace.append("reconnect_joined_ended")
         await process(page.call("reconnect"))
-        await deliver()
+        messages = await deliver()
         require(not ui["end_disabled"], "retry_available", trace, "enabled end button", ui)
+        snapshots = [message for message in messages if message.get("type") == "joined"]
+        error = snapshots[0].get("recording_save_error") if len(snapshots) == 1 else None
+        require(isinstance(error, str) and ui["warning"].endswith(error),
+                "save_error_notified", trace, "visible save failure in joined snapshot", messages)
 
     async def speak(marker):
         turn = Turn(marker, 0, 0.4, 0, time.monotonic(), 1, "strong_end")
@@ -270,14 +274,15 @@ async def explore(source_root, depth, suite):
 MUTATIONS = [
     ("disable_retry", "web/teacher.js", " && !state.recordingSaveError", "", "retry_available"),
     ("clear_other_warning", "web/teacher.js", "if (el.micStatus.textContent === state.recordingSaveError)", "if (true)", "warning_ownership"),
-    ("forget_retry_on_disconnect", "web/teacher.js", "    state.joined = false;", "    state.joined = false;\n    state.recordingSaveError = null;", "retry_available"),
+    ("ignore_recording_snapshot", "web/teacher.js", "applyRecordingSaveError(msg.recording_save_error);", "void msg.recording_save_error;", "retry_available"),
+    ("omit_recording_snapshot", "server/lesson.py", "recording_save_error=self._failed_recording_message(),", "recording_save_error=None,", "retry_available"),
     ("allow_disconnected_end", "web/teacher.js", "el.endBtn.disabled = !connected ||", "el.endBtn.disabled =", "disconnected_controls"),
     ("drop_end_command", "web/teacher.js", 'el.endBtn.addEventListener("click", () => sendControl("end"));', 'el.endBtn.addEventListener("click", () => {});', "retry_command"),
     ("skip_unsaved_guard", "server/lesson.py", 'if self.state == "ended" and action != "end":\n                await self._finalize_lesson()', 'if self.state == "ended" and action != "end":\n                pass', "unsaved_retained"),
     ("seal_partial_save", "server/recorder.py", "\n        self._write_markdown(\n", "\n        self._written = final\n        self._write_markdown(\n", "unsaved_retained"),
     ("empty_markdown", "server/recorder.py", 'path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")', 'path.write_text("", encoding="utf-8")', "saved_complete"),
     ("reuse_previous_recorder", "server/lesson.py", "                self._recorder = self._new_recorder()", "                pass", "recording_ownership"),
-    ("retain_retry_next_lesson", "web/teacher.js", "    state.recordingSaveError = null;", "", "retry_reset"),
+    ("retain_retry_next_lesson", "web/teacher.js", "    state.recordingSaveError = null;\n  }\n  setPageState(s);", "  }\n  setPageState(s);", "retry_reset"),
     ("allocate_retry_destination", "server/recorder.py", "        if self._session_dir is None:", "        if True:", "saved_destination"),
     ("overwrite_previous_recording", "server/recorder.py", "session_dir.mkdir(exist_ok=False)", "session_dir.mkdir(exist_ok=True)", "saved_immutable"),
     ("mislabel_save_error", "server/lesson.py", 'code="recording_save_failed"', 'code="recording_pending"', "save_error_notified"),
@@ -300,7 +305,7 @@ def mutation_check(args):
             product.write_text(source.replace(before, after), encoding="utf-8")
             output = scratch / f"{name}.json"
             child = subprocess.run([sys.executable, "-X", "utf8", "-B", str(Path(__file__).resolve()),
-                "--source-root", str(variant), "--suite", "delivered", "--depth", str(args.depth), "--json", str(output)],
+                "--source-root", str(variant), "--suite", "all", "--depth", str(args.depth), "--json", str(output)],
                 capture_output=True, text=True, encoding="utf-8", timeout=90)
             report = json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
             match = next((item for item in report.get("violations", []) if item["property"] == property), None)
@@ -330,9 +335,9 @@ def main():
         node_version = subprocess.check_output(["node", "--version"], text=True, timeout=10).strip()
         report = asyncio.run(explore(args.source_root, args.depth, args.suite))
         if args.mutation_check:
-            control = asyncio.run(explore(args.source_root, args.depth, "delivered"))
+            control = asyncio.run(explore(args.source_root, args.depth, "all"))
             if control["status"] != "PASS":
-                raise RuntimeError(f"delivered-notification mutation control failed: {control}")
+                raise RuntimeError(f"all-notification mutation control failed: {control}")
             report["mutations"] = dict(control="PASS", results=mutation_check(args))
             restored = asyncio.run(explore(args.source_root, args.depth, args.suite))
             report["mutations"]["restored"] = restored["status"]
