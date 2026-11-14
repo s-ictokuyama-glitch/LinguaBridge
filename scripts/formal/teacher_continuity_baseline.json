@@ -1,0 +1,411 @@
+{
+  "status": "PASS",
+  "sync_commit": "7c6d2ba2deb734f69e15661b4d61fd4e35867380",
+  "python": "3.12.10",
+  "depth": 4,
+  "attempted": 4681,
+  "legal_passed": 210,
+  "illegal": 4471,
+  "failed": 0,
+  "witnesses": {
+    "asr_pending": {
+      "status": "PASS",
+      "accepted": 2,
+      "turns": 2
+    },
+    "vad_open": {
+      "status": "PASS",
+      "accepted": 2,
+      "turns": 2
+    },
+    "morph_pending": {
+      "status": "PASS",
+      "accepted": 2,
+      "turns": 2
+    },
+    "mt_full": {
+      "status": "PASS",
+      "accepted": 4,
+      "turns": 4
+    },
+    "manual_pause": {
+      "status": "PASS",
+      "accepted": 2,
+      "turns": 2
+    },
+    "takeover": {
+      "status": "PASS",
+      "accepted": 2,
+      "turns": 2
+    }
+  },
+  "sustained": {
+    "status": "PASS",
+    "seconds": 3000,
+    "pcm_frames": 28500,
+    "asr_service_s": 0.8,
+    "mt_service_s_per_language": 0.8,
+    "teacher_rejoins": 300,
+    "accepted": 900,
+    "captions": {
+      "en": 750,
+      "zh": 750
+    },
+    "bounds": {
+      "audio_seconds": 30,
+      "asr_events": 8,
+      "mt_jobs": 1,
+      "pending_parts": 12,
+      "history": 50,
+      "cache": 512,
+      "receipts": 100,
+      "tasks": 11
+    },
+    "peaks": {
+      "audio_seconds": 1.7,
+      "asr_events": 1,
+      "mt_jobs": 1,
+      "pending_parts": 1,
+      "history": 50,
+      "cache": 512,
+      "receipts": 100,
+      "tasks": 7
+    }
+  },
+  "violations": [],
+  "mutations": [
+    {
+      "name": "lose_disconnect_flush",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "morph_pending",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "en",
+            "【1】温度が高いので",
+            "en:【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "complete ASR",
+          "disconnect teacher"
+        ]
+      }
+    },
+    {
+      "name": "flush_before_asr",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "asr_pending",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "en",
+            "【1】温度が高いので",
+            "en:【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "disconnect teacher"
+        ]
+      }
+    },
+    {
+      "name": "lose_open_audio",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "vad_open",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "en",
+            "【1】温度が高いので",
+            "en:【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "disconnect teacher"
+        ]
+      }
+    },
+    {
+      "name": "never_resume",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "asr_pending",
+        "property": "lesson_state",
+        "expected": [
+          "live",
+          false
+        ],
+        "actual": [
+          "paused",
+          true
+        ],
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "disconnect teacher",
+          "join teacher"
+        ]
+      }
+    },
+    {
+      "name": "resume_manual_pause",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "manual_pause",
+        "property": "lesson_state",
+        "expected": [
+          "paused",
+          false
+        ],
+        "actual": [
+          "live",
+          false
+        ],
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "pause",
+          "disconnect teacher",
+          "join teacher"
+        ]
+      }
+    },
+    {
+      "name": "accept_paused_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "manual_pause",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 1,
+          "item": null
+        },
+        "actual": {
+          "count": 2,
+          "first_difference": 1,
+          "item": [
+            2,
+            "en",
+            "【2】体積が増えます。",
+            "en:【2】体積が増えます。"
+          ]
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "pause",
+          "disconnect teacher",
+          "join teacher",
+          "paused PCM"
+        ]
+      }
+    },
+    {
+      "name": "accept_replaced_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "takeover",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "en",
+            "【1】温度が高いので",
+            "en:【1】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "en",
+            "【1】温度が高いので【2】体積が増えます。",
+            "en:【1】温度が高いので【2】体積が増えます。"
+          ]
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "clause",
+          "complete ASR",
+          "join teacher",
+          "old PCM while replacement awaits socket close",
+          "natural boundary"
+        ]
+      }
+    },
+    {
+      "name": "drop_full_mt",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "witness": "mt_full",
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 3,
+          "first_difference": 0,
+          "item": [
+            1,
+            "zh",
+            "【1】体積が増えます。",
+            "zh:【1】体積が増えます。"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "join teacher",
+          "start",
+          "sentence",
+          "complete ASR",
+          "clause",
+          "disconnect teacher",
+          "join teacher",
+          "sentence"
+        ]
+      }
+    },
+    {
+      "name": "late_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_deadline",
+        "expected": {
+          "lang": "en",
+          "due_s": 36.0,
+          "captions": 8
+        },
+        "actual": 7,
+        "trace": [
+          "virtual PCM 36.0s (cycle phase 16.0s)"
+        ]
+      }
+    },
+    {
+      "name": "unbounded_history",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30,
+          "asr_events": 8,
+          "mt_jobs": 1,
+          "pending_parts": 12,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 11
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "asr_events": 0,
+          "mt_jobs": 1,
+          "pending_parts": 0,
+          "history": 51,
+          "cache": 100,
+          "receipts": 50,
+          "tasks": 7
+        },
+        "trace": [
+          "virtual PCM 202.2s (cycle phase 2.2s)"
+        ]
+      }
+    },
+    {
+      "name": "drop_accepted_audio",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "virtual PCM 1.4s (cycle phase 1.4s)"
+        ]
+      }
+    },
+    {
+      "name": "skip_pipeline_stop",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "stop_completion",
+        "expected": "no tasks, clients or queued work",
+        "actual": {
+          "tasks": [
+            "asr-worker",
+            "mt-worker",
+            "stats-worker"
+          ],
+          "executors_closed": [
+            false,
+            false
+          ],
+          "clients": 0,
+          "queue_depth": 0
+        },
+        "trace": [
+          "virtual PCM 249.9s (cycle phase 9.9s)"
+        ]
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}
