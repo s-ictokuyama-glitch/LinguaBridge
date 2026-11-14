@@ -417,6 +417,9 @@ function handleMessage(msg, ws, code) {
       state.joined = true;
       el.teacherCode.value = "";
       el.teacherJoinForm.hidden = true;
+      if (msg.recording_save_error !== undefined) {
+        applyRecordingSaveError(msg.recording_save_error);
+      }
       applySessionState(msg.session_state);
       applyRecording(msg.recording);
       break;
@@ -459,12 +462,11 @@ function handleMessage(msg, ws, code) {
       if (msg.code === "mic_silent") {
         el.silenceWarning.textContent = msg.message;
         el.silenceWarning.hidden = false;
+      } else if (msg.code === "recording_save_failed") {
+        applyRecordingSaveError(msg.message);
+        setButtons(state.joined);
       } else {
         el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
-        if (msg.code === "recording_save_failed") {
-          state.recordingSaveError = el.micStatus.textContent;
-          setButtons(state.joined);
-        }
       }
       break;
   }
@@ -528,6 +530,16 @@ function setButtons(connected) {
 function clearRecordingSaveWarning() {
   if (el.micStatus.textContent === state.recordingSaveError) {
     el.micStatus.textContent = "";
+  }
+}
+
+function applyRecordingSaveError(message) {
+  if (message === null) {
+    clearRecordingSaveWarning();
+    state.recordingSaveError = null;
+  } else {
+    el.micStatus.textContent = `サーバーからの警告: ${message}`;
+    state.recordingSaveError = el.micStatus.textContent;
   }
 }
 

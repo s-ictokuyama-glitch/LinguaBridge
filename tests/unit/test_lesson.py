@@ -1,4 +1,5 @@
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from functools import wraps
 
@@ -6,6 +7,7 @@ import pytest
 
 from server import ws_protocol as proto
 from server.asr.fake_engine import FakeASREngine
+from server.connection import Connection
 from server.lesson import Lesson
 from server.mt.fake_engine import FakeTranslationEngine
 from server.pipeline import Pipeline
@@ -462,3 +464,144 @@ async def test_restart_retries_failed_save_before_accepting_audio(
         await speak(lesson, 3000)
         await lesson.control("end")
     assert saved_entries(tmp_path) == [[1], [2]]
+
+
+@pytest.mark.parametrize("failure", ["before_write", "after_jsonl"])
+@pytest.mark.parametrize("capacity", [1, 64])
+@run_async
+async def test_rejoining_teacher_receives_failed_save_until_retry_succeeds(
+    tmp_path, monkeypatch, failure, capacity
+):
+    from server.recorder import SessionRecorder
+
+    config = recording_config(tmp_path)
+    config.limits.send_queue_max = capacity
+    async with classroom(config) as lesson:
+        await lesson.control("start")
+        await speak(lesson, 1000)
+        with monkeypatch.context() as patch:
+            def fail_write(*args, **kwargs):
+                raise OSError("disk unavailable")
+            method = "write" if failure == "before_write" else "_write_markdown"
+            patch.setattr(SessionRecorder, method, fail_write)
+            assert await lesson.control("end") is None
+            student, observer = await join(lesson)
+            await lesson.leave(student)
+            assert [m["type"] for m in observer.sent] == ["joined"]
+            assert "recording_save_error" not in observer.sent[0]
+
+            reconnected = RecordingSocket()
+            connection = Connection(reconnected, "test-ip", lesson, config.limits)
+            async with connection.handling():
+                await connection.receive(json.dumps({
+                    "type": "join", "role": "teacher", "code": TEACHER_CODE,
+                }))
+            assert reconnected.closed_with is None
+            assert [m["type"] for m in reconnected.sent] == ["joined"]
+            assert reconnected.sent[0]["session_state"] == "ended"
+            assert reconnected.sent[0]["recording_save_error"] == (
+                "授業記録を保存できませんでした。保存先を確認し、もう一度「終了」を押してください。"
+            )
+
+        assert await lesson.control("end") is not None
+        assert saved_entries(tmp_path) == [[1]]
+        teacher, saved = await join(lesson, role="teacher")
+        await lesson.leave(teacher)
+        assert [m["type"] for m in saved.sent] == ["joined"]
+        assert saved.sent[0]["session_state"] == "ended"
+        assert saved.sent[0]["recording_save_error"] is None
+        assert saved.closed_with is None
+
+        await lesson.control("start")
+        teacher, next_lesson = await join(lesson, role="teacher")
+        await lesson.leave(teacher)
+        assert [m["type"] for m in next_lesson.sent] == ["joined"]
+        assert next_lesson.sent[0]["session_state"] == "live"
+        assert next_lesson.sent[0]["recording_save_error"] is None
+
+
+@pytest.mark.parametrize("result", ["absent", "pending", "success", "cancelled", "other_error"])
+@run_async
+async def test_join_without_failed_final_save_has_null_snapshot(result):
+    async with classroom() as lesson:
+        release = asyncio.Event()
+
+        async def finish():
+            await release.wait()
+            if result == "other_error":
+                raise RuntimeError("not a recording save failure")
+
+        task = None
+        if result != "absent":
+            task = asyncio.create_task(finish())
+            lesson._recording_task = task
+            if result == "cancelled":
+                task.cancel()
+            elif result != "pending":
+                release.set()
+            if result != "pending":
+                await asyncio.gather(task, return_exceptions=True)
+        try:
+            teacher, socket = await join(lesson, role="teacher")
+            await lesson.leave(teacher)
+            assert socket.sent[0]["recording_save_error"] is None
+        finally:
+            if task is not None:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+
+@run_async
+async def test_save_failure_during_teacher_replacement_is_delivered_once(tmp_path, monkeypatch):
+    from server.recorder import SessionRecorder
+
+    retiring, release_close, finishing, release_save = (asyncio.Event() for _ in range(4))
+
+    class RetiringSocket(RecordingSocket):
+        async def close(self, code=1000):
+            retiring.set()
+            await release_close.wait()
+            await super().close(code)
+
+    config = recording_config(tmp_path)
+    config.limits.send_queue_max = 2
+    async with classroom(config) as lesson:
+        await lesson.control("start")
+        await speak(lesson, 1000)
+        await lesson.pipeline.drain(timeout=None)
+        _, old = await join(lesson, role="teacher", socket=RetiringSocket())
+        await wait_for(old, "joined")
+        drain = lesson.pipeline.drain
+
+        async def gated_drain(*args, **kwargs):
+            finishing.set()
+            await release_save.wait()
+            return await drain(*args, **kwargs)
+
+        def fail_write(*args, **kwargs):
+            raise OSError("disk unavailable")
+
+        monkeypatch.setattr(lesson.pipeline, "drain", gated_drain)
+        monkeypatch.setattr(SessionRecorder, "write", fail_write)
+        ending = asyncio.create_task(lesson.control("end"))
+        replacing = None
+        try:
+            await asyncio.wait_for(finishing.wait(), 5)
+            new = RecordingSocket()
+            replacing = asyncio.create_task(join(lesson, role="teacher", socket=new))
+            await asyncio.wait_for(retiring.wait(), 5)
+            initial = await wait_for(new, "joined")
+            release_save.set()
+            await asyncio.wait_for(ending, 5)
+            error = await wait_for(new, "error", code="recording_save_failed")
+            release_close.set()
+            teacher, _ = await asyncio.wait_for(replacing, 5)
+            await lesson.leave(teacher)
+            assert initial["recording_save_error"] is None
+            assert [m["type"] for m in new.sent] == ["joined", "error"]
+            assert error["message"].startswith("授業記録を保存できませんでした。")
+            assert new.closed_with is None
+        finally:
+            release_save.set()
+            release_close.set()
+            await asyncio.gather(ending, *([replacing] if replacing else []), return_exceptions=True)

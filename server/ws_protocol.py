@@ -80,6 +80,7 @@ class Joined(BaseModel):
     languages: list[Language]
     session_state: SessionState
     recording: bool = False  # 参加時点の記録状態（記録中インジケーター表示用 F-10）
+    recording_save_error: str | None = None
     # 参加時点で先生が発話中か（#29）。発話の途中で参加した生徒にも
     # インジケーターが正しく出るようにする。既定値つき＝既存クライアントは無視できる
     speaking: bool = False
