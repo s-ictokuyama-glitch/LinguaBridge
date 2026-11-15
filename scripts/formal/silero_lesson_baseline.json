@@ -1,0 +1,756 @@
+{
+  "status": "PASS",
+  "sync_commit": "c7d3851dfb2327db6e9574325b7d957a4c4f2216",
+  "python": "3.12.10",
+  "violations": [],
+  "contract": {
+    "status": "PASS",
+    "depth": 4,
+    "candidates": 341,
+    "calls": 1298,
+    "padding_cases": 6,
+    "padding_sizes": [
+      0,
+      1,
+      511,
+      512,
+      513,
+      1024
+    ],
+    "alphabet": [
+      "zero",
+      "extrema",
+      "tail",
+      "reset"
+    ],
+    "properties": [
+      "silero_normalization",
+      "silero_context",
+      "silero_state_h",
+      "silero_state_c",
+      "silero_probability",
+      "silero_frame_delivery"
+    ]
+  },
+  "bounded": {
+    "depth": 3,
+    "chunk_samples": [
+      512,
+      1600,
+      511
+    ],
+    "attempted": 777,
+    "legal_passed": 324,
+    "failed": 0
+  },
+  "timing": {
+    "status": "PASS",
+    "start_speech_frames": 3,
+    "segment_silence_frames": 16,
+    "boundary_silence_frames": 32
+  },
+  "sustained": [
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "input_chunks": 30000,
+      "vad_frames": 93750,
+      "service_s": 0.2,
+      "peaks": {
+        "audio_seconds": 1.76,
+        "mt_jobs": 1,
+        "asr_events": 0,
+        "pending_samples": 448,
+        "segment_frames": 53,
+        "pending_parts": 1,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "tasks": 7
+      },
+      "fragments": 1500,
+      "turns": 1125,
+      "failed_asr": 0,
+      "asr_calls": 1500,
+      "mt_calls": 2250,
+      "captions": {
+        "en": 1125,
+        "zh": 1125
+      }
+    },
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "input_chunks": 30000,
+      "vad_frames": 93750,
+      "service_s": 0.8,
+      "peaks": {
+        "audio_seconds": 1.76,
+        "mt_jobs": 1,
+        "asr_events": 1,
+        "pending_samples": 448,
+        "segment_frames": 53,
+        "pending_parts": 1,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "tasks": 7
+      },
+      "fragments": 1500,
+      "turns": 1125,
+      "failed_asr": 0,
+      "asr_calls": 1500,
+      "mt_calls": 2250,
+      "captions": {
+        "en": 1125,
+        "zh": 1125
+      }
+    }
+  ],
+  "mutations": [
+    {
+      "name": "skip_model_call",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_frame_delivery",
+        "expected": "ledger frame consumed exactly once",
+        "actual": 1,
+        "trace": [
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "normalization_scale",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_normalization",
+        "expected": {
+          "shape": [
+            512
+          ],
+          "dtype": "float32",
+          "head": [
+            -0.999420166015625,
+            -0.9959716796875,
+            -0.992523193359375,
+            -0.98907470703125,
+            -0.985626220703125,
+            -0.982177734375,
+            -0.978729248046875,
+            -0.97528076171875
+          ]
+        },
+        "actual": {
+          "shape": [
+            512
+          ],
+          "dtype": "float32",
+          "head": [
+            -1.99884033203125,
+            -1.991943359375,
+            -1.98504638671875,
+            -1.9781494140625,
+            -1.97125244140625,
+            -1.96435546875,
+            -1.95745849609375,
+            -1.9505615234375
+          ]
+        },
+        "trace": [
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_context_update",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_context",
+        "expected": {
+          "shape": [
+            64
+          ],
+          "dtype": "float32",
+          "head": [
+            -1.0,
+            -0.999969482421875,
+            -3.0517578125e-05,
+            0.0,
+            3.0517578125e-05,
+            0.99993896484375,
+            0.999969482421875,
+            -1.0
+          ]
+        },
+        "actual": {
+          "shape": [
+            64
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "trace": [
+          {
+            "operation": "extrema",
+            "size": 512,
+            "probability": 0.5
+          },
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_hidden_update",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_state_h",
+        "expected": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25
+          ]
+        },
+        "actual": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "trace": [
+          {
+            "operation": "zero",
+            "size": 512,
+            "probability": 0.49
+          },
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_cell_update",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_state_c",
+        "expected": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75
+          ]
+        },
+        "actual": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "trace": [
+          {
+            "operation": "zero",
+            "size": 512,
+            "probability": 0.49
+          },
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "include_threshold",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_probability",
+        "expected": false,
+        "actual": true,
+        "trace": [
+          {
+            "operation": "extrema",
+            "size": 512,
+            "probability": 0.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_hidden_reset",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_state_h",
+        "expected": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "actual": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25,
+            1.25
+          ]
+        },
+        "trace": [
+          {
+            "operation": "zero",
+            "size": 512,
+            "probability": 0.49
+          },
+          "reset",
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_cell_reset",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_state_c",
+        "expected": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "actual": {
+          "shape": [
+            1,
+            1,
+            128
+          ],
+          "dtype": "float32",
+          "head": [
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75,
+            -1.75
+          ]
+        },
+        "trace": [
+          {
+            "operation": "zero",
+            "size": 512,
+            "probability": 0.49
+          },
+          "reset",
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_context_reset",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_context",
+        "expected": {
+          "shape": [
+            64
+          ],
+          "dtype": "float32",
+          "head": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "actual": {
+          "shape": [
+            64
+          ],
+          "dtype": "float32",
+          "head": [
+            -1.0,
+            -0.999969482421875,
+            -3.0517578125e-05,
+            0.0,
+            3.0517578125e-05,
+            0.99993896484375,
+            0.999969482421875,
+            -1.0
+          ]
+        },
+        "trace": [
+          {
+            "operation": "extrema",
+            "size": 512,
+            "probability": 0.5
+          },
+          "reset",
+          {
+            "operation": "tail",
+            "size": 512,
+            "probability": 0.51
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong_frame_size",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_frame_delivery",
+        "expected": "all complete 512-sample frames evaluated",
+        "actual": 2,
+        "trace": [
+          "PCM identity=1, 32ms frames=2"
+        ]
+      }
+    },
+    {
+      "name": "early_start",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_start_timing",
+        "expected": "64ms speech does not reach the 96ms start threshold",
+        "actual": "ASR submitted",
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32"
+        ]
+      }
+    },
+    {
+      "name": "early_segment",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_segment_timing",
+        "expected": "480ms does not close a 500ms segment",
+        "actual": "ASR submitted early",
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15"
+        ]
+      }
+    },
+    {
+      "name": "early_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "silero_boundary_timing",
+        "expected": "992ms retains the clause",
+        "actual": "turn finalized early",
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1",
+          "PCM identity=0, 32ms frames=15"
+        ]
+      }
+    },
+    {
+      "name": "drop_translation",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【2】温度が高いので",
+            "en:【2】温度が高いので",
+            "en"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1"
+        ]
+      }
+    },
+    {
+      "name": "lose_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "morph_turns",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【2】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1"
+        ]
+      }
+    },
+    {
+      "name": "skip_mt_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "no queued or active inference",
+        "actual": "work remains",
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1"
+        ]
+      }
+    },
+    {
+      "name": "stop_on_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "ASR, MT and stats workers alive",
+        "actual": [
+          "asr-worker"
+        ],
+        "trace": [
+          "PCM identity=1, 32ms frames=2",
+          "PCM identity=0, 32ms frames=32",
+          "PCM identity=2, 32ms frames=32",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1",
+          "PCM identity=0, 32ms frames=15",
+          "PCM identity=0, 32ms frames=1"
+        ]
+      }
+    },
+    {
+      "name": "late_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_deadline",
+        "expected": {
+          "lang": "en",
+          "at_least": 6
+        },
+        "actual": 5,
+        "trace": [
+          "PCM 23.7s",
+          "service 0.2s"
+        ]
+      }
+    },
+    {
+      "name": "unbounded_history",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30,
+          "mt_jobs": 1,
+          "asr_events": 8,
+          "pending_samples": 511,
+          "segment_frames": 64,
+          "pending_parts": 12,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "tasks": 11
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "mt_jobs": 1,
+          "asr_events": 0,
+          "pending_samples": 448,
+          "segment_frames": 0,
+          "pending_parts": 0,
+          "history": 51,
+          "cache": 100,
+          "receipts": 50,
+          "tasks": 7
+        },
+        "trace": [
+          "PCM 135.8s",
+          "service 0.2s"
+        ]
+      }
+    },
+    {
+      "name": "reject_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "PCM 1.5s",
+          "service 0.2s"
+        ]
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}
