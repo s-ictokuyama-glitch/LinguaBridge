@@ -18,11 +18,8 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 同じ依存が入っている場合は `.venv/Scripts/python.exe` でも実行できる。
 Windowsの制限環境でasyncioの初期化が止まる場合は、実行権限を確認して同じコマンドを再実行する。
-現在の製品コードでは、持越しなしの強制分割直後にflushすると末尾の音声が認識へ渡らず、終了コード1、`status: FAIL` になる。
-これは [既知の反例](../../../scripts/formal/continuous_speech.md#既知の反例) であり、期待値を削って成功扱いしない。
-全ケースの実行、50分入力の成功、9破壊すべての検出、通常版に戻した後の結果一致を確認する。
-修正後は既知の反例も成功し、終了コード0、`status: PASS` になることを要求する。
-件数と各性質の期待値は [検証範囲](../../../scripts/formal/continuous_speech.md) と [基準結果](../../../scripts/formal/continuous_speech_baseline.json) を参照する。
+終了コード0と `status: PASS` を確認する。有限162ケースがすべて通り、50分入力、9種類の破壊検出、復元後の結果一致が成功することを確認する。
+[Issue #202 の再現条件](../../../scripts/formal/continuous_speech.md#issue-202-の再現条件) も162ケースに含まれる。[基準結果](../../../scripts/formal/continuous_speech_baseline.json) は検証器追加時の記録で、修正前の18ケースの失敗を含む。
 
 `FAIL` は `property`、`trace`、`expected`、`actual` を製品コードと照合する。
 実際の反例は残し、成功させるために入力範囲や期待値を弱めない。
