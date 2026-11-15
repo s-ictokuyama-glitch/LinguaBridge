@@ -1,0 +1,108 @@
+{
+  "status": "PASS",
+  "versions": {
+    "numpy": "2.5.4",
+    "faster-whisper": "1.2.1",
+    "onnxruntime": "1.31.0"
+  },
+  "model": "silero_vad_v6.onnx",
+  "model_sha256": "4cbf549b8326f60f80f2536d9eefeb450a9abe83365a098031c89719f1be17d2",
+  "inputs": [
+    [
+      "input",
+      [
+        "seq_len",
+        576
+      ],
+      "tensor(float)"
+    ],
+    [
+      "h",
+      [
+        1,
+        1,
+        128
+      ],
+      "tensor(float)"
+    ],
+    [
+      "c",
+      [
+        1,
+        1,
+        128
+      ],
+      "tensor(float)"
+    ]
+  ],
+  "outputs": [
+    [
+      "speech_probs",
+      [
+        "Reshapespeech_probs_dim_0"
+      ],
+      "tensor(float)"
+    ],
+    [
+      "hn",
+      [
+        1,
+        1,
+        128
+      ],
+      "tensor(float)"
+    ],
+    [
+      "cn",
+      [
+        1,
+        1,
+        128
+      ],
+      "tensor(float)"
+    ]
+  ],
+  "replays": [
+    {
+      "frames": 7,
+      "probabilities": [
+        0.023828625679016113,
+        0.03510904312133789,
+        0.003777146339416504,
+        0.049828410148620605,
+        0.13664203882217407,
+        0.08720150589942932,
+        0.052008748054504395
+      ]
+    },
+    {
+      "frames": 7,
+      "probabilities": [
+        0.023828625679016113,
+        0.03510904312133789,
+        0.003777146339416504,
+        0.049828410148620605,
+        0.13664203882217407,
+        0.08720150589942932,
+        0.052008748054504395
+      ]
+    }
+  ],
+  "reset_replay_equal": true,
+  "scope": "14 fixed synthetic frames; adapter equivalence, not speech accuracy or runtime performance",
+  "sync_commit": "c7d3851dfb2327db6e9574325b7d957a4c4f2216",
+  "mutations": [
+    {
+      "name": "native_normalization",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "native_equivalence",
+        "expected": "same states and classification as direct ONNX",
+        "actual": "native_state_value: _h, frame 1"
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}

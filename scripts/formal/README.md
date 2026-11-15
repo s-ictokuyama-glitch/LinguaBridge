@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+出荷設定のSileroの状態・文脈・32ms処理からmorphの英中字幕までの継続は [silero-lessonスキル](../../.agents/skills/silero-lesson/SKILL.md) と [検証範囲](silero_lesson.md) を参照する。ONNX境界の有限入力、50分仮想授業、本物ONNXとの固定入力比較を分けて確認する。
+
 通信の遅い生徒や送信に失敗する生徒がいても、音声入力から正常な英中生徒への字幕配信が続くことは [slow-student-continuity スキル](../../.agents/skills/slow-student-continuity/SKILL.md) と [検証範囲](slow_student_continuity.md) を参照する。送信処理の単体検査と、送信正常を仮定する授業全体の検査の間を扱う。
 
 生徒の再接続・言語切替による履歴復元中も、新着PCMから英中字幕まで継続することは [student-continuity スキル](../../.agents/skills/student-continuity/SKILL.md) と [検証範囲](student_continuity.md) を参照する。復元とライブの優先順位、MT満杯からの再開、1013切断後の回収、50分の仮想音声入力を検査する。
