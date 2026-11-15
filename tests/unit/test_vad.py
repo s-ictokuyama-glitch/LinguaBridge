@@ -378,3 +378,40 @@ def test_forced_split_without_a_breath_still_respects_the_limit():
     segments = feed_all(seg, np.concatenate([speech_pcm(1000, 5.0), silence_pcm(1.0)]))
     assert all(s.pcm.size <= 2 * SAMPLE_RATE + SAMPLE_RATE // 10 for s in segments)
     assert sum(np.count_nonzero(s.pcm == 1000) for s in segments) == 5 * SAMPLE_RATE
+
+
+@pytest.mark.parametrize("tail_s", [0.1, 0.2])
+def test_flush_keeps_short_continuation_after_forced_split_without_carry(tail_s: float):
+    seg = VoiceSegmenter(EnergyVAD(threshold=300), max_utterance_s=1, start_speech_ms=300)
+    first_pcm = np.concatenate([speech_pcm(2000, 0.9), speech_pcm(1000, 0.1)])
+    tail_pcm = speech_pcm(3000, tail_s)
+
+    first, = feed_all(seg, first_pcm)
+    assert first.forced
+    np.testing.assert_array_equal(first.pcm, first_pcm)
+    assert feed_all(seg, tail_pcm) == []
+
+    last = seg.flush()
+    assert last is not None, f"{tail_pcm.size} samples after the forced split were lost"
+    np.testing.assert_array_equal(last.pcm, tail_pcm)
+    assert last.t_start == 1.0
+    assert last.t_end == pytest.approx(1.0 + tail_s)
+    assert seg.flush() is None
+
+
+@pytest.mark.parametrize("interruption", ["flush", "reset", "silence"])
+def test_interruption_after_forced_split_still_requires_a_new_onset(interruption: str):
+    seg = VoiceSegmenter(EnergyVAD(threshold=300), max_utterance_s=1, start_speech_ms=300)
+    first_pcm = np.concatenate([speech_pcm(2000, 0.9), speech_pcm(1000, 0.1)])
+    first, = feed_all(seg, first_pcm)
+    assert first.forced
+
+    if interruption == "flush":
+        assert seg.flush() is None
+    elif interruption == "reset":
+        seg.reset()
+    else:
+        assert feed_all(seg, silence_pcm(0.1)) == []
+
+    assert seg.feed(speech_pcm(3000, 0.1)) == []
+    assert seg.flush() is None
