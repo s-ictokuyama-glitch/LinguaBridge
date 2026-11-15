@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+通信の遅い生徒や送信に失敗する生徒がいても、音声入力から正常な英中生徒への字幕配信が続くことは [slow-student-continuity スキル](../../.agents/skills/slow-student-continuity/SKILL.md) と [検証範囲](slow_student_continuity.md) を参照する。送信処理の単体検査と、送信正常を仮定する授業全体の検査の間を扱う。
+
 生徒の再接続・言語切替による履歴復元中も、新着PCMから英中字幕まで継続することは [student-continuity スキル](../../.agents/skills/student-continuity/SKILL.md) と [検証範囲](student_continuity.md) を参照する。復元とライブの優先順位、MT満杯からの再開、1013切断後の回収、50分の仮想音声入力を検査する。
 
 既定morphの文中断片が長無音・文末・一時停止で確定し、英中字幕まで継続することは [morph-lesson スキル](../../.agents/skills/morph-lesson/SKILL.md) と [検証範囲](morph_lesson.md) を参照する。ASR・MT完了順の有限探索と、発話ごとに排出を待たない50分仮想入力を検査する。

@@ -1,0 +1,392 @@
+{
+  "status": "PASS",
+  "sync_commit": "f53aaf2e30b5fab249015e52a67b38b76dd330ec",
+  "python": "3.12.10",
+  "depth": 4,
+  "attempted": 3110,
+  "legal_passed": 180,
+  "illegal": 2930,
+  "failed": 0,
+  "capacities": [
+    2,
+    3
+  ],
+  "legal_operation_counts": {
+    "sentence": 321,
+    "asr": 114,
+    "mt": 33,
+    "send_ok": 48,
+    "send_error": 48,
+    "send_timeout": 48
+  },
+  "bounded_timeout_mode": "injected_TimeoutError",
+  "witnesses": {
+    "overflow": {
+      "status": "PASS",
+      "timeout_mode": null,
+      "timeout_s": null,
+      "recovery": null,
+      "captions_after_fault": 2,
+      "fragments": 6,
+      "turns": 6,
+      "failed_asr": 0,
+      "asr_calls": 6,
+      "mt_calls": 12,
+      "captions": {
+        "en": 6,
+        "zh": 6
+      }
+    },
+    "error": {
+      "status": "PASS",
+      "timeout_mode": null,
+      "timeout_s": null,
+      "recovery": null,
+      "captions_after_fault": 2,
+      "fragments": 3,
+      "turns": 3,
+      "failed_asr": 0,
+      "asr_calls": 3,
+      "mt_calls": 6,
+      "captions": {
+        "en": 3,
+        "zh": 3
+      }
+    },
+    "timeout": {
+      "status": "PASS",
+      "timeout_mode": "positive_wait_for",
+      "timeout_s": 0.5,
+      "recovery": null,
+      "captions_after_fault": 2,
+      "fragments": 4,
+      "turns": 4,
+      "failed_asr": 0,
+      "asr_calls": 4,
+      "mt_calls": 8,
+      "captions": {
+        "en": 4,
+        "zh": 4
+      }
+    },
+    "recovery": {
+      "status": "PASS",
+      "timeout_mode": null,
+      "timeout_s": null,
+      "recovery": {
+        "last_seq": 1,
+        "replayed": 3,
+        "subsequent_live": 1
+      },
+      "captions_after_fault": 3,
+      "fragments": 5,
+      "turns": 5,
+      "failed_asr": 0,
+      "asr_calls": 5,
+      "mt_calls": 10,
+      "captions": {
+        "en": 5,
+        "zh": 5
+      }
+    }
+  },
+  "sustained": [
+    {
+      "status": "PASS",
+      "seconds": 3000,
+      "pcm_frames": 30000,
+      "faults": {
+        "overflow": 50,
+        "error": 50,
+        "timeout": 50
+      },
+      "asr_service_s": 0.8,
+      "mt_service_s": 0.8,
+      "peaks": {
+        "audio_seconds": 1.7,
+        "asr_events": 1,
+        "mt_jobs": 1,
+        "history": 50,
+        "cache": 512,
+        "receipts": 100,
+        "send_queue": 2,
+        "clients": 4,
+        "tasks": 8
+      },
+      "fragments": 900,
+      "turns": 600,
+      "failed_asr": 0,
+      "asr_calls": 900,
+      "mt_calls": 1200,
+      "captions": {
+        "en": 600,
+        "zh": 600
+      }
+    }
+  ],
+  "violations": [],
+  "mutations": [
+    {
+      "name": "await_each_socket",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "slow_isolation",
+        "expected": "inference drains while slow send stays blocked",
+        "actual": "pending",
+        "trace": [
+          "sentence"
+        ],
+        "witness": "error"
+      }
+    },
+    {
+      "name": "wrong_translation",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】体積が増えます。",
+            "en:【1】体積が増えます。",
+            "en"
+          ]
+        },
+        "actual": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【1】体積が増えます。",
+            "broken",
+            "en"
+          ]
+        },
+        "trace": [
+          "sentence"
+        ],
+        "witness": "error"
+      }
+    },
+    {
+      "name": "unbounded_send_queue",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "send_queue_bound",
+        "expected": 2,
+        "actual": [
+          0,
+          0,
+          0,
+          3
+        ],
+        "trace": [
+          "sentence",
+          "sentence"
+        ],
+        "witness": "overflow"
+      }
+    },
+    {
+      "name": "ignore_send_error",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "fault_disconnect",
+        "expected": "one 1013 close after transport failure",
+        "actual": {
+          "alive": true,
+          "closes": []
+        },
+        "trace": [
+          "sentence",
+          "send_error"
+        ],
+        "witness": "error"
+      }
+    },
+    {
+      "name": "ignore_send_timeout",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "fault_disconnect",
+        "expected": "one 1013 close",
+        "actual": {
+          "alive": true,
+          "closes": []
+        },
+        "trace": [
+          "sentence",
+          "sentence"
+        ],
+        "witness": "timeout"
+      }
+    },
+    {
+      "name": "premature_timeout",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "positive_timeout",
+        "expected": "still open before 0.5s",
+        "actual": "closed",
+        "trace": [
+          "sentence",
+          "sentence"
+        ],
+        "witness": "timeout"
+      }
+    },
+    {
+      "name": "skip_mt_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "no inference remains",
+        "actual": "pending",
+        "trace": [
+          "sentence"
+        ],
+        "witness": "error"
+      }
+    },
+    {
+      "name": "lose_replay",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "recovery_delivery",
+        "expected": {
+          "count": 3,
+          "first_difference": 0,
+          "item": [
+            2,
+            "【2】体積が増えます。",
+            "en:【2】体積が増えます。"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "sentence",
+          "send_ok",
+          "sentence",
+          "send_error",
+          "sentence",
+          "sentence"
+        ],
+        "witness": "recovery"
+      }
+    },
+    {
+      "name": "unbounded_history",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30,
+          "asr_events": 8,
+          "mt_jobs": 8,
+          "history": 50,
+          "cache": 512,
+          "receipts": 100,
+          "send_queue": 2,
+          "clients": 4,
+          "tasks": 12
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "asr_events": 0,
+          "mt_jobs": 1,
+          "history": 51,
+          "cache": 100,
+          "receipts": 50,
+          "send_queue": 2,
+          "clients": 4,
+          "tasks": 8
+        },
+        "trace": [
+          "PCM 253.7s",
+          "slow student overflow"
+        ]
+      }
+    },
+    {
+      "name": "late_boundary",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_deadline",
+        "expected": {
+          "lang": "zh",
+          "at_least": 2
+        },
+        "actual": 1,
+        "trace": [
+          "PCM 14.9s",
+          "slow student overflow"
+        ]
+      }
+    },
+    {
+      "name": "reject_pcm",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "PCM 11.4s",
+          "slow student overflow"
+        ]
+      }
+    },
+    {
+      "name": "stop_asr_worker",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "worker_liveness",
+        "expected": "ASR, MT and stats workers alive",
+        "actual": [
+          "asr-worker"
+        ],
+        "trace": [
+          "sentence"
+        ],
+        "witness": "overflow"
+      }
+    },
+    {
+      "name": "leave_senders",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "stop_completion",
+        "expected": "all workers, senders and executors stopped",
+        "actual": "resources remain",
+        "trace": [
+          "sentence",
+          "send_error",
+          "sentence",
+          "sentence"
+        ],
+        "witness": "error"
+      }
+    }
+  ],
+  "restored": "PASS",
+  "restored_matches": true
+}
