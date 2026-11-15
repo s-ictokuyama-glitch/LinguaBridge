@@ -229,6 +229,7 @@ class VoiceSegmenter:
         self._last_speech_end_sample = 0
         self._silence_run = 0
         self._speech_run = 0  # 発話開始待ちの連続音声フレーム数
+        self._continue_after_force = False
         # 発話終了後、TurnBoundary をまだ出していない間だけ数える無音フレーム
         self._post_silence_run: int | None = None
         # プリロール: 発話開始判定の直前の音声を発話に含める（語頭の欠けを防ぐ。
@@ -272,6 +273,7 @@ class VoiceSegmenter:
     def flush(self) -> Segment | None:
         """進行中の発話を強制確定する（一時停止・終了時に呼ぶ）。"""
         self._pending = np.zeros(0, dtype=np.int16)
+        self._continue_after_force = False
         if not self._frames:
             return None
         segment = self._close(forced=False)
@@ -298,6 +300,7 @@ class VoiceSegmenter:
         self._last_speech_end_sample = 0
         self._silence_run = 0
         self._speech_run = 0
+        self._continue_after_force = False
 
     def _process_frame(self, frame: np.ndarray) -> list[SegmenterEvent]:
         self._offset += frame.size
@@ -329,13 +332,15 @@ class VoiceSegmenter:
         """発話が開いていないときのフレーム。開始判定と TurnBoundary をここで見る。"""
         # 音声・無音を問わず溜める。start_speech_ms の判定待ちのフレームも発話に含める
         self._pre_roll.append(frame)
+        continuation = self._continue_after_force
+        self._continue_after_force = False
         if not speech:
             self._speech_run = 0
             return self._tick_post_silence()
 
         self._post_silence_run = None  # 発話が再開したので無条件確定は起きない
         self._speech_run += 1
-        if self._speech_run < self._speech_frames_to_open:
+        if not continuation and self._speech_run < self._speech_frames_to_open:
             return []  # まだ発話とみなさない（VAD の誤検知1枚で立ち上げない）
 
         opening = list(self._pre_roll)
@@ -389,7 +394,10 @@ class VoiceSegmenter:
         keep = len(self._frames) - lookback + quietest + 1
         carried = self._frames[keep:]
         if not carried:
-            return self._close(forced=True)
+            ended_on_speech = self._silence_run == 0
+            segment = self._close(forced=True)
+            self._continue_after_force = ended_on_speech
+            return segment
         kept = self._frames[:keep]
         cut_sample = self._utt_start_sample + sum(f.size for f in kept)
         segment = Segment(
