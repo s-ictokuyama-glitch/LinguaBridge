@@ -1,0 +1,526 @@
+{
+  "status": "PASS",
+  "sync_commit": "d595f375722d2190746fdbdb3b34de0aacc4d6e8",
+  "python": "3.12.10",
+  "violations": [],
+  "decode": {
+    "terminal_schedules": 2973,
+    "by_frames": {
+      "0": 1,
+      "1": 91,
+      "2": 2881
+    },
+    "repeated": true
+  },
+  "witness": {
+    "decodes": 8,
+    "mixed_token_text": "光です。"
+  },
+  "chunks": {
+    "cases": 33,
+    "lengths": [
+      1,
+      319,
+      320,
+      447999,
+      448000,
+      448001,
+      479999,
+      480000,
+      480001,
+      896000,
+      960001
+    ],
+    "shapes": [
+      "ramp",
+      "constant",
+      "quiet"
+    ]
+  },
+  "classroom": {
+    "pcm_utterances": 13,
+    "empty_results": 4,
+    "captions_per_language": 9,
+    "final_continuation": true,
+    "asr_calls": 13
+  },
+  "mutations": [
+    {
+      "name": "no_symbol_limit",
+      "detected": true,
+      "violation": {
+        "property": "decode_progress",
+        "expected": "at most 10 calls per frame",
+        "actual": 0,
+        "trace": [
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blank_does_not_advance",
+      "detected": true,
+      "violation": {
+        "property": "frame_order",
+        "expected": 1,
+        "actual": 0,
+        "trace": [
+          {
+            "frame": 0,
+            "token": 3072,
+            "duration": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "ignore_duration",
+      "detected": true,
+      "violation": {
+        "property": "frame_order",
+        "expected": 4,
+        "actual": 1,
+        "trace": [
+          {
+            "frame": 0,
+            "token": 1109,
+            "duration": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "carry_prediction_state",
+      "detected": true,
+      "violation": {
+        "property": "utterance_reset",
+        "expected": [
+          7.0,
+          11.0,
+          13.0
+        ],
+        "actual": [
+          974317.0,
+          855481.0,
+          796063.0
+        ],
+        "trace": [
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 0,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 1,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 2,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          },
+          {
+            "frame": 3,
+            "token": 257,
+            "duration": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "emit_blank",
+      "detected": true,
+      "violation": {
+        "property": "token_preservation",
+        "expected": [],
+        "actual": {
+          "emitted": [
+            3072
+          ],
+          "predicted": [
+            3072
+          ]
+        },
+        "trace": [
+          {
+            "frame": 0,
+            "token": 3072,
+            "duration": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "stop_early",
+      "detected": true,
+      "violation": {
+        "property": "decode_completion",
+        "expected": "nonempty input decoded",
+        "actual": 1,
+        "trace": []
+      }
+    },
+    {
+      "name": "drop_text_piece",
+      "detected": true,
+      "violation": {
+        "property": "token_text",
+        "expected": "光です。",
+        "actual": "です。",
+        "trace": []
+      }
+    },
+    {
+      "name": "drop_pcm",
+      "detected": true,
+      "violation": {
+        "property": "pcm_partition",
+        "expected": 448001,
+        "actual": 448000,
+        "trace": [
+          {
+            "samples": 448001,
+            "shape": "ramp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_pcm",
+      "detected": true,
+      "violation": {
+        "property": "pcm_partition",
+        "expected": 448001,
+        "actual": 448002,
+        "trace": [
+          {
+            "samples": 448001,
+            "shape": "ramp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong_pcm_scale",
+      "detected": true,
+      "violation": {
+        "property": "pcm_normalization",
+        "expected": {
+          "samples": 1,
+          "first": -1.0
+        },
+        "actual": {
+          "samples": 1,
+          "first": -2.0
+        },
+        "trace": [
+          {
+            "samples": 1,
+            "shape": "ramp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_chunk_text",
+      "detected": true,
+      "violation": {
+        "property": "chunk_text",
+        "expected": "[1]",
+        "actual": "1]",
+        "trace": [
+          {
+            "samples": 1,
+            "shape": "ramp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "drop_recognition",
+      "detected": true,
+      "violation": {
+        "property": "caption_continuation",
+        "expected": [
+          "光です。",
+          "ですですですですですですですですですです。",
+          "光です。",
+          "ですですですですですですですですですです。",
+          "光です。",
+          "ですですですですですですですですですです。",
+          "光です。",
+          "ですですですですですですですですですです。",
+          "光です。"
+        ],
+        "actual": [],
+        "trace": [
+          "PCM utterance 1",
+          "PCM utterance 2",
+          "PCM utterance 3",
+          "PCM utterance 4",
+          "PCM utterance 5",
+          "PCM utterance 6",
+          "PCM utterance 7",
+          "PCM utterance 8",
+          "PCM utterance 9",
+          "PCM utterance 10",
+          "PCM utterance 11",
+          "PCM utterance 12",
+          "PCM utterance 13"
+        ]
+      }
+    }
+  ],
+  "restored_matches": true,
+  "source_sha256": "8646ffbc75e5647b3665eb33cb2895aff7c3a2b7ff602c694c2a23f1eca81aaf",
+  "decoding_sha256": "e535e51bed8729c3d1c5acb5d016feae774f8b13160f2dccbcd4841ad6ecd5be",
+  "bounds": {
+    "encoded_frames": [
+      0,
+      1,
+      2
+    ],
+    "tokens": [
+      257,
+      3072
+    ],
+    "durations": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "max_symbols": 10
+  }
+}

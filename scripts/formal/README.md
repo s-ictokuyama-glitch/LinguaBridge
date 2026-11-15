@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+既定Haas ONNXの認識ループが前進し、次の音声も英中字幕まで処理できることは [haas-decode スキル](../../.agents/skills/haas-decode/SKILL.md) と [検証範囲](haas_decode.md) を参照する。モデル出力の2,973列を実コードで全列挙し、PCM分割と字幕への結合を確認する。
+
 30秒以上話し続けた場合の音声の強制分割・持越しからmorphの英中字幕までの継続は [continuous-speechスキル](../../.agents/skills/continuous-speech/SKILL.md) と [検証範囲](continuous_speech.md) を参照する。既定Sileroの32ms処理で分割境界を調べ、50分の無音を挟まない仮想入力を検査する。
 
 出荷設定のSileroの状態・文脈・32ms処理からmorphの英中字幕までの継続は [silero-lessonスキル](../../.agents/skills/silero-lesson/SKILL.md) と [検証範囲](silero_lesson.md) を参照する。ONNX境界の有限入力、50分仮想授業、本物ONNXとの固定入力比較を分けて確認する。
