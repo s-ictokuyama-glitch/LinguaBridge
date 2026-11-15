@@ -1,0 +1,396 @@
+{
+  "status": "FAIL",
+  "sync_commit": "ea925f9ed3be791d96e24faa975a00ec4c81d99c",
+  "python": "3.12.10",
+  "violations": [
+    {
+      "property": "pcm_partition",
+      "expected": [
+        [
+          0,
+          480256
+        ],
+        [
+          480256,
+          480768
+        ]
+      ],
+      "actual": [
+        [
+          0,
+          480256
+        ]
+      ],
+      "trace": [
+        "frames=939, quiet_period=938",
+        "chunk=511, release=eager"
+      ]
+    }
+  ],
+  "bounded": {
+    "cases": 162,
+    "passed": 144,
+    "failed": 18,
+    "failures": [
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 511,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 512,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "eager",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "hold_asr",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 939,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      },
+      {
+        "frames": 1877,
+        "quiet_period": 938,
+        "chunk": 1600,
+        "release": "hold_mt",
+        "property": "pcm_partition"
+      }
+    ],
+    "quiet_period_frames": [
+      876,
+      907,
+      938
+    ],
+    "chunk_samples": [
+      511,
+      512,
+      1600
+    ],
+    "release_schedules": [
+      "eager",
+      "hold_asr",
+      "hold_mt"
+    ],
+    "trigger_frames": 938
+  },
+  "sustained": {
+    "status": "PASS",
+    "seconds": 3000,
+    "input_chunks": 30000,
+    "asr_service_s": 0.2,
+    "mt_service_s": 0.2,
+    "peaks": {
+      "audio_seconds": 29.024,
+      "mt_jobs": 1,
+      "segment_frames": 937,
+      "pending_parts": 1,
+      "history": 50,
+      "cache": 102
+    },
+    "asr_calls": 105,
+    "captions_per_language": 53,
+    "continuation": true
+  },
+  "mutations": [
+    {
+      "name": "drop_carry",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "pcm_partition",
+        "expected": [
+          [
+            0,
+            464384
+          ],
+          [
+            464384,
+            928768
+          ]
+        ],
+        "actual": [
+          [
+            0,
+            464384
+          ]
+        ],
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "duplicate_carry",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "segment_bound",
+        "expected": "fewer than 938 frames",
+        "actual": 938,
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "late_split",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "segment_bound",
+        "expected": "fewer than 938 frames",
+        "actual": 938,
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "lose_turn_limit",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "turn_progress",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【0:464384】温度が高いので【464384:928768】温度が高いので"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "drop_translation",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "bilingual_delivery",
+        "expected": {
+          "count": 1,
+          "first_difference": 0,
+          "item": [
+            1,
+            "【0:464384】温度が高いので【464384:928768】温度が高いので",
+            "en:【0:464384】温度が高いので【464384:928768】温度が高いので",
+            "en"
+          ]
+        },
+        "actual": {
+          "count": 0,
+          "first_difference": 0,
+          "item": null
+        },
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "skip_mt_drain",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "drain_completion",
+        "expected": "all work complete",
+        "actual": {
+          "asr": 0,
+          "audio_seconds": 0.0,
+          "mt": 0,
+          "asr_running": false,
+          "mt_running": true
+        },
+        "trace": [
+          "frames=1846, quiet_period=907",
+          "chunk=511, release=hold_mt"
+        ]
+      }
+    },
+    {
+      "name": "stop_streaming_translation",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "sustained_progress",
+        "expected": {
+          "lang": "en",
+          "at_least": 1
+        },
+        "actual": 0,
+        "trace": [
+          "continuous PCM 61.1s"
+        ]
+      }
+    },
+    {
+      "name": "retain_turn_parts",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "retained_state_bound",
+        "expected": {
+          "audio_seconds": 30.016,
+          "mt_jobs": 1,
+          "segment_frames": 937,
+          "pending_parts": 1,
+          "history": 50,
+          "cache": 512
+        },
+        "actual": {
+          "audio_seconds": 0.0,
+          "mt_jobs": 0,
+          "segment_frames": 39,
+          "pending_parts": 2,
+          "history": 0,
+          "cache": 0
+        },
+        "trace": [
+          "continuous PCM 59.2s"
+        ]
+      }
+    },
+    {
+      "name": "reject_long_audio",
+      "healthy": "PASS",
+      "detected": true,
+      "violation": {
+        "property": "audio_admission",
+        "expected": 0,
+        "actual": 1,
+        "trace": [
+          "continuous PCM 30.0s"
+        ]
+      }
+    }
+  ],
+  "restored": "FAIL",
+  "restored_matches": true,
+  "configuration": {
+    "vad.engine": "silero",
+    "vad.threshold": 0.5,
+    "vad.max_utterance_s": 30,
+    "turn.strategy": "morph",
+    "turn.classifier": "surface",
+    "turn.morph.max_turn_s": 30.0,
+    "turn.morph.max_segments": 12,
+    "turn.morph.start_speech_ms": 96,
+    "partial.enabled": false
+  }
+}
