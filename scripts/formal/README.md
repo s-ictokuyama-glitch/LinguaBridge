@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+30秒以上話し続けた場合の音声の強制分割・持越しからmorphの英中字幕までの継続は [continuous-speechスキル](../../.agents/skills/continuous-speech/SKILL.md) と [検証範囲](continuous_speech.md) を参照する。既定Sileroの32ms処理で分割境界を調べ、50分の無音を挟まない仮想入力を検査する。
+
 出荷設定のSileroの状態・文脈・32ms処理からmorphの英中字幕までの継続は [silero-lessonスキル](../../.agents/skills/silero-lesson/SKILL.md) と [検証範囲](silero_lesson.md) を参照する。ONNX境界の有限入力、50分仮想授業、本物ONNXとの固定入力比較を分けて確認する。
 
 通信の遅い生徒や送信に失敗する生徒がいても、音声入力から正常な英中生徒への字幕配信が続くことは [slow-student-continuity スキル](../../.agents/skills/slow-student-continuity/SKILL.md) と [検証範囲](slow_student_continuity.md) を参照する。送信処理の単体検査と、送信正常を仮定する授業全体の検査の間を扱う。
