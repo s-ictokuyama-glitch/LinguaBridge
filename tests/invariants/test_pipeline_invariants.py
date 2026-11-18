@@ -15,6 +15,7 @@ LinguaBridge の遅延予算は「先生の1発話につき ASR 1回・アクテ
 from __future__ import annotations
 
 import contextlib
+from unittest.mock import Mock, call
 
 import pytest
 from tests.helpers import TEACHER_CODE, TestClient
@@ -233,6 +234,25 @@ class TestRepeatedUtteranceIsTranslatedOnce:
     Hy-MT2 を叩かないことと、**それでも字幕は必ず届くこと**を対で固定する。
     キャッシュが字幕を飲み込む壊れ方は、推論回数だけ見ていると見つからない。
     """
+
+    @pytest.mark.parametrize("empty_translation", ["", " \t\n\u3000"], ids=["empty", "whitespace"])
+    def test_repeated_utterance_retries_after_empty_translation(self, monkeypatch, empty_translation):
+        app, _asr, mt = make_app(["en"])
+        translate = Mock(side_effect=[empty_translation, "Good morning."])
+        monkeypatch.setattr(mt, "translate", translate)
+        with (
+            TestClient(app) as client,
+            client.websocket_connect("/ws") as teacher,
+            client.websocket_connect("/ws") as student,
+        ):
+            join_teacher(teacher)
+            join_student(student, "en")
+            start_session(teacher)
+            send_utterance(teacher, key=1000)
+            send_utterance(teacher, key=1000)
+            caption = wait_for(student, proto.Caption)
+            assert (caption.seq, caption.ja, caption.text) == (2, PHRASE_1000, "Good morning.")
+        assert translate.call_args_list == [call(PHRASE_1000, "en")] * 2
 
     def test_second_occurrence_does_not_call_the_engine(self):
         app, _asr, mt = make_app(["en"])
