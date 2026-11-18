@@ -255,6 +255,9 @@ class CaptionDelivery:
             # 「翻訳は速い」と誤読させる。節約ぶんは mt_cache_hit_rate が別に表す。
             # 再接続復元ジョブの推論は数える（`_delay_samples` と違い実CPU費用そのもの）
             self._mt_ms_samples.append(mt_ms)
+            if not text.strip():
+                logger.error("翻訳が空です（lang=%s seq=%s）", lang, utterance.seq)
+                return None
             translation = Translation(
                 lang=lang,
                 text=text,

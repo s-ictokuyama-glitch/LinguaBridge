@@ -20,7 +20,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 同じ環境を用意した Windows では `.venv/Scripts/python.exe -X utf8 -B scripts/formal/hymt_translation.py --mutation-check --json .audit/hymt-translation.json` を使える。1列だけ再現するには `--mutation-check` の代わりに `--case ok empty AB on` を渡す。順に、初回の英語・中国語の応答、続く2発話、キャッシュの設定を表す。
 
 - 終了コード **0 / PASS** は全ケースで期待どおりの字幕を受信したことを示す。
-- **1 / FAIL** では `first_counterexamples` を読む。`pcm` は入力した発話の列、`calls` は実際にモデル境界へ届いた原文・言語・応答。`expected` と `actual` の字幕は順に発話番号、日本語、言語、訳文。現行の反例も終了コード1で返す。
+- **1 / FAIL** では `first_counterexamples` を読む。`pcm` は入力した発話の列、`calls` は実際にモデル境界へ届いた原文・言語・応答。`expected` と `actual` の字幕は順に発話番号、日本語、言語、訳文。修正前に見つかった反例が再発した場合も終了コード1で返す。
 - **2 / ERROR** は検査が完了しなかったことを示す。たとえば期限超過では、環境で asyncio が起動できるか、ワーカーと送信キューの排出が進むかを確認する。破壊箇所の置換不一致では対応する製品コードを読み直す。
 
 ## 入力と境界を把握する
@@ -34,11 +34,11 @@ Python で有限入力を全列挙し、実装へ直接渡す。A は「水は�
 
 対象は実際の `Pipeline.feed_audio`、morph、Hy-MT2 のプロンプト生成・応答取り出し、推論の例外処理、翻訳キャッシュ、確定字幕の送信キュー。音声判定には energy、認識には波形の識別子を日本語に戻す代役、llama.cpp には実際に受け取った言語と原文に応じて固定の訳または指定の失敗を返す代役を使う。生成中のスレッド順序は全列挙しない。マイク・LAN・ブラウザー表示、実モデルが空訳を出す頻度、翻訳の品質、実時間50分の性能はこの探索の範囲外。
 
-## 同期時に見つかった反例
+## Issue #207 の回帰を確認する
 
-128ケース中32件が通り、96件で空の確定字幕が届いた。うち36件では、キャッシュを有効にして同じ文を再入力すると回復後にも空訳が届いた。これらは列挙した入力の件数で、教室での発生率を表さない。
+全128ケースが通り、終了コード0、`passed: 128`、`failed: 0` になることを確認する。修正前は96ケースで空字幕が届き、うち36ケースで回復後も同じ原文に空字幕が届いた。[Issue #207](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues/207)
 
-`--case ok empty AB on` で、中国語の初回 A が空文字になる。次の A は中国語のモデルを呼ばず、発話2の訳文も空になる。続く B と C の中国語と、英語の全字幕は届く。`--case ok empty AB off` では初回だけが空になる。`--case ok error AB on` では初回の中国語だけが省かれ、次の A から訳文が届く。空訳を受理する経路は `HyMt2Engine.translate` の `strip()` 後の戻り値から `CaptionDelivery._translate` のキャッシュ保存、`_process_mt_job` の配信へ追える。
+`--case ok empty AB on` は、中国語の初回 A に空文字を返す。初回は英語だけが届き、次の A では中国語を再翻訳して発話2の字幕が届く。`empty` を `whitespace` に変えても同じ結果になる。後続の B と C は英中ともに届く。
 
 破壊検査は通る対照列 `ok error AB on` を使い、一時コピーで次を確認する。
 
@@ -54,7 +54,7 @@ Python で有限入力を全列挙し、実装へ直接渡す。A は「水は�
 
 ## 実装との同期を保つ
 
-製品コードを最後に照合したコミットは `b2b80fb4b6a0d395a4356ff556b689b3ebaa59b1`。
+差分照合の起点は `0fc3bc541587ba8cd729a929a56a4fa5f52c9df9`。ここから Issue #207 で変更した `server/caption_delivery.py` は Git blob `9dda72986eb4793a3bd0c5b3278ca88badc81992` で検証した。
 
 | 対象 | 変更時に照合する処理 |
 |---|---|
@@ -66,7 +66,8 @@ Python で有限入力を全列挙し、実装へ直接渡す。A は「水は�
 | `config.yaml`、`server/config.py`、`scripts/formal/lesson_liveness.py` | 出荷設定、受信Socket代役 |
 
 ```powershell
-git diff b2b80fb4b6a0d395a4356ff556b689b3ebaa59b1 -- server config.yaml scripts/formal/lesson_liveness.py
+git diff 0fc3bc541587ba8cd729a929a56a4fa5f52c9df9 -- server config.yaml scripts/formal/lesson_liveness.py
+git hash-object server/caption_delivery.py
 ```
 
 変更後は、最初の反例を1列で再実行し、実際のモデル要求、失敗した言語と届いた字幕を上表の経路に照合する。プロンプトの形式変更で代役が原文や言語を識別できない場合は、モデルが実際に受け取る引数を確認して代役を更新する。製品の反例が残る場合は期待値を保つ。意図した契約変更はその根拠とともに入力・期待値に反映する。全探索と3破壊を再実行して復元結果を確認した後に、同期コミットと反例の記録を更新する。未検証の変更が重なったときは `/maintain-formal-verification-skill` を使う。
