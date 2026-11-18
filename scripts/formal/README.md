@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+一時停止や授業終了の直前に残った短い音が、再開後の発話や英中字幕に混ざらないかを [lesson-audio-boundary スキル](../../.agents/skills/lesson-audio-boundary/SKILL.md) で検証する。先生の100 ms入力と既定の発話開始条件を組み合わせた全探索と、日本語音声・出荷モデルでの再現手順がある。
+
 ASR の音声待ちが満杯になった授業は [asr-overload-recovery スキル](../../.agents/skills/asr-overload-recovery/SKILL.md) で検証する。どの発話を破棄したかを入力から予測し、空きが戻った後の発話まで先生の確定原文と英中の字幕を照合する。
 
 既定Haas ONNXの認識ループが前進し、次の音声も英中字幕まで処理できることは [haas-decode スキル](../../.agents/skills/haas-decode/SKILL.md) と [検証範囲](haas_decode.md) を参照する。モデル出力の2,973列を実コードで全列挙し、PCM分割と字幕への結合を確認する。
