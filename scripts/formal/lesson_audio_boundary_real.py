@@ -138,11 +138,13 @@ async def check(models, action="end"):
     actual = await replay(config, prefix, markers, speech, action)
     offsets = [offset for row in actual.values() for call in row["asr"] for offset in call["old_frame_offsets"]]
     properties = {"old_pcm_absent": all(offset < 0 for offset in offsets)}
-    for phase, row in actual.items():
+    for expected_seq, phase in enumerate(speech, start=1):
+        row = actual[phase]
         expected = control[phase]
         properties[f"{phase}_pcm_matches"] = row["asr"] == expected["asr"]
         properties[f"{phase}_captions_match"] = (
-            row["delivered"] and row["mt_calls"] >= 2 and row["captions"] == expected["captions"]
+            [seq for seq, _ in row["finals"]] == [expected_seq]
+            and row["delivered"] and row["mt_calls"] >= 2 and row["captions"] == expected["captions"]
         )
     return {"status": "PASS" if all(properties.values()) else "FAIL", "action": action, "properties": properties,
             "control": control, "after_prefix": actual, "prefix_speech_frames": decisions,
