@@ -38,7 +38,7 @@ function element() {
   });
 }
 
-async function page(sourceRoot, writeFrame = () => {}) {
+async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => message()) {
   const elements = new Map();
   const sockets = [];
   const contexts = [];
@@ -96,7 +96,7 @@ async function page(sourceRoot, writeFrame = () => {}) {
       this.context = context;
       this.port = { onmessage: null };
       this.processor = new Processor();
-      this.processor.port.postMessage = (data) => this.port.onmessage?.({ data });
+      this.processor.port.postMessage = (data) => deliver(() => this.port.onmessage?.({ data }));
       this.output = null;
       this.active = true;
       context.nodes.push(this);
@@ -348,7 +348,10 @@ async function main() {
   process.exitCode = result.status === "PASS" ? 0 : 1;
 }
 
-main().catch((error) => {
-  process.stdout.write(JSON.stringify({ status: "ERROR", error: error.stack }, null, 2) + "\n");
-  process.exitCode = 2;
-});
+module.exports = { page };
+if (require.main === module) {
+  main().catch((error) => {
+    process.stdout.write(JSON.stringify({ status: "ERROR", error: error.stack }, null, 2) + "\n");
+    process.exitCode = 2;
+  });
+}
