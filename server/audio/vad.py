@@ -272,12 +272,8 @@ class VoiceSegmenter:
 
     def flush(self) -> Segment | None:
         """進行中の発話を確定し、時刻を保って音声状態を破棄する（一時停止・終了時）。"""
-        segment = self._close(forced=False) if self._frames else None
-        self._pending = np.zeros(0, dtype=np.int16)
-        self._pre_roll.clear()
-        self._vad.reset()
-        self._post_silence_run = None  # flush は無音待ちではないので印は出さない
-        self._reset_utterance()
+        segment = self._current_segment(forced=False) if self._frames else None
+        self._clear_audio_state()
         return segment
 
     def reset(self) -> None:
@@ -286,11 +282,14 @@ class VoiceSegmenter:
         t_start/t_end は「音声先頭からの秒」なので、ストリームの先頭が変わる以上
         _offset も 0 に戻す。戻し忘れると次のストリームの時刻が前のぶんだけずれる。
         """
+        self._clear_audio_state()
+        self._offset = 0
+        self.last_speech_at = None
+
+    def _clear_audio_state(self) -> None:
         self._pending = np.zeros(0, dtype=np.int16)
         self._pre_roll.clear()
         self._vad.reset()
-        self._offset = 0
-        self.last_speech_at = None
         self._post_silence_run = None
         self._reset_utterance()
 
@@ -413,14 +412,17 @@ class VoiceSegmenter:
         self._post_silence_run = None  # 発話は続いているので無音待ちではない
         return segment
 
-    def _close(self, forced: bool) -> Segment:
-        segment = Segment(
+    def _current_segment(self, forced: bool) -> Segment:
+        return Segment(
             pcm=np.concatenate(self._frames),
             t_start=self._utt_start_sample / self._sample_rate,
             t_end=self._last_speech_end_sample / self._sample_rate,
             closed_at=time.monotonic(),
             forced=forced,
         )
+
+    def _close(self, forced: bool) -> Segment:
+        segment = self._current_segment(forced)
         # 直前まで数えていた無音を引き継ぐ（無音で閉じた場合は
         # すでに _silence_frames_to_close ぶん経っている）
         self._post_silence_run = self._silence_run

@@ -21,7 +21,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 - `PASS`・終了0なら指定範囲に反例なし。`FAIL`・終了1なら `failed_cases` の引数を `--case` に渡し、入力した音、ASRに実際に渡った音、先生の確定原文、英中の受信字幕を比較する。
 - `passed: 256`、`failed: 0`、`continuation_ok: 256` を確認する。[Issue #211](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues/211) の修正前は、一時停止と終了で各40通りに停止前の音が混ざった。
-- `--mutation-check` は製品の一時コピーを使う。`end 1 2 1` で開始待ちの音声を残す故障を、`end 1 3 3` で確定発話の消失、後続の中国語字幕欠落、採番の飛び、終了が一時停止に化ける故障を検出する。`mutations.results` に5件の反例が出る。`restored_control` と `restored_matches` がともに `true` なら、復元後の両対照と全探索が最初と一致した。対照に違反がある場合は、破壊検査の `INCONCLUSIVE` と全探索の反例を確認する。
+- `--mutation-check` は製品の一時コピーを使う。`end 1 2 1` で開始待ちの音声を残す故障を検出する。`end 1 3 3` では確定発話の消失、停止時の音声時刻の巻き戻り、後続の中国語字幕欠落、採番の飛び、終了が一時停止に化ける故障を検出する。`mutations.results` に6件の反例が出る。`restored_control` と `restored_matches` がともに `true` なら、復元後の両対照と全探索が最初と一致した。対照に違反がある場合は、破壊検査の `INCONCLUSIVE` と全探索の反例を確認する。
 - `ERROR`・終了2や起動時の例外では検査が完了していない。依存、asyncio のローカルソケット、ワーカーの停止・タイムアウト、破壊箇所の一致を調べる。
 
 ## Issue #211 の再現入力を確認する
@@ -42,6 +42,7 @@ Python で有限のPCM列を列挙して実際の `Connection.receive` に入力
 - 操作は `pause → start` と `end → start`。停止前の100 msパケット数は1〜8個。16 kHzの1,600サンプルとSileroの512サンプルのずれから生じる、全8種類の余り（0〜448、64刻み）を含む。停止前の端数は無音。
 - 停止直前の完全な有音枠と再開直後の有音枠はそれぞれ0〜3枚。全組合せは 2 × 8 × 4 × 4 = 256通り。再開後と後続の入力はそれぞれ100 msを16パケットとし、先頭の有音の後は区間末尾まで無音。各観測点でASR・MTと送信を排出する。
 - 期待する発話は入力台帳から独立に決める。連続3枚ならその区間の識別音が1件、0〜2枚なら0件。ASRに渡った非ゼロサンプルの値・個数・順序、先生の確定原文、言語別の訳文と発話番号を比較する。新しい正当な発話に旧PCMが付く場合も違反に含む。
+- 停止前・再開直後・その次の発話について、処理済みサンプル数とプリロールから開始・終了時刻を求め、字幕履歴の `t_start`・`t_end` と照合する。停止時の端数は捨て、完全な判定枠のぶんだけ再開後の時刻を進める。
 - 実Sileroアダプターに対しONNXの1枠ごとの確率だけを決定的に与える。ASRは実際に届いた波形の識別語を読み、MTは原文と言語をそのまま照合できる訳文を返す。任意の波形・操作列、推論失敗・遅延、無音サンプル数、再帰状態の独立性、実時間50分の性能、マイクや画面表示はこの全探索の保証外。
 
 ## 出荷モデルで照合する
@@ -57,22 +58,24 @@ Python で有限のPCM列を列挙して実際の `Connection.receive` に入力
 
 `old_pcm_absent` は旧音声に固有の2枠をHaas入力から検索する。`first_pcm_matches` と `following_pcm_matches` は入力全体の長さとSHA-256を対照と照合する。両発話の `*_captions_match` で発話番号、日本語原文、英訳、中国語訳が対照と一致することを確認する。検査に使うのは上記の固定音源である。
 
+`first_timestamps_match` と `following_timestamps_match` は、確定した発話の開始・終了時刻を16 kHzのサンプル数で比較する。100 msの前置きで処理されるのは512サンプルの完全な3枠なので、各時刻は前置きなしの対照より1,536サンプル（96 ms）先になる。
+
 ## 実装との同期
 
-差分照合の起点は `516a08b491d2fd18072ee846bb7bf6d549b75b6e`。Issue #211 の修正後に照合した `server/audio/vad.py` の Git blob は `814b1de88a8e1d881e63ba1c4ab002f4aa3f5d00`。
+差分照合の起点は `009ce938301e8fc37fb908bce249d3cda1d50c70`。音声状態の初期化を共通化した `server/audio/vad.py` の検証済み Git blob は `fed452fd2034d739a8cb57f4d14ec66aa28e01e6`。
 
 | 対象 | 照合する処理 |
 |---|---|
 | `config.yaml`、`server/config.py`、`web/audio-worklet.js` | 既定のSilero・morph、発話の開始・確定条件、先生が送るPCMの粒度 |
 | `server/connection.py`、`server/lesson.py` | `receive`、`control`、`_transition`、`_finalize_lesson` の停止・再開・排出順 |
-| `server/audio/{ingest,vad}.py` | `pcm16_from_bytes`、`VoiceSegmenter.feed/flush/_process_idle_frame/_close`、`SileroVAD.is_speech` の判定単位、開始待ち、端数とプリロール |
+| `server/audio/{ingest,vad}.py` | `pcm16_from_bytes`、`SileroVAD.is_speech` の判定単位、`VoiceSegmenter` の開始待ち・端数・プリロール、`flush` と `reset` の音声状態と時刻 |
 | `server/pipeline.py`、`server/asr_backlog.py`、`server/turn/` | `feed_audio`、`flush_audio`、`_asr_worker`、`drain`、Turn確定と音声の順序 |
 | `server/caption_{delivery,history}.py`、`server/{roster,delivery}.py`、`server/mt/cache.py` | 確定発話の採番、言語ごとのジョブ、字幕送信、キャッシュ |
 | `server/{main,inference,inference_process}.py`、`server/asr/haas_onnx_engine.py`、`server/mt/hymt_engine.py` | `create_app` が選ぶ出荷モデルと子プロセスへの入力 |
 | `scripts/formal/{lesson_liveness,silero_contract,lesson_liveness_real}.py` | Socket、識別用MT、ONNX代役の注入箇所と実モデルの観測 |
 
 ```powershell
-git diff 516a08b491d2fd18072ee846bb7bf6d549b75b6e -- config.yaml web/audio-worklet.js server scripts/formal scripts/make_fixture_audio.ps1
+git diff 009ce938301e8fc37fb908bce249d3cda1d50c70 -- config.yaml web/audio-worklet.js server scripts/formal scripts/make_fixture_audio.ps1
 git hash-object server/audio/vad.py
 ```
 
