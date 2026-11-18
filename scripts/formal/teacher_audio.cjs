@@ -85,7 +85,9 @@ async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => me
     createMediaStreamSource(stream) {
       const source = { stream, target: null,
         connect(target) { this.target = target; },
-        disconnect() { this.target = null; } };
+        disconnect(target) {
+          if (!target || this.target === target) this.target = null;
+        } };
       this.sources.push(source);
       return source;
     }
@@ -94,14 +96,19 @@ async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => me
     constructor(context, name) {
       if (name !== "pcm16-downsampler") throw new Error(`unknown node: ${name}`);
       this.context = context;
-      this.port = { onmessage: null };
       this.processor = new Processor();
-      this.processor.port.postMessage = (data) => deliver(() => this.port.onmessage?.({ data }));
+      this.port = { onmessage: null, closed: false,
+        postMessage: (data) => this.processor.port.onmessage?.({ data }),
+        close() { this.closed = true; } };
+      this.processor.port.postMessage = (data) => deliver(() => {
+        if (!this.port.closed) this.port.onmessage?.({ data });
+      });
       this.output = null;
       this.active = true;
       context.nodes.push(this);
     }
     connect(output) { this.output = output; }
+    disconnect() { this.output = null; }
   }
   class Socket extends Events {
     static OPEN = 1;

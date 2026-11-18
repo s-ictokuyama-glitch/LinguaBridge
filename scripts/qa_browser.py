@@ -315,12 +315,15 @@ window.AudioContext=class {
  async resume(){this.state='running';} createMediaStreamSource(stream){
    const source={connected:false,connectedTo:null,stream,
      connect(target){this.connected=true;this.connectedTo=target;},
-     disconnect(){this.connected=false;this.connectedTo=null;}};
+     disconnect(target){
+       if(!target || this.connectedTo===target){this.connected=false;this.connectedTo=null;}}};
    qa.sources.push(source); return source;
  }
  createGain(){return {gain:{value:1},connect(){}};}
 };
-window.AudioWorkletNode=class { constructor(){this.port={};} connect(){} };
+window.AudioWorkletNode=class {
+ constructor(){this.port={postMessage(){},close(){}};} connect(){} disconnect(){}
+};
 """
 
 CASES = []

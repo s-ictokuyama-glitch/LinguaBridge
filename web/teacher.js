@@ -17,6 +17,7 @@ const state = {
   recordingSaveError: null,
   micReady: false,
   audioCtx: null,
+  audioMute: null,
   workletNode: null,
   micSource: null, // 現在つないでいる MediaStreamSource
   micStream: null, // 現在の MediaStream（切替時に track を止める）
@@ -179,8 +180,7 @@ function getMicStream(deviceId) {
  * 「新しい source を connect → 旧 source を disconnect → 旧 track を stop」の順で行う。
  * `getUserMedia` の await はこの前に済んでいて、その間は旧マイクが生きたままなので、
  * 切替で無音の穴を作らない。
- * `AudioContext` と `AudioWorkletNode` は使い回す — ワークレットの `sampleRate` は
- * 構築時に固定されており、作り直すと発話の取り込み経路ごと入れ替わってしまう。
+ * マイクの切替では `AudioContext` と現在の `AudioWorkletNode` を使い回す。
  */
 function attachStream(stream, deviceId) {
   const source = state.audioCtx.createMediaStreamSource(stream);
@@ -496,6 +496,9 @@ function applyStats(msg) {
 }
 
 function applySessionState(s) {
+  if (s === "live" && state.sessionState !== "live" && state.workletNode) {
+    replaceAudioWorklet();
+  }
   state.sessionState = s;
   if (s !== "ended") {
     clearRecordingSaveWarning();
@@ -560,6 +563,34 @@ function updateMicMeter(buffer) {
   el.micMeterBar.classList.toggle("silent", level < 0.02);
 }
 
+function replaceAudioWorklet() {
+  const previous = state.workletNode;
+  const node = new AudioWorkletNode(state.audioCtx, "pcm16-downsampler");
+  node.port.onmessage = (ev) => {
+    if (state.workletNode !== node) return;
+    updateMicMeter(ev.data);
+    if (
+      state.sessionState === "live" &&
+      state.joined &&
+      state.ws.readyState === WebSocket.OPEN
+    ) {
+      state.ws.send(ev.data);
+    }
+  };
+  node.connect(state.audioMute);
+  state.workletNode = node;
+  if (state.micSource) {
+    state.micSource.connect(node);
+    if (previous) state.micSource.disconnect(previous);
+  }
+  if (previous) {
+    previous.port.onmessage = null;
+    previous.port.postMessage("stop");
+    previous.port.close();
+    previous.disconnect();
+  }
+}
+
 async function ensureMic() {
   const initialRequest = state.micRequest;
   const wasPending = initialRequest?.result === null;
@@ -606,24 +637,12 @@ async function ensureMic() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     await ctx.resume();
     await ctx.audioWorklet.addModule("/static/audio-worklet.js");
-    const node = new AudioWorkletNode(ctx, "pcm16-downsampler");
-    node.port.onmessage = (ev) => {
-      updateMicMeter(ev.data); // メーターは live 以外でも常時更新（無音の視認 E-01）
-      // サーバー側でも live 以外は破棄するが、無駄な送信を避ける
-      if (
-        state.sessionState === "live" &&
-        state.joined &&
-        state.ws.readyState === WebSocket.OPEN
-      ) {
-        state.ws.send(ev.data);
-      }
-    };
     const mute = ctx.createGain();
     mute.gain.value = 0; // ワークレットをグラフに保持しつつスピーカーには出さない
-    node.connect(mute);
     mute.connect(ctx.destination);
     state.audioCtx = ctx;
-    state.workletNode = node;
+    state.audioMute = mute;
+    replaceAudioWorklet();
   }
   attachStream(stream, deviceId);
   state.micReady = true;

@@ -44,7 +44,11 @@ async function page(sourceRoot) {
         return elements.get(id);
       } },
     WebSocket: Socket, window: { AudioContext: Context },
-    AudioWorkletNode: class { constructor() { this.port = {}; } connect() {} },
+    AudioWorkletNode: class {
+      constructor() { this.port = { postMessage() {}, close() {} }; }
+      connect() {}
+      disconnect() {}
+    },
     navigator: { mediaDevices: {
       async getUserMedia() {
         const track = { readyState: "live", stop() { this.readyState = "ended"; } };
