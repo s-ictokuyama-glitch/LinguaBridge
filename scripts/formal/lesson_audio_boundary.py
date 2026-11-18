@@ -28,6 +28,7 @@ from server.roster import Roster
 
 PACKET = 1600
 FRAME = 512
+SAMPLE_RATE = 16000
 SILENCE = bytes(PACKET * 2)
 WORDS = {1000: "停止前", 2000: "再開直後", 3000: "次の説明"}
 
@@ -69,6 +70,9 @@ class Recognition:
 
 
 async def classroom(config, case):
+    opening_samples = config.turn.morph.start_speech_ms * SAMPLE_RATE // 1000
+    pre_roll_samples = config.vad.pre_roll_ms * SAMPLE_RATE // 1000 // FRAME * FRAME
+    block_packets = 16
     asr = Recognition()
     roster = Roster(config.limits)
     with model_scope(FrameScores()):
@@ -92,7 +96,7 @@ async def classroom(config, case):
         if actual != expected:
             differences.append(dict(phase=phase, field=field, expected=expected, actual=actual))
 
-    async def checkpoint(phase, marker, voiced_frames):
+    async def checkpoint(phase, marker, voiced_frames, expected_times):
         await pipeline.drain(timeout=5)
         await asyncio.wait_for(asyncio.gather(*(s._queue.join() for s in roster._senders.values())), 5)
         if any(s.closed is not None for s in (teacher, *students.values())):
@@ -106,8 +110,13 @@ async def classroom(config, case):
         finals = [m for m in teacher.frames[cursors["teacher"]:] if m["type"] == "asr_final"]
         cursors["teacher"] = len(teacher.frames)
         row = dict(asr=calls, teacher=[m["ja"] for m in finals])
+        utterances = pipeline.captions.history.since(cursors["history"])
+        if utterances:
+            cursors["history"] = utterances[-1].seq
+        row["timestamps"] = [[u.t_start, u.t_end] for u in utterances]
         compare(phase, "asr", expected_calls, calls)
         compare(phase, "teacher", words, row["teacher"])
+        compare(phase, "timestamps", [expected_times] if voiced_frames >= 3 else [], row["timestamps"])
         for lang, socket in students.items():
             captions = [m for m in socket.frames[cursors[lang]:] if m["type"] == "caption"]
             cursors[lang] = len(socket.frames)
@@ -132,7 +141,9 @@ async def classroom(config, case):
         await send(old)
         await control(case.action)
         compare("boundary", "state", {"pause": "paused", "end": "ended"}[case.action], lesson.state)
-        await checkpoint("before", 1000, case.before)
+        await checkpoint("before", 1000, case.before,
+                         [max(0, whole - pre_roll_samples - opening_samples) / SAMPLE_RATE,
+                          whole / SAMPLE_RATE])
         await control("start")
         compare("after", "start_state", "live", lesson.state)
         for phase, marker, count in (("after", 2000, case.after), ("continuation", 3000, 3)):
@@ -140,9 +151,13 @@ async def classroom(config, case):
             packet[:count * FRAME] = marker
             await send(packet)
             # Each block is 1.6 s (50 complete Silero frames), ending in long silence.
-            for _ in range(15):
+            for _ in range(block_packets - 1):
                 await wire.receive(SILENCE)
-            await checkpoint(phase, marker, count)
+            expected_times = ([whole / SAMPLE_RATE, (whole + opening_samples) / SAMPLE_RATE]
+                              if phase == "after" else
+                              [(whole + block_packets * PACKET - pre_roll_samples) / SAMPLE_RATE,
+                               (whole + block_packets * PACKET + opening_samples) / SAMPLE_RATE])
+            await checkpoint(phase, marker, count, expected_times)
         seqs = [m["seq"] for m in teacher.frames if m["type"] == "asr_final"]
         compare("lesson", "sequence", list(range(1, len(seqs) + 1)), seqs)
     finally:
@@ -152,8 +167,8 @@ async def classroom(config, case):
 
 async def search(cases):
     config = load_config(ROOT / "config.yaml")
-    if (config.vad.engine, config.turn.strategy, config.turn.morph.start_speech_ms,
-            config.partial.enabled, config.recording.default_on) != ("silero", "morph", 96, False, False):
+    if (config.vad.engine, config.vad.pre_roll_ms, config.turn.strategy, config.turn.morph.start_speech_ms,
+            config.partial.enabled, config.recording.default_on) != ("silero", 240, "morph", 96, False, False):
         raise ValueError("review the input ledger against config.yaml")
     passed = continuation_ok = 0
     failures = []
@@ -176,10 +191,13 @@ async def search(cases):
 MUTATIONS = (
     ("drop_flushed_audio", "pipeline.py", "segment = self._segmenter.flush()",
      "self._segmenter.flush()\n        segment = None", Case("end", 1, 3, 3), "before", "asr"),
-    ("reuse_opening_audio", "audio/vad.py", "segment = self._close(forced=False) if self._frames else None",
+    ("reuse_opening_audio", "audio/vad.py", "segment = self._current_segment(forced=False) if self._frames else None",
      "if not self._frames:\n            self._pending = np.zeros(0, dtype=np.int16)\n"
      "            self._continue_after_force = False\n            return None\n"
-     "        segment = self._close(forced=False)", Case("end", 1, 2, 1), "after", "asr"),
+     "        segment = self._current_segment(forced=False)", Case("end", 1, 2, 1), "after", "asr"),
+    ("reset_flush_offset", "audio/vad.py", "segment = self._current_segment(forced=False) if self._frames else None",
+     "segment = self._current_segment(forced=False) if self._frames else None\n        self._offset = 0",
+     Case("end", 1, 3, 3), "after", "timestamps"),
     ("skip_final_chinese", "caption_delivery.py", "if self.roster.send(client, captions[selected]):",
      'if (selected != "zh" or job.utterance.seq < 3) and self.roster.send(client, captions[selected]):',
      Case("end", 1, 3, 3), "continuation", "zh"),
