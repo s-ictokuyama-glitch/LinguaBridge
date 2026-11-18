@@ -12,9 +12,14 @@ class PCM16Downsampler extends AudioWorkletProcessor {
     this.pos = 0.0; // inputBuffer 上の読み出し位置（小数、線形補間）
     this.out = new Int16Array(CHUNK_SAMPLES);
     this.outLen = 0;
+    this.stopped = false;
+    this.port.onmessage = ({ data }) => {
+      if (data === "stop") this.stopped = true;
+    };
   }
 
   process(inputs) {
+    if (this.stopped) return false;
     const channel = inputs[0] && inputs[0][0];
     if (!channel || channel.length === 0) {
       return true;

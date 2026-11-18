@@ -23,15 +23,15 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 - **観測**　再開後に異なる識別音を400 msずつ、その直後に無音を1.2秒ずつ入れる。先生の実送信バイトを `Connection.receive` に渡す。各発話で新しい音が6,400サンプルあり、旧音が0であること、ASRに届いた音の順序、先生の確定原文、英中双方の字幕の番号・原文・言語・訳を入力計画と突き合わせる。
 - **代役**　Node VMで実JSを動かし、画面の操作と配信状態の応答順序を固定する。32 msごとのSileroのモデル出力、ASR、MTは識別音から決定的な値を返す。VADの区間化、morph、推論キュー、翻訳ジョブ、配信は製品コードを通る。探索結果の件数はこの入力集合での内訳で、授業中の発生頻度は測定していない。
 
-### 反例を読む
+### 混入を検出したケースを再検査する
 
-同期時点では608件中596件が違反し、次の発話は全608件で両言語へ届いた。短い再現には次を使う。
+Issue #215 の修正前（`a9e1cde`）には608件中596件で旧音が混入した。修正後は608件すべてで、最初と次の発話が旧音を含まず英中に1件ずつ届いた。5種類の破壊検出と復元後の再探索も通った。停止中に未完成だったパケットを個別に調べるには次を使う。
 
 ```powershell
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/teacher_audio_resume.py --case pause stopped 36 immediate
 ```
 
-一時停止中に96 msの音を入力する。この間、先生ページからの送信は0件。再開すると、停止中の1,536サンプルが最初のパケットに入り、認識の代役は「停止中と再開直後です。」を返す。英中の生徒がどちらもこの原文の字幕を受け取る。授業終了後の次の授業を調べるには `pause` を `end` に替える。配送待ちだけを切り分けるには `--case pause stopped 75 queued` を使い、同じ入力の `immediate` と比較する。
+一時停止中に96 msの音を入力する。この間、先生ページからの送信は0件。修正前は停止中の1,536サンプルが再開後の先頭パケットに入った。修正後の混入は0サンプルで、先生と英中の生徒が受け取る原文は「再開直後です。」になった。授業終了後の次の授業を調べるには `pause` を `end` に替える。配送待ちだけを切り分けるには `--case pause stopped 75 queued` を使い、同じ入力の `immediate` と比較する。
 
 `first_counterexamples` は性質ごとに最初の違反と再現引数を示す。`first_old_pcm` または `following_old_pcm` があれば送信条件とWorkletの保持音声を照合する。その後に `first_asr`、`first_teacher`、`first_en`、`first_zh` を追う。`following_ok` は次の独立した発話が全検査を通ったケース数。`--mutation-check` は正常対照の一時コピーで停止中の送信、旧パケット再送、後続音声の欠落、パケット先頭の消音、中国語だけの欠配を別々に注入する。指定の性質で失敗し、一時変更を破棄して全探索が元の結果に戻ったら `restored_matches` が真になる。既知の反例も終了1で報告する。
 
@@ -44,24 +44,24 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/teacher_audio_resume_real.py --action end --json .audit/teacher-audio-resume-real/end.json
 ```
 
-停止中の64 msを日本語音声にした場合と、同じ長さの無音にした対照を比べる。どちらも同じWorkletに再開後の教材2発話を入力する。送信PCMを再生するときは各音源の後に無音を追加し、キャッシュを無効にして言語ごとの推論を確認する。`wire` の `inactive_sample_offset` と `lessons` の `old_frame_offsets` は停止中の音が見つかったサンプル位置（見つからなければ −1）。`properties` は配信の成否と、対照に対する音声・原文・各言語の字幕の一致を個別に返す。
+停止中の64 msを日本語音声にした場合と、同じ長さの無音にした対照を比べる。両方の条件で、再開後に同じ教材2発話を入力する。送信PCMを再生するときは各音源の後に無音を追加し、キャッシュを無効にして言語ごとの推論を確認する。`wire` の `inactive_sample_offset` と `lessons` の `old_frame_offsets` は停止中の音が見つかったサンプル位置（見つからなければ −1）。`properties` は配信の成否と、対照に対する音声・原文・各言語の字幕の一致を個別に返す。
 
-同期時点では一時停止・終了のどちらでも停止中の1,024サンプルが再開後のHaas入力の先頭に一致した。「光合成には日光と水と二酸化炭素が必要です」の先頭に「動物」が加わり、英訳に “Animal”、中訳に「动物」が入った。次の教科書の発話では、送信PCM・原文・両言語の字幕が対照と一致した。Haasに渡った区間の長さには32 msの差が残った。音源やモデルが異なると文面は変わりうる。64 msの混入は入力PCMと対照で判断する。
+修正前は一時停止・終了の両方で停止音1,024サンプルがHaas入力の先頭に残り、「光合成」に「動物」が加わった。修正後は両方で12項目すべてが成立した。停止音は送信PCMにもHaas入力にも見つからず、光合成と教科書の2発話は原文・英訳・中訳とも無音対照と一致した。音源やモデルが異なると文面は変わりうる。64 msの混入は入力PCMと対照で判断する。
 
 ## 実装との同期
 
-照合した製品コミットは `a73c99b5448ab0752675693436b535daf0e3f92c`。
+照合した製品コミットは `abb6cef97fdfe2eeead6baca99cecb2402ab668a`。
 
 | 照合する箇所 | 対応する観測 |
 |---|---|
-| `web/teacher.js` の `ensureMic`、`applySessionState`、開始・停止ボタンと `port.onmessage`、`web/audio-worklet.js` の `PCM16Downsampler.process` | 有効なクリック、メッセージの配送時点、端数、送信された各100 msの中身 |
+| `web/teacher.js` の `ensureMic`、`applySessionState`、`replaceAudioWorklet`、開始・停止ボタンと `port.onmessage`、`web/audio-worklet.js` の `PCM16Downsampler.process` | 有効なクリック、メッセージの配送時点、端数、送信された各100 msの中身 |
 | `server/connection.py` の `receive`、`server/lesson.py` の `control`、`_transition`、`config.yaml`、`server/audio/vad.py`、`server/pipeline.py` の `feed_audio`、`flush_audio`、`_process_segment` | 先生の入力受理、停止時の排出、再開後のASR入力とTurn確定 |
 | `server/caption_delivery.py`、`server/roster.py`、`server/delivery.py` | 受信者ごとの確定字幕と順序 |
 | `server/main.py` の `create_app`、`server/asr/haas_onnx_engine.py`、`server/mt/hymt_engine.py` | 日本語音声を使う照合でのモデル選択、ASR入力、実際の訳文 |
 | `scripts/formal/teacher_audio.cjs` の `page`、`lesson_audio_boundary{,_real}.py` の `FrameScores` と `replay` | 先生ページの代役、既定VADへの入力、出荷モデルへの受け渡し |
 
 ```powershell
-git diff a73c99b5448ab0752675693436b535daf0e3f92c -- web/teacher.js web/audio-worklet.js config.yaml server scripts/formal
+git diff abb6cef97fdfe2eeead6baca99cecb2402ab668a -- web/teacher.js web/audio-worklet.js config.yaml server scripts/formal
 ```
 
 端数の破棄やWorklet制御メッセージの導入時は、代役のMessagePortと実ブラウザーの実装を照合する。反例が変わったら入力、送信PCM、ASR入力、字幕の順に調べる。契約を意図して変更するときは入力計画と期待値・破壊検出を合わせる。対応するコードと全探索・破壊検出・実音声の結果を確認してから同期コミットを進める。未照合の変更には `/maintain-formal-verification-skill` を使う。

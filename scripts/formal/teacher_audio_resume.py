@@ -162,17 +162,17 @@ def mutation_check():
     mutations = (
         ("send_while_stopped", "web/teacher.js", 'state.sessionState === "live" &&',
          "true &&", {"stopped_packets"}),
-        ("resend_stopped_packet", "web/teacher.js", "      updateMicMeter(ev.data);",
-         '      if (state.sessionState !== "live") state.previousPacket = ev.data;\n'
-         '      else if (state.previousPacket) {\n'
-         '        const voiced = new Int16Array(ev.data).some(sample => sample !== 0);\n'
-         '        if (voiced && !state.wasVoiced) state.ws.send(state.previousPacket);\n'
-         '        state.wasVoiced = voiced;\n'
-         '      }\n'
-         "      updateMicMeter(ev.data);",
+        ("resend_stopped_packet", "web/teacher.js", "    updateMicMeter(ev.data);",
+         '    if (state.sessionState !== "live") state.previousPacket = ev.data;\n'
+         '    else if (state.previousPacket) {\n'
+         '      const voiced = new Int16Array(ev.data).some(sample => sample !== 0);\n'
+         '      if (voiced && !state.wasVoiced) state.ws.send(state.previousPacket);\n'
+         '      state.wasVoiced = voiced;\n'
+         '    }\n'
+         "    updateMicMeter(ev.data);",
          {"first_old_pcm", "following_old_pcm", "first_asr", "first_teacher", "first_en", "first_zh"}),
-        ("drop_following_audio", "web/teacher.js", "        state.ws.send(ev.data);",
-         "        if (!new Int16Array(ev.data).includes(4000)) state.ws.send(ev.data);",
+        ("drop_following_audio", "web/teacher.js", "      state.ws.send(ev.data);",
+         "      if (!new Int16Array(ev.data).includes(4000)) state.ws.send(ev.data);",
          {"following_asr", "following_teacher", "following_en", "following_zh"}),
         ("mute_packet_onset", "web/audio-worklet.js", "this.port.postMessage(this.out.buffer.slice(0));",
          "this.out[0] = 0;\n        this.port.postMessage(this.out.buffer.slice(0));",

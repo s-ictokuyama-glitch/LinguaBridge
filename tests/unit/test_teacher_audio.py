@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -21,6 +22,21 @@ def test_teacher_audio_capture_histories(tmp_path):
     assert report["status"] == "PASS"
     assert report["bounded"]["legal"] == report["bounded"]["passed"] == 24
     assert report["sustained"]["status"] == "PASS"
+
+
+@pytest.mark.parametrize(("action", "period", "quanta", "delivery"), [
+    ("pause", "stopped", "36", "immediate"),
+    ("end", "before", "75", "queued"),
+])
+def test_resumed_bilingual_captions_contain_only_new_audio(action, period, quanta, delivery):
+    if shutil.which("node") is None:
+        pytest.skip("先生画面のJavaScript検証にはNode.jsが必要")
+    result = subprocess.run(
+        [sys.executable, "-X", "utf8", "-B", "scripts/formal/teacher_audio_resume.py",
+         "--case", action, period, quanta, delivery],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 @pytest.mark.parametrize("failure", ["resume", "getUserMedia"])
