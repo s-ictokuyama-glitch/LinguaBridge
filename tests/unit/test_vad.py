@@ -95,7 +95,9 @@ def test_flush_discards_old_audio_and_requires_a_fresh_onset(old_value: int, old
     old_pcm = np.full(old_frames * 512, old_value, dtype=np.int16)
     seg.feed(np.concatenate([old_pcm, np.full(17, 1500, dtype=np.int16)]))
 
+    last_speech_at = seg.last_speech_at
     previous = seg.flush()
+    assert seg.last_speech_at == last_speech_at
     if old_value and old_frames == 3:
         assert previous is not None
         np.testing.assert_array_equal(previous.pcm, old_pcm)
@@ -199,7 +201,9 @@ def test_reset_restarts_timeline_at_zero():
     """
     seg = make_segmenter()
     feed_all(seg, np.concatenate([speech_pcm(2000, 1.0), silence_pcm(0.8)]))
+    assert seg.last_speech_at is not None
     seg.reset()
+    assert seg.last_speech_at is None
     segments = feed_all(seg, np.concatenate([speech_pcm(2000, 1.0), silence_pcm(0.8)]))
     assert len(segments) == 1
     assert segments[0].t_start == pytest.approx(0.0, abs=0.15)

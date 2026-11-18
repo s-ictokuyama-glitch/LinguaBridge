@@ -7,6 +7,7 @@ from functools import partial
 import hashlib
 from importlib.metadata import version
 import json
+import math
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -30,6 +31,14 @@ def sample_offset(pcm, marker):
     while offset >= 0 and offset % 2:
         offset = pcm.find(marker, offset + 1)
     return offset // 2
+
+
+def timestamp_samples(seconds):
+    samples = seconds * 16000
+    nearest = round(samples)
+    if not math.isclose(samples, nearest, rel_tol=0, abs_tol=1e-6):
+        raise ValueError(f"utterance timestamp is not on the 16 kHz sample grid: {seconds}")
+    return nearest
 
 
 async def replay(config, prefix, markers, speech, action):
@@ -85,6 +94,7 @@ async def replay(config, prefix, markers, speech, action):
                 teacher_at = len(teacher.frames)
                 student_at = {lang: len(socket.frames) for lang, socket in students.items()}
                 start, mt = len(observed), pipeline.captions.metrics().calls
+                utterance_at = pipeline.captions.history.seq_head
                 packets = pcm + bytes(-len(pcm) % PACKET + 12 * PACKET)
                 for offset in range(0, len(packets), PACKET):
                     await pipeline.feed_audio(packets[offset:offset + PACKET])
@@ -102,7 +112,10 @@ async def replay(config, prefix, markers, speech, action):
                     [m[:2] for m in messages] == finals and all(m[2] == lang and m[3].strip() for m in messages)
                     for lang, messages in captions.items())
                 result[name] = dict(asr=observed[start:], finals=finals, captions=captions, delivered=delivered,
-                                    mt_calls=pipeline.captions.metrics().calls - mt)
+                                    mt_calls=pipeline.captions.metrics().calls - mt,
+                                    utterances=[{
+                                        "t_start": u.t_start, "t_end": u.t_end,
+                                    } for u in pipeline.captions.history.since(utterance_at)])
     return result
 
 
@@ -136,6 +149,7 @@ async def check(models, action="end"):
     if any(offset >= 0 for row in control.values() for call in row["asr"] for offset in call["old_frame_offsets"]):
         raise ValueError("previous lesson marker also occurs in an ASR input from the clean control")
     actual = await replay(config, prefix, markers, speech, action)
+    prefix_processed_samples = len(prefix) // FRAME * (FRAME // 2)
     offsets = [offset for row in actual.values() for call in row["asr"] for offset in call["old_frame_offsets"]]
     properties = {"old_pcm_absent": all(offset < 0 for offset in offsets)}
     for expected_seq, phase in enumerate(speech, start=1):
@@ -146,8 +160,15 @@ async def check(models, action="end"):
             [seq for seq, _ in row["finals"]] == [expected_seq]
             and row["delivered"] and row["mt_calls"] >= 2 and row["captions"] == expected["captions"]
         )
+        properties[f"{phase}_timestamps_match"] = (
+            len(row["utterances"]) == len(expected["utterances"]) == 1
+            and all(timestamp_samples(u[key]) == timestamp_samples(e[key]) + prefix_processed_samples
+                    for u, e in zip(row["utterances"], expected["utterances"])
+                    for key in ("t_start", "t_end"))
+        )
     return {"status": "PASS" if all(properties.values()) else "FAIL", "action": action, "properties": properties,
             "control": control, "after_prefix": actual, "prefix_speech_frames": decisions,
+            "prefix_processed_samples": prefix_processed_samples,
             "previous_speech_frames": [
                 {"sha256": hashlib.sha256(m).hexdigest(), "head_pcm16": np.frombuffer(m, dtype="<i2")[:8].tolist()}
                 for m in markers
