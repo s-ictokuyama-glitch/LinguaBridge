@@ -337,11 +337,13 @@ class VoiceSegmenter:
             self._speech_run = 0
             return self._tick_post_silence()
 
-        self._post_silence_run = None  # 発話が再開したので無条件確定は起きない
         self._speech_run += 1
         if not continuation and self._speech_run < self._speech_frames_to_open:
+            if self._post_silence_run is not None:
+                self._post_silence_run = 0
             return []  # まだ発話とみなさない（VAD の誤検知1枚で立ち上げない）
 
+        self._post_silence_run = None
         opening = list(self._pre_roll)
         self._pre_roll.clear()
         self._utt_start_sample = self._offset - sum(f.size for f in opening)
