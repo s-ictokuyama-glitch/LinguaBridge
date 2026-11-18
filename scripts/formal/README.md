@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+先生が文の途中で黙り、その直後に短い音を拾ったときは [morph-silence スキル](../../.agents/skills/morph-silence/SKILL.md) を使う。次の発話を待たずに、保留していた原文と英中の字幕が届くかを検査する。
+
 先生ページが100 msのパケットを作る途中や、完成した音声の配送を待つ間に授業を止めた場合は [teacher-audio-resume](../../.agents/skills/teacher-audio-resume/SKILL.md) を使う。停止中の会話が再開後の英中字幕に混ざらないかを、実Workletと出荷モデルで追跡できる。
 
 一時停止や授業終了の直前に残った短い音が、再開後の発話や英中字幕に混ざらないかを [lesson-audio-boundary スキル](../../.agents/skills/lesson-audio-boundary/SKILL.md) で検証する。先生の100 ms入力と既定の発話開始条件を組み合わせた全探索と、日本語音声・出荷モデルでの再現手順がある。
