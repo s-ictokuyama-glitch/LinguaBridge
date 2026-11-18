@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from server.audio.vad import EnergyVAD, Segment, SpeechActivity, VoiceSegmenter
+from server.audio.vad import EnergyVAD, Segment, SpeechActivity, TurnBoundary, VoiceSegmenter
 from tests.helpers import SAMPLE_RATE, chunks, silence_pcm, speech_pcm
 
 
@@ -246,6 +246,27 @@ def test_boundary_fires_once_after_force_silence():
     assert boundary.at == pytest.approx(1.64, abs=0.11)
 
 
+@pytest.mark.parametrize("burst_frames", [1, 2])
+def test_short_sound_restarts_pending_boundary_deadline(burst_frames: int):
+    seg = VoiceSegmenter(
+        EnergyVAD(300), frame_ms=32, start_speech_ms=96,
+        min_silence_ms=500, force_silence_ms=1000,
+    )
+    assert [type(e) for e in seg.feed(np.full(3 * 512, 1000, dtype=np.int16))] == [SpeechActivity]
+    assert [type(e) for e in seg.feed(np.zeros(16 * 512, dtype=np.int16))] == [Segment]
+
+    burst = np.full(burst_frames * 512, 2000, dtype=np.int16)
+    assert seg.feed(burst) == []
+    assert seg.feed(np.zeros(31 * 512, dtype=np.int16)) == []
+    events = seg.feed(np.zeros(512, dtype=np.int16))
+    assert [type(e) for e in events] == [TurnBoundary]
+    assert events[0].at == pytest.approx((3 + 16 + burst_frames + 32) * 0.032)
+
+    assert seg.feed(np.zeros(32 * 512, dtype=np.int16)) == []
+    assert seg.feed(burst) == []
+    assert seg.feed(np.zeros(32 * 512, dtype=np.int16)) == []
+
+
 def test_short_gap_closes_segment_without_boundary():
     """320ms 以上 640ms 未満の間: Segment は割れるが Turn は割らない（印が出ない）。"""
     seg = make_morph_segmenter()
@@ -269,8 +290,7 @@ def test_start_speech_ms_ignores_a_single_false_positive_frame():
     """VAD の誤検知1フレームで発話が立ち上がらない（Parapper B-3）。"""
     seg = make_morph_segmenter(start_speech_ms=300)  # 100msフレーム × 3枚が必要
     pcm = np.concatenate([silence_pcm(0.5), speech_pcm(2000, 0.1), silence_pcm(1.5)])
-    segments = [e for e in feed_all(seg, pcm) if isinstance(e, Segment)]
-    assert segments == []
+    assert feed_all(seg, pcm) == []
     assert seg.flush() is None
 
 
