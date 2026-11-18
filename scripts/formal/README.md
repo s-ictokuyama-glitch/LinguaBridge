@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+ASR の音声待ちが満杯になった授業は [asr-overload-recovery スキル](../../.agents/skills/asr-overload-recovery/SKILL.md) で検証する。どの発話を破棄したかを入力から予測し、空きが戻った後の発話まで先生の確定原文と英中の字幕を照合する。
+
 既定Haas ONNXの認識ループが前進し、次の音声も英中字幕まで処理できることは [haas-decode スキル](../../.agents/skills/haas-decode/SKILL.md) と [検証範囲](haas_decode.md) を参照する。モデル出力の2,973列を実コードで全列挙し、PCM分割と字幕への結合を確認する。
 
 30秒以上話し続けた場合の音声の強制分割・持越しからmorphの英中字幕までの継続は [continuous-speechスキル](../../.agents/skills/continuous-speech/SKILL.md) と [検証範囲](continuous_speech.md) を参照する。既定Sileroの32ms処理で分割境界を調べ、50分の無音を挟まない仮想入力を検査する。
