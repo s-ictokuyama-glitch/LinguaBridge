@@ -32,7 +32,7 @@ def sample_offset(pcm, marker):
     return offset // 2
 
 
-async def replay(config, prefix, markers, speech):
+async def replay(config, prefix, markers, speech, action):
     from lesson_liveness_real import Socket
     from server.main import create_app
     from server.publication import Publication
@@ -74,10 +74,10 @@ async def replay(config, prefix, markers, speech):
             if prefix:
                 await pipeline.feed_audio(prefix)
                 if pipeline._segmenter.is_open:
-                    raise ValueError("old fixture opened a Segment before end")
-            await lesson.control("end")
-            if lesson.state != "ended":
-                raise RuntimeError("first lesson did not end")
+                    raise ValueError("old fixture opened a Segment before the stop")
+            await lesson.control(action)
+            if lesson.state != {"pause": "paused", "end": "ended"}[action]:
+                raise RuntimeError(f"{action} left the lesson in state {lesson.state}")
             await lesson.control("start")
             if observed or lesson.state != "live":
                 raise RuntimeError("restart requires live state and no earlier ASR")
@@ -106,7 +106,7 @@ async def replay(config, prefix, markers, speech):
     return result
 
 
-async def check(models):
+async def check(models, action="end"):
     import numpy as np
     from server.audio.vad import SileroVAD
     from server.config import load_config
@@ -130,22 +130,21 @@ async def check(models):
                  for i in range(0, 3 * FRAME, FRAME)]
     if decisions != [False, True, True]:
         raise ValueError(f"expected two speech frames short of opening, got {decisions}")
-    control = await replay(config, b"", markers, speech)
+    control = await replay(config, b"", markers, speech, action)
     if any(not r["asr"] or not r["delivered"] or r["mt_calls"] < 2 for r in control.values()):
         raise RuntimeError(f"the clean control did not transcribe and translate both fixtures: {control}")
     if any(offset >= 0 for row in control.values() for call in row["asr"] for offset in call["old_frame_offsets"]):
         raise ValueError("previous lesson marker also occurs in an ASR input from the clean control")
-    actual = await replay(config, prefix, markers, speech)
+    actual = await replay(config, prefix, markers, speech, action)
     offsets = [offset for row in actual.values() for call in row["asr"] for offset in call["old_frame_offsets"]]
     properties = {"old_pcm_absent": all(offset < 0 for offset in offsets)}
     for phase, row in actual.items():
-        expected = control[phase]["captions"]
-        same_words = all(
-            [m[1:] for m in messages] == [m[1:] for m in expected[lang]]
-            for lang, messages in row["captions"].items()
+        expected = control[phase]
+        properties[f"{phase}_pcm_matches"] = row["asr"] == expected["asr"]
+        properties[f"{phase}_captions_match"] = (
+            row["delivered"] and row["mt_calls"] >= 2 and row["captions"] == expected["captions"]
         )
-        properties[f"{phase}_captions_match"] = row["delivered"] and row["mt_calls"] >= 2 and same_words
-    return {"status": "PASS" if all(properties.values()) else "FAIL", "properties": properties,
+    return {"status": "PASS" if all(properties.values()) else "FAIL", "action": action, "properties": properties,
             "control": control, "after_prefix": actual, "prefix_speech_frames": decisions,
             "previous_speech_frames": [
                 {"sha256": hashlib.sha256(m).hexdigest(), "head_pcm16": np.frombuffer(m, dtype="<i2")[:8].tolist()}
@@ -157,11 +156,12 @@ async def check(models):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--action", choices=("end", "pause"), default="end")
     parser.add_argument("--models-dir", type=Path)
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
     try:
-        report = asyncio.run(check(args.models_dir))
+        report = asyncio.run(check(args.models_dir, args.action))
     except Exception as error:
         report = {"status": "ERROR", "error": f"{type(error).__name__}: {error}"}
     output = json.dumps(report, ensure_ascii=False, indent=2)

@@ -20,11 +20,11 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 同じ依存が入った開発機では `.venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_audio_boundary.py --mutation-check` でも実行できる。結果の読み方は次のとおり。
 
 - `PASS`・終了0なら指定範囲に反例なし。`FAIL`・終了1なら `failed_cases` の引数を `--case` に渡し、入力した音、ASRに実際に渡った音、先生の確定原文、英中の受信字幕を比較する。
-- 同期時点は256通り中176通り成功、80通り違反。一時停止と終了で各40通りに停止前の音が混ざった。その後の独立した発話は全256通りで両言語に届いた（`continuation_ok`）。現行の違反を合格条件に組み込まない。
-- `--mutation-check` は正常対照 `--case end 1 3 3` を一時コピーで壊す。`mutations.results` に、停止時の発話消失、再開時の旧PCM混入、後続の中国語字幕欠落、採番の飛び、終了が一時停止に化ける場合の5件の反例が出る。`restored_control` と `restored_matches` がともに `true` なら、復元後の対照と全探索が最初と一致している。対照で既に製品の違反が出た場合、破壊検査は `INCONCLUSIVE`、全探索の反例は `FAIL` のまま残す。
+- `passed: 256`、`failed: 0`、`continuation_ok: 256` を確認する。[Issue #211](https://github.com/s-ictokuyama-glitch/LinguaBridge/issues/211) の修正前は、一時停止と終了で各40通りに停止前の音が混ざった。
+- `--mutation-check` は製品の一時コピーを使う。`end 1 2 1` で開始待ちの音声を残す故障を、`end 1 3 3` で確定発話の消失、後続の中国語字幕欠落、採番の飛び、終了が一時停止に化ける故障を検出する。`mutations.results` に5件の反例が出る。`restored_control` と `restored_matches` がともに `true` なら、復元後の両対照と全探索が最初と一致した。対照に違反がある場合は、破壊検査の `INCONCLUSIVE` と全探索の反例を確認する。
 - `ERROR`・終了2や起動時の例外では検査が完了していない。依存、asyncio のローカルソケット、ワーカーの停止・タイムアウト、破壊箇所の一致を調べる。
 
-## 反例を再現する
+## Issue #211 の再現入力を確認する
 
 ```powershell
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_audio_boundary.py --case end 1 2 1
@@ -32,7 +32,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 1. 先生が100 msのPCMを1個送る。末尾の完全な判定枠2枚が有音で、64 msだけでは発話が開かない。
 2. 先生が授業を終了し、次の授業を開始する。最初の判定枠1枚（32 ms）に別の音を入れ、その後は無音にする。この時点までの期待字幕は0件。
-3. 現行の `VoiceSegmenter.flush` は発話がまだ開いていないとき、開始待ちの連続枚数とプリロールを保持する。再開後、旧1,024サンプルと新512サンプルをまとめてASRへ渡す。識別用のASR・MTでは、先生と英中生徒に両方の識別語を含む字幕が1件届く。
+3. `observed.after` の ASR 入力、先生の確定原文、英中字幕がすべて空であることを確認する。修正前は旧1,024サンプルと新512サンプルが一つの発話としてASRに渡っていた。
 4. 次に独立した96 msの発話を送り、両言語の新着字幕を確認する。この発話の結果は `observed.continuation` に出る。
 
 ## 探索範囲
@@ -49,14 +49,17 @@ Python で有限のPCM列を列挙して実際の `Connection.receive` に入力
 通常のアプリ依存、出荷した Silero・Haas ONNX・Hy-MT2、日本語音源 `tests/fixtures/ja/{01,02,03}.wav` を使う。音源がない開発機では `./scripts/make_fixture_audio.ps1 -BaseOnly` で生成する。
 
 ```powershell
-.venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_audio_boundary_real.py --json .audit/lesson-audio-boundary-real.json
+.venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_audio_boundary_real.py --action end --json .audit/lesson-audio-boundary-real-end.json
+.venv/Scripts/python.exe -X utf8 -B scripts/formal/lesson_audio_boundary_real.py --action pause --json .audit/lesson-audio-boundary-real-pause.json
 ```
 
-モデルの場所は `config.yaml` の `models.dir`、別の場所では `--models-dir` を指定する。実際の授業終了・開始を通し、新授業の同一音源を、旧授業の短い前置きあり・なしの2回で比較する。同期時点では前置きに固有の512サンプル（32 ms）が次のHaas入力の先頭に現れ、`old_pcm_absent` が失敗した。この項目が探すのは、旧授業に固有の有音2枠それぞれの完全一致。1枠未満の混入は見逃しうる。再開直後とその次の日本語原文・英訳・中国語訳は対照と一致した。音声やモデルを更新した場合は、対照のASR入力・両言語の受信内容と、旧音声の位置を確認する。固定音源での一致は授業全般の認識・翻訳精度を保証しない。
+モデルは `config.yaml` の `models.dir` から読み込む。別の場所を使う場合は `--models-dir` を指定する。各操作で、停止直前に短い音声を入れた場合と、何も入れない対照に同じ2発話を送る。修正前は旧授業の有音512サンプルが次のHaas入力の先頭に残っていた。
+
+`old_pcm_absent` は旧音声に固有の2枠をHaas入力から検索する。`first_pcm_matches` と `following_pcm_matches` は入力全体の長さとSHA-256を対照と照合する。両発話の `*_captions_match` で発話番号、日本語原文、英訳、中国語訳が対照と一致することを確認する。検査に使うのは上記の固定音源である。
 
 ## 実装との同期
 
-同期コミットは `6689b3f6504cdf1f6ed168ad518bbcea173f3d51`。
+差分照合の起点は `516a08b491d2fd18072ee846bb7bf6d549b75b6e`。Issue #211 の修正後に照合した `server/audio/vad.py` の Git blob は `814b1de88a8e1d881e63ba1c4ab002f4aa3f5d00`。
 
 | 対象 | 照合する処理 |
 |---|---|
@@ -69,7 +72,8 @@ Python で有限のPCM列を列挙して実際の `Connection.receive` に入力
 | `scripts/formal/{lesson_liveness,silero_contract,lesson_liveness_real}.py` | Socket、識別用MT、ONNX代役の注入箇所と実モデルの観測 |
 
 ```powershell
-git diff 6689b3f6504cdf1f6ed168ad518bbcea173f3d51 -- config.yaml web/audio-worklet.js server scripts/formal scripts/make_fixture_audio.ps1
+git diff 516a08b491d2fd18072ee846bb7bf6d549b75b6e -- config.yaml web/audio-worklet.js server scripts/formal scripts/make_fixture_audio.ps1
+git hash-object server/audio/vad.py
 ```
 
 対象が変わったら、パケット境界と開始条件を実装に照合する。反例が新しく出たら手順と入力を残し、製品の修正は別途扱う。意図した契約変更なら入力台帳・期待値・破壊箇所をそろえる。実装との対応、全探索、破壊検出と復元、実モデル照合を確認してから同期コミットを進める。変更が溜まった場合は `/maintain-formal-verification-skill` を使う。

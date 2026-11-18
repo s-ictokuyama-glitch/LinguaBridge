@@ -175,14 +175,18 @@ async def search(cases):
 
 MUTATIONS = (
     ("drop_flushed_audio", "pipeline.py", "segment = self._segmenter.flush()",
-     "self._segmenter.flush()\n        segment = None", "before", "asr"),
-    ("reuse_opening_audio", "audio/vad.py", "self._pre_roll.clear()\n        self._utt_start_sample",
-     "self._utt_start_sample", "after", "asr"),
+     "self._segmenter.flush()\n        segment = None", Case("end", 1, 3, 3), "before", "asr"),
+    ("reuse_opening_audio", "audio/vad.py", "segment = self._close(forced=False) if self._frames else None",
+     "if not self._frames:\n            self._pending = np.zeros(0, dtype=np.int16)\n"
+     "            self._continue_after_force = False\n            return None\n"
+     "        segment = self._close(forced=False)", Case("end", 1, 2, 1), "after", "asr"),
     ("skip_final_chinese", "caption_delivery.py", "if self.roster.send(client, captions[selected]):",
      'if (selected != "zh" or job.utterance.seq < 3) and self.roster.send(client, captions[selected]):',
-     "continuation", "zh"),
-    ("skip_sequence", "caption_history.py", "self._seq += 1", "self._seq += 2", "lesson", "sequence"),
-    ("pause_instead_of_end", "lesson.py", '"end": "ended"', '"end": "paused"', "boundary", "state"),
+     Case("end", 1, 3, 3), "continuation", "zh"),
+    ("skip_sequence", "caption_history.py", "self._seq += 1", "self._seq += 2",
+     Case("end", 1, 3, 3), "lesson", "sequence"),
+    ("pause_instead_of_end", "lesson.py", '"end": "ended"', '"end": "paused"',
+     Case("end", 1, 3, 3), "boundary", "state"),
 )
 
 
@@ -196,9 +200,10 @@ def mutations():
         for name in (Path(__file__).name, "lesson_liveness.py", "silero_contract.py"):
             shutil.copy2(ROOT / "scripts/formal" / name, scripts)
 
-        def probe():
+        def probe(case):
             child = subprocess.run([sys.executable, "-I", "-B", "-X", "utf8", str(scripts / Path(__file__).name),
-                                    "--case", "end", "1", "3", "3"], cwd=scratch, capture_output=True,
+                                    "--case", case.action, str(case.packets), str(case.before), str(case.after)],
+                                   cwd=scratch, capture_output=True,
                                    encoding="utf-8", timeout=30)
             if child.returncode not in (0, 1):
                 raise RuntimeError(f"mutation probe exited {child.returncode}: {child.stdout} {child.stderr}")
@@ -207,11 +212,15 @@ def mutations():
                 raise RuntimeError(f"mutation probe incomplete: {report}; {child.stderr}")
             return report
 
-        control = probe()
-        if control["status"] != "PASS":
-            return dict(status="INCONCLUSIVE", control=control)
+        controls = {}
+        for _, _, _, _, case, _, _ in MUTATIONS:
+            if case not in controls:
+                control = probe(case)
+                if control["status"] != "PASS":
+                    return dict(status="INCONCLUSIVE", control=control)
+                controls[case] = control
         results = {}
-        for name, file, before, after, phase, field in MUTATIONS:
+        for name, file, before, after, case, phase, field in MUTATIONS:
             target = scratch / "server" / file
             source = target.read_bytes()
             code = source.decode("utf-8").replace("\r\n", "\n")
@@ -219,7 +228,7 @@ def mutations():
                 raise ValueError(f"review mutation {name} in {file}")
             target.write_text(code.replace(before, after), encoding="utf-8")
             try:
-                broken = probe()
+                broken = probe(case)
                 witness = next((d for d in broken["differences"]
                                 if (d["phase"], d["field"]) == (phase, field)), None)
                 if witness is None:
@@ -227,8 +236,9 @@ def mutations():
                 results[name] = witness
             finally:
                 target.write_bytes(source)
-        if probe() != control:
-            raise RuntimeError("restored control differs")
+        for case, control in controls.items():
+            if probe(case) != control:
+                raise RuntimeError("restored control differs")
         return dict(status="PASS", results=results, restored_control=True)
 
 

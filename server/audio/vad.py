@@ -271,13 +271,13 @@ class VoiceSegmenter:
         return events
 
     def flush(self) -> Segment | None:
-        """進行中の発話を強制確定する（一時停止・終了時に呼ぶ）。"""
+        """進行中の発話を確定し、時刻を保って音声状態を破棄する（一時停止・終了時）。"""
+        segment = self._close(forced=False) if self._frames else None
         self._pending = np.zeros(0, dtype=np.int16)
-        self._continue_after_force = False
-        if not self._frames:
-            return None
-        segment = self._close(forced=False)
+        self._pre_roll.clear()
+        self._vad.reset()
         self._post_silence_run = None  # flush は無音待ちではないので印は出さない
+        self._reset_utterance()
         return segment
 
     def reset(self) -> None:

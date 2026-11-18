@@ -78,6 +78,11 @@ class SileroLesson(LessonCase):
         for offset in range(0, len(pcm), self.chunk):
             await self.ingest(pcm[offset:offset + self.chunk])
 
+    async def flush(self):
+        await super().flush()
+        self.input_tail = self.input_tail[:0].copy()
+        self.session.reset_expected()
+
     async def step(self, operation):
         self.trace.append(operation)
         if operation in ("clause", "sentence"):
