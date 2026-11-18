@@ -163,6 +163,8 @@ class Classroom(Scenario):
     async def settle(self, *, flush):
         if flush:
             await self.pipeline.flush_audio()
+            self.tail = self.tail[:0].copy()
+            self.session.reset_expected()
         drain = asyncio.create_task(self.pipeline.drain(timeout=None))
         try:
             for _ in range(6 * (len(self.parts) + 3)):

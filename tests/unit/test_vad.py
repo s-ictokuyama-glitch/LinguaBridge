@@ -89,6 +89,68 @@ def test_flush_returns_open_utterance():
     assert seg.flush() is None  # 二重フラッシュは空
 
 
+@pytest.mark.parametrize("old_value,old_frames", [(0, 2), (1000, 1), (1000, 2), (1000, 3)])
+def test_flush_discards_old_audio_and_requires_a_fresh_onset(old_value: int, old_frames: int):
+    seg = VoiceSegmenter(EnergyVAD(300), frame_ms=32, start_speech_ms=96)
+    old_pcm = np.full(old_frames * 512, old_value, dtype=np.int16)
+    seg.feed(np.concatenate([old_pcm, np.full(17, 1500, dtype=np.int16)]))
+
+    previous = seg.flush()
+    if old_value and old_frames == 3:
+        assert previous is not None
+        np.testing.assert_array_equal(previous.pcm, old_pcm)
+        assert previous.t_start == 0.0
+        assert previous.t_end == pytest.approx(old_frames * 0.032)
+    else:
+        assert previous is None
+    assert seg.flush() is None
+
+    new_frame = np.full(512, 2000, dtype=np.int16)
+    assert seg.feed(new_frame) == []
+    assert seg.feed(new_frame) == []
+    assert [type(event) for event in seg.feed(new_frame)] == [SpeechActivity]
+    resumed = seg.flush()
+    assert resumed is not None
+    np.testing.assert_array_equal(resumed.pcm, np.full(1536, 2000, dtype=np.int16))
+    assert resumed.t_start == pytest.approx(old_frames * 0.032)
+    assert resumed.t_end == pytest.approx((old_frames + 3) * 0.032)
+    assert seg.flush() is None
+
+
+def test_flush_cancels_boundary_pending_after_a_natural_close():
+    seg = VoiceSegmenter(
+        EnergyVAD(300), frame_ms=32, start_speech_ms=96,
+        min_silence_ms=500, force_silence_ms=1000,
+    )
+    seg.feed(np.full(1536, 1000, dtype=np.int16))
+    assert [type(event) for event in seg.feed(np.zeros(16 * 512, dtype=np.int16))] == [Segment]
+    assert seg.flush() is None
+    assert seg.feed(np.zeros(32 * 512, dtype=np.int16)) == []
+
+
+@pytest.mark.parametrize("old_frames", [2, 3])
+def test_flush_clears_detector_memory_before_resuming(old_frames: int):
+    class StickyVAD(EnergyVAD):
+        def __init__(self):
+            super().__init__(300)
+            self.speech = False
+
+        def is_speech(self, frame):
+            self.speech = self.speech or super().is_speech(frame)
+            return self.speech
+
+        def reset(self):
+            self.speech = False
+
+    seg = VoiceSegmenter(StickyVAD(), frame_ms=32, start_speech_ms=96)
+    seg.feed(np.full(old_frames * 512, 1000, dtype=np.int16))
+    seg.flush()
+    assert seg.feed(np.zeros(1536, dtype=np.int16)) == []
+    assert seg.flush() is None
+    assert [type(event) for event in seg.feed(np.full(1536, 2000, dtype=np.int16))] == [SpeechActivity]
+    assert seg.flush() is not None
+
+
 def test_pre_roll_included_before_speech_onset():
     # 発話開始判定より前の音声（プリロール）がセグメント先頭に含まれる（語頭の欠け防止）
     seg = VoiceSegmenter(
