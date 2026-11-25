@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+発話と発話の間に音声認識・翻訳の子プロセスが終了したとき、次の一文から先生と英中の生徒に字幕が届くかは [idle-inference-recovery](../../.agents/skills/idle-inference-recovery/SKILL.md) で検証する。翻訳キャッシュが欠落を覆う条件と、出荷モデルでの再現手順も含む。
+
 マイクのサンプルレートによって音声が欠けたり字幕が遅れたりするときは [microphone-sample-rates](../../.agents/skills/microphone-sample-rates/SKILL.md) を使う。8種類の入力レートでパケットの送信時刻と波形を照合し、44.1 kHzの50分相当の入力と出荷モデルでの日本語3発話を英中字幕まで通す。
 
 翻訳待ちが満杯になり、音声認識の容量も使い切る授業は [translation-backpressure](../../.agents/skills/translation-backpressure/SKILL.md) で検証する。受理できた音声、先生への破棄通知、容量が空いた後の英中字幕を照合する。
