@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+マイクのサンプルレートによって音声が欠けたり字幕が遅れたりするときは [microphone-sample-rates](../../.agents/skills/microphone-sample-rates/SKILL.md) を使う。8種類の入力レートでパケットの送信時刻と波形を照合し、44.1 kHzの50分相当の入力と出荷モデルでの日本語3発話を英中字幕まで通す。
+
 翻訳待ちが満杯になり、音声認識の容量も使い切る授業は [translation-backpressure](../../.agents/skills/translation-backpressure/SKILL.md) で検証する。受理できた音声、先生への破棄通知、容量が空いた後の英中字幕を照合する。
 
 配信中に先生ページを再読み込みしたり、別タブに交代したりすると字幕が止まる場合は [teacher-page-rejoin](../../.agents/skills/teacher-page-rejoin/SKILL.md) を使う。実際の Edge で再参加後に2発話を入力し、先生の音声パケットと英中の生徒画面を照合する。
