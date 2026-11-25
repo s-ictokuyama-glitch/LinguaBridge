@@ -39,8 +39,9 @@ def test_resumed_bilingual_captions_contain_only_new_audio(action, period, quant
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize("session", ["paused", "live"])
 @pytest.mark.parametrize("failure", ["resume", "getUserMedia"])
-def test_teacher_resume_failure_can_be_retried(failure):
+def test_teacher_resume_failure_can_be_retried(failure, session):
     run_teacher_script([
         {"status": 200, "body": {"code": "4831", "join_url": "http://lan.test/?code=4831"}},
     ], r'''
@@ -71,9 +72,9 @@ def test_teacher_resume_failure_can_be_retried(failure):
     state.audioCtx = context;
     state.micStream = {getAudioTracks: () => [track], getTracks: () => [track]};
     state.joined = true;
-    state.sessionState = "paused";
     state.ws = new WebSocket();
     state.ws.readyState = WebSocket.OPEN;
+    applySessionState(__SESSION__);
   `, sandbox);
   const clickStart = async () => {
     elements.get("start-btn").dispatchEvent(new Event("click"));
@@ -82,11 +83,65 @@ def test_teacher_resume_failure_can_be_retried(failure):
   await clickStart();
   assert.deepEqual(sent, [], "failed capture recovery must not send start");
   assert.match(elements.get("mic-status").textContent, /denied/);
+  assert.equal(elements.get("start-btn").disabled, false);
   reject = false;
   await clickStart();
-  assert.deepEqual(sent, [{type: "control", action: "start"}]);
+  assert.deepEqual(sent, __SESSION__ === "live" ? [] : [{type: "control", action: "start"}]);
+  assert.equal(elements.get("start-btn").disabled, __SESSION__ === "live");
   assert.equal(elements.get("mic-status").textContent, "マイク取得済み。");
-'''.replace("__FAILURE__", json.dumps(failure)))
+'''.replace("__FAILURE__", json.dumps(failure)).replace("__SESSION__", json.dumps(session)))
+
+
+@pytest.mark.parametrize(("initial", "transition"), [
+    ("live", "live"), ("live", "paused"), ("live", "ended"),
+    ("live", "reconnected"), ("paused", "reconnected"),
+])
+def test_mic_permission_cannot_start_a_live_or_reconnected_lesson(initial, transition):
+    run_teacher_script([
+        {"status": 200, "body": {"teacher_code": "654321", "code": "4831", "join_url": "http://lan.test"}},
+    ], r'''
+  await sandbox.init();
+  sandbox.WebSocket.OPEN = 1;
+  const ws = sockets[0];
+  ws.readyState = sandbox.WebSocket.OPEN;
+  const joined = state => ({type: "joined", session_state: state, recording: false});
+  ws.emit(joined(__INITIAL__));
+  const start = elements.get("start-btn");
+  assert.equal(start.textContent, __INITIAL__ === "live" ? "マイクを再開" : "再開");
+  assert.equal(start.disabled, false);
+  let grant;
+  let calls = 0;
+  sandbox.navigator.mediaDevices = {getUserMedia() {
+    calls++;
+    return new Promise(resolve => { grant = resolve; });
+  }};
+  sandbox.window = {AudioContext: class {
+    audioWorklet = {addModule: async () => {}};
+    async resume() { this.state = "running"; }
+    createGain() { return {gain: {}, connect() {}}; }
+    createMediaStreamSource() { return {connect() {}}; }
+  }};
+  sandbox.AudioWorkletNode = class { port = {}; connect() {} };
+  start.dispatchEvent(new Event("click"));
+  assert.equal(start.disabled, true);
+  start.dispatchEvent(new Event("click"));
+  assert.equal(calls, 1);
+  const next = __TRANSITION__;
+  if (next === "reconnected") {
+    ws.close();
+    timers.find(timer => timer.delay === 2000).fn();
+    sockets[1].readyState = sandbox.WebSocket.OPEN;
+    sockets[1].emit(joined("paused"));
+  } else {
+    ws.emit({type: "session", state: next});
+  }
+  const track = {readyState: "live"};
+  grant({getAudioTracks: () => [track]});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(elements.get("mic-status").textContent, "マイク取得済み。");
+  assert.equal(start.disabled, next === "live");
+  assert.deepEqual(sent, [], "a pending microphone request must not start this lesson");
+'''.replace("__INITIAL__", json.dumps(initial)).replace("__TRANSITION__", json.dumps(transition)))
 
 
 _MIC_SELECTION_SETUP = r'''

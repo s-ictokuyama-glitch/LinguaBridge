@@ -341,7 +341,7 @@ const MUTATIONS = [
     from: 'showMicNotice(`このマイクを使えませんでした（${error.name}）。前のマイクのままです。`);',
     to: 'showMicNotice("");' },
   { name: "resume_control_disabled", property: "controls_available",
-    from: 'el.startBtn.disabled = !connected || s === "live";', to: "el.startBtn.disabled = true;" },
+    from: "el.startBtn.disabled = ", to: "el.startBtn.disabled = true || " },
 ];
 
 async function mutations(source, baseline) {

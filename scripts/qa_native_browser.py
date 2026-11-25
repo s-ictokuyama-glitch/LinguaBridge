@@ -775,6 +775,13 @@ def teacher_replacement(screens):
     next_stats(replacement)
     next_stats(replacement)
     assert teacher.evaluate("state.joined") is False
+    replacement.set_viewport_size({"width": 360, "height": 800})
+    start = replacement.locator("#start-btn")
+    expect(start).to_be_enabled()
+    assert replacement.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    start.click()
+    expect(replacement.locator("#mic-status")).to_have_text("マイク取得済み。")
+    expect(start).to_be_disabled()
     observed = replacement.evaluate("({micReady:state.micReady,worklet:!!state.workletNode,startDisabled:el.startBtn.disabled})")
     assert observed["micReady"] and observed["worklet"], f"配信中表示だが新先生の音声経路が未準備: {observed}"
     audio(replacement, 1000)
