@@ -36,7 +36,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 - `before_exit` に差があれば、障害注入前から経路が成立していない。その列の障害注入は行わない。`next` は次の発話の排出直後、`end` は C・D の排出後。`following_bilingual` は D の受信自体が途絶えた場合にも残る。
 - **2 / ERROR** や JSON を出す前の停止は判定未完了。Windows のローカルソケット・プロセス生成、モデル準備、排出待ち、破壊箇所の一致を調べる。実モデルで語が `unknown(...)` と出る場合は、障害なしの同じ教材で原文と識別語を照合する。
 
-同期時点では正常対照4件が成立し、子が終了した12件すべてで欠落を検出した。すべての列で最後の D は両言語に届いた。
+修正前の `75d2c42` では正常対照4件が成立し、子を終了させた12件すべてで欠落を検出した。最後の D は全条件で両言語に届いていた。次の表は修正前の受信列を示す。
 
 | 発話 A の後に終了した子 | 次が新しい B のときに観測した受信列 |
 |---|---|
@@ -45,9 +45,9 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 | 翻訳 | 先生と中国語は A、B、C、D。英語だけ A、C、D |
 | 両方 | 先生と中国語は A、C、D。英語は A、D |
 
-翻訳だけを終了させて A を繰り返すと、キャッシュ有効時は2回目の A も届き、次に初めて翻訳する C の英語が抜ける。障害後に同じ文を一度読むだけでは、この欠落を見落とす。
+修正前に翻訳だけを終了させて A を繰り返すと、キャッシュ有効時は2回目の A も届き、次に初めて翻訳する C の英語が抜けた。このためキャッシュを使った直後も C・D まで照合する。
 
-`ProcessInferenceRunner._get_generation` は回収が予約されていない世代を再利用する。待機中に子が終了していると、次の要求で初めて通信失敗を検出し、`run` は世代の回収後にその要求へ `InferenceFailed` を返す。認識ならその音声区間、翻訳ならその言語のジョブがここで終わる。出荷設定のライブ翻訳は英語を先に処理するため、翻訳だけが終了した対照では英語に欠落が現れる。
+`ProcessInferenceRunner._get_generation` は準備済みの子を再利用する前に生存を確認する。終了済みなら回収を待ち、新しい子を準備してからその要求を送る。修正後は全16条件で、先生・英語・中国語に発話1〜4が順に一度ずつ届いた。
 
 ## 教材と出荷モデルで確認する
 
@@ -57,7 +57,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/idle_inference_recovery.py --real --json .audit/idle-inference-native.json
 ```
 
-`--models-dir` でモデル保存先を指定できる。「教科書」「光合成」「質問」「実験」の4発話を、出荷設定の Silero・Haas ONNX・morph・Hy-MT2 で順に処理する。キャッシュ有効・次の発話 B に固定し、終了対象は4通りとも試す。先生の確定原文に教材の識別語があり、生徒が受け取った字幕の日本語と番号が先生のものと一致し、訳文がその原文・言語に対する実モデルの応答に一致することを調べる。`frames` には実際の原文と訳文が残る。同期時の4列で上表と同じ結果を観測した。
+`--models-dir` でモデル保存先を指定できる。「教科書」「光合成」「質問」「実験」の4発話を、出荷設定の Silero・Haas ONNX・morph・Hy-MT2 で順に処理する。キャッシュ有効・次の発話 B に固定し、終了対象は4通りとも試す。先生の確定原文に教材の識別語があり、生徒が受け取った字幕の日本語と番号が先生のものと一致し、訳文がその原文・言語に対する実モデルの応答に一致することを調べる。`frames` には実際の原文と訳文が残る。修正後は4条件とも3人に4発話が届いた。
 
 対象は発話間の1箇所で確認済みのプロセス終了。推論中のクラッシュ、全OSスケジュール、物理マイク・LAN・ブラウザー描画、自然発生頻度、訳の意味精度、実時間50分の性能はこの結果からは判断できない。推論中の期限切れとモデル再準備の停止は [lesson-endurance](../lesson-endurance/SKILL.md)・[inference-startup](../inference-startup/SKILL.md) を参照する。
 
@@ -65,7 +65,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 
 `--mutation-check` は製品コードの一時コピーに、2文目の先生の番号をずらす、中国語だけ2文目を送信しない、音声認識の代替プロセスを起動できなくする、の3変更を個別に加える。それぞれ対照では成立した `next.teacher`、`next.zh`、`following_bilingual` が破壊時に失敗し、復元で同じ受信列に戻ることを確認する。`mutations` の3件と、元の実装で再び全16条件の結果が一致したことを示す `restored_matches: true` を確認する。製品の反例が残っている場合、破壊検査が成功しても全体は終了コード1を返す。
 
-同期コミットは `c04eb6546b722dd6aff567b54e3134ba217ed9b0`。
+下のコマンドは検証済みの `server/inference_process.py` が入ったコミットを現在の履歴から探す。squash マージ後も同じファイル内容を基準に照合できる。
 
 | 対象 | 変更時に照合する箇所 |
 |---|---|
@@ -77,7 +77,8 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/requirem
 | `scripts/formal/` | `idle_inference_recovery.py`、`idle_inference_mutations.py` と、再利用する `classroom_language_demand.start_lesson`、`lesson_liveness` の計算・受信代役、`lesson_audio_boundary_real.read_fixture` |
 
 ```powershell
-git diff c04eb6546b722dd6aff567b54e3134ba217ed9b0 -- server config.yaml scripts/formal
+$idleBaseline = git log --reverse --format=%H --find-object=6c34074545f1b6ef6654b970289570e851b6c1f0 -- server/inference_process.py | Select-Object -First 1
+git diff $idleBaseline -- server config.yaml scripts/formal
 ```
 
 変更後は障害なしの対照と1列の反例を再現し、終了が次のPCM受理より前であること、失われた入力または言語を製品コードと照合する。仕様を意図して変えた場合は、その根拠に照らして期待値と入力を更新する。全探索、3破壊と復元、教材での照合を終え、検証が新しい実装を表していると確認したコミットへ同期点を進める。未検証の変更が重なったら `/maintain-formal-verification-skill` を使う。

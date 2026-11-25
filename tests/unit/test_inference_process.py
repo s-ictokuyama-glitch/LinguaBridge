@@ -407,6 +407,25 @@ def test_model_failures_remain_failures_and_model_is_reused(tmp_path, operation,
     asyncio.run(scenario())
 
 
+def test_first_request_after_idle_child_exits_succeeds(tmp_path):
+    async def scenario():
+        engine, runner = await prepared(tmp_path)
+        try:
+            process = runner._generation.process
+            process.kill()
+            process.join(timeout=5)
+            assert process.exitcode is not None
+
+            result = await runner.run(partial(engine.translate, "next", "zh"), timeout=5)
+            assert isinstance(result, InferenceSucceeded), result
+            assert result.value[1:] == ("next", "zh")
+        finally:
+            await runner.aclose()
+        assert_reaped(tmp_path)
+
+    asyncio.run(scenario())
+
+
 def test_child_crash_is_reaped_and_next_request_succeeds(tmp_path):
     async def scenario():
         engine, runner = await prepared(tmp_path)
