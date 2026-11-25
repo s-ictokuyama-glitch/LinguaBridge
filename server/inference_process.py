@@ -167,8 +167,12 @@ class ProcessInferenceRunner:
             return InferenceFailed(error)
 
     async def _get_generation(self) -> _Generation:
-        if self._generation is not None and self._generation.cleanup is not None:
-            await asyncio.shield(self._generation.cleanup)
+        generation = self._generation
+        if generation is not None and (
+            generation.cleanup is not None
+            or (generation.startup is not None and generation.startup.done() and not generation.process.is_alive())
+        ):
+            await asyncio.shield(self._retire(generation))
             self._generation = None
         if self._closed:
             raise RuntimeError("inference runner stopped")
