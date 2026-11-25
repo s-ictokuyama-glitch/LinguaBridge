@@ -92,8 +92,11 @@ def test_teacher_resume_failure_can_be_retried(failure, session):
 '''.replace("__FAILURE__", json.dumps(failure)).replace("__SESSION__", json.dumps(session)))
 
 
-@pytest.mark.parametrize("transition", ["live", "paused", "ended", "reconnected"])
-def test_rejoined_live_teacher_can_restore_mic_without_starting_lesson(transition):
+@pytest.mark.parametrize(("initial", "transition"), [
+    ("live", "live"), ("live", "paused"), ("live", "ended"),
+    ("live", "reconnected"), ("paused", "reconnected"),
+])
+def test_mic_permission_cannot_start_a_live_or_reconnected_lesson(initial, transition):
     run_teacher_script([
         {"status": 200, "body": {"teacher_code": "654321", "code": "4831", "join_url": "http://lan.test"}},
     ], r'''
@@ -102,9 +105,9 @@ def test_rejoined_live_teacher_can_restore_mic_without_starting_lesson(transitio
   const ws = sockets[0];
   ws.readyState = sandbox.WebSocket.OPEN;
   const joined = state => ({type: "joined", session_state: state, recording: false});
-  ws.emit(joined("live"));
+  ws.emit(joined(__INITIAL__));
   const start = elements.get("start-btn");
-  assert.equal(start.textContent, "マイクを再開");
+  assert.equal(start.textContent, __INITIAL__ === "live" ? "マイクを再開" : "再開");
   assert.equal(start.disabled, false);
   let grant;
   let calls = 0;
@@ -137,8 +140,8 @@ def test_rejoined_live_teacher_can_restore_mic_without_starting_lesson(transitio
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(elements.get("mic-status").textContent, "マイク取得済み。");
   assert.equal(start.disabled, next === "live");
-  assert.deepEqual(sent, [], "restoring the microphone must never start a lesson");
-'''.replace("__TRANSITION__", json.dumps(transition)))
+  assert.deepEqual(sent, [], "a pending microphone request must not start this lesson");
+'''.replace("__INITIAL__", json.dumps(initial)).replace("__TRANSITION__", json.dumps(transition)))
 
 
 _MIC_SELECTION_SETUP = r'''

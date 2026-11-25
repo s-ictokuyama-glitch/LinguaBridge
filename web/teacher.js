@@ -15,6 +15,7 @@ const state = {
   localTeacherCode: null,
   sessionState: "idle",
   recordingSaveError: null,
+  startPending: false,
   micReady: false,
   audioCtx: null,
   audioMute: null,
@@ -190,6 +191,8 @@ function attachStream(stream, deviceId) {
   state.micSource = source;
   state.micStream = stream;
   state.micDeviceId = deviceId;
+  for (const track of stream.getAudioTracks()) track.onended = setButtons;
+  setButtons();
   storageSet(STORAGE_MIC_DEVICE, deviceId);
 }
 
@@ -344,13 +347,22 @@ async function init() {
   else showTeacherJoinForm();
 
   el.startBtn.addEventListener("click", async () => {
+    if (state.startPending) return;
+    const session = state.sessionState;
+    const ws = state.ws;
+    state.startPending = true;
+    setButtons();
     try {
       await ensureMic();
+      if (session !== "live" && state.sessionState === session && state.ws === ws) {
+        sendControl("start");
+      }
     } catch (err) {
       el.micStatus.textContent = `マイクを取得できませんでした: ${err.message}`;
-      return;
+    } finally {
+      state.startPending = false;
+      setButtons();
     }
-    sendControl("start");
   });
   el.pauseBtn.addEventListener("click", () => sendControl("pause"));
   el.endBtn.addEventListener("click", () => sendControl("end"));
@@ -392,7 +404,7 @@ function connect(code) {
     if (state.ws !== ws) return;
     state.ws = null;
     state.joined = false;
-    setButtons(false);
+    setButtons();
     if (ev.code === 4000) {
       // 後勝ち接続に置き換えられた（E-08）。再接続すると互いにキックし合うので止まる
       state.acceptedTeacherCode = null;
@@ -464,7 +476,7 @@ function handleMessage(msg, ws, code) {
         el.silenceWarning.hidden = false;
       } else if (msg.code === "recording_save_failed") {
         applyRecordingSaveError(msg.message);
-        setButtons(state.joined);
+        setButtons();
       } else {
         el.micStatus.textContent = `サーバーからの警告: ${msg.message}`;
       }
@@ -511,20 +523,16 @@ function applySessionState(s) {
     el.delayCell.classList.remove("slow");
     clearPartial(); // 一時停止・終了で暫定行を残さない（#29）
   }
-  setButtons(state.joined);
+  setButtons();
 }
 
-/** ボタンのラベルと活性を状態から決める（#30）。
- *
- * 一時停止からの再開は「開始」の押し直しで行われる（サーバー側は `start` のまま）。
- * ミッションが start / pause / **resume** / end を挙げているので、
- * **押す前に何が起きるか**がボタンから読めるようラベルを切り替える。
- * ended から開始し直せる現行の挙動は残す。
- */
-function setButtons(connected) {
+function setButtons() {
+  const connected = state.joined;
   const s = state.sessionState;
-  el.startBtn.textContent = s === "paused" ? "再開" : "開始";
-  el.startBtn.disabled = !connected || s === "live";
+  const recoverMic = s === "live" &&
+    (!state.micReady || state.audioCtx.state !== "running" || !hasLiveMic());
+  el.startBtn.textContent = recoverMic ? "マイクを再開" : s === "paused" ? "再開" : "開始";
+  el.startBtn.disabled = !connected || state.startPending || (s === "live" && !recoverMic);
   el.pauseBtn.disabled = !connected || s !== "live";
   el.endBtn.disabled = !connected || (s !== "live" && s !== "paused" && !state.recordingSaveError);
   el.recordToggle.disabled = !connected;
@@ -641,6 +649,7 @@ async function ensureMic() {
     mute.gain.value = 0; // ワークレットをグラフに保持しつつスピーカーには出さない
     mute.connect(ctx.destination);
     state.audioCtx = ctx;
+    ctx.onstatechange = setButtons;
     state.audioMute = mute;
     replaceAudioWorklet();
   }

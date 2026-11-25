@@ -179,10 +179,13 @@ async def exercise(room, case):
     if state["startEnabled"] and (prior == "paused" or state["context"] != "running" or state["track"] != "live"):
         await teacher.locator("#start-btn").click()
         try:
-            await teacher.wait_for_function("document.body.dataset.state === 'live'", timeout=3000)
+            await teacher.wait_for_function("""previous => document.body.dataset.state === 'live'
+                && state.audioCtx?.state === 'running'
+                && state.micStream?.getAudioTracks().some(track => track.readyState === 'live')
+                && probe.packets > previous""", arg=state["packets"], timeout=5000)
         except BrowserTimeout:
-            failures.append("resume_state")
-    if room.app.state.lesson.state != "live" and "resume_state" not in failures:
+            failures.append("resume_input")
+    if room.app.state.lesson.state != "live":
         failures.append("resume_state")
     phases = []
     for index in (1, 2):
@@ -254,8 +257,7 @@ async def mutations(browser, baseline):
     # Each mutation starts from a passing case and takes effect after the first caption.
     changes = (
         ("paused_start_disabled", ("reload", "paused", "running"), "teacher.js",
-         'el.startBtn.disabled = !connected || s === "live";',
-         'el.startBtn.disabled = !connected || s === "live" || s === "paused";',
+         'el.startBtn.disabled = ', 'el.startBtn.disabled = s === "paused" || ',
          {"resume_state", "first_captions", "following_captions"}),
         ("lost_third_card", ("socket", "live", "running"), "student.js",
          '  card.dataset.seq = msg.seq;', '  if (msg.seq === 3 && msg.lang === "zh") return;\n  card.dataset.seq = msg.seq;',

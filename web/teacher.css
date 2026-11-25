@@ -86,5 +86,5 @@ details summary { cursor: pointer; font-weight: 600; }
   .code { font-size: 3.2rem; }
   .statusrow { flex-wrap: wrap; overflow-x: visible; }
   .cell-mic { flex-basis: 100%; border-right: 0; border-bottom: 1px solid var(--rule); }
-  .cell.controls { flex-basis: 100%; margin-left: 0; border-top: 1px solid var(--rule); }
+  .cell.controls { flex-basis: 100%; flex-wrap: wrap; margin-left: 0; border-top: 1px solid var(--rule); }
 }

@@ -775,8 +775,10 @@ def teacher_replacement(screens):
     next_stats(replacement)
     next_stats(replacement)
     assert teacher.evaluate("state.joined") is False
+    replacement.set_viewport_size({"width": 360, "height": 800})
     start = replacement.locator("#start-btn")
     expect(start).to_be_enabled()
+    assert replacement.evaluate("document.documentElement.scrollWidth <= innerWidth")
     start.click()
     expect(replacement.locator("#mic-status")).to_have_text("マイク取得済み。")
     expect(start).to_be_disabled()
