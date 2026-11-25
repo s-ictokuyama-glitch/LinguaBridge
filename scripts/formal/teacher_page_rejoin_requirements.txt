@@ -1,0 +1,4 @@
+-r school_access_requirements.txt
+h11==0.16.0
+websockets==17.1
+playwright==1.64.1

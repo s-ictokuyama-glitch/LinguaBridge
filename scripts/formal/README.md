@@ -1,5 +1,7 @@
 # 授業記録の有界検証
 
+配信中に先生ページを再読み込みしたり、別タブに交代したりすると字幕が止まる場合は [teacher-page-rejoin](../../.agents/skills/teacher-page-rejoin/SKILL.md) を使う。実際の Edge で再参加後に2発話を入力し、先生の音声パケットと英中の生徒画面を照合する。
+
 先生が文の途中で黙り、その直後に短い音を拾ったときは [morph-silence スキル](../../.agents/skills/morph-silence/SKILL.md) を使う。次の発話を待たずに、保留していた原文と英中の字幕が届くかを検査する。
 
 先生ページが100 msのパケットを作る途中や、完成した音声の配送を待つ間に授業を止めた場合は [teacher-audio-resume](../../.agents/skills/teacher-audio-resume/SKILL.md) を使う。停止中の会話が再開後の英中字幕に混ざらないかを、実Workletと出荷モデルで追跡できる。
