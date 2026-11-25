@@ -17,7 +17,7 @@ Windows の Microsoft Edge と Python 3.12.10 を使う。リポジトリ直下�
 uv run --python 3.12.10 --no-project --with-requirements scripts/formal/teacher_page_rejoin_requirements.txt python -X utf8 -B scripts/formal/teacher_page_rejoin.py --mutation-check --json .audit/teacher-page-rejoin.json
 ```
 
-同じ依存を持つ開発環境では先頭を `.venv/Scripts/python.exe` に置き換えて実行できる。日常の全10通りの検査は `--mutation-check` を外す。単一の反例は次のコマンドで再生できる。
+同じ依存を持つ開発環境では先頭を `.venv/Scripts/python.exe` に置き換えて実行できる。日常の全10通りの検査は `--mutation-check` を外す。配信中の再読み込みだけを試すには次を実行する。
 
 ```powershell
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/teacher_page_rejoin.py --case reload live running
@@ -33,7 +33,7 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/teacher_
 | `reload` | 同じタブを再読み込みする | 正常。前のドキュメントのマイクは引き継げない |
 | `takeover` | 同じブラウザーで2枚目の先生タブを開く | 旧ページのマイクは正常。旧接続の終了コード4000も確認する |
 
-再参加後、手動停止のケースでは再開前に1発話を再生し、送信パケットも字幕の追加も0であることを確認する。配信中に入力の再取得が必要なときは、画面で有効な「開始／再開」を1回押せる。続けて異なる2発話を入力し、各発話の後で英中双方のカード全件を比較する。
+再参加後、手動停止のケースでは再開前に1発話を再生し、送信パケットも字幕の追加も0であることを確認する。配信中に入力の再取得が必要なときは「マイクを再開」を1回押す。再開操作の後は AudioContext が running、入力トラックが live になり、新しい音声パケットが送られるのを待つ。続けて異なる2発話を入力し、各発話の後で英中双方のカード全件を比較する。
 
 検証器は Playwright で Edge を操作し、Web Audio の音源を `getUserMedia` が返す MediaStream にする。音源はマイク未取得のときも同じ長さだけ再生する。製品の AudioWorklet、100 ms のPCMパケット、ループバックHTTP・WebSocket、音声区間化、morph、翻訳キュー、配信、DOMへの描画を通る。ブラウザーのAPI・授業状態・音声処理を手書きの状態機械へ写さずに、境界で起きる欠落を直接観測できる。
 
@@ -43,11 +43,11 @@ uv run --python 3.12.10 --no-project --with-requirements scripts/formal/teacher_
 
 終了0は `PASS`、1は `FAIL`、2は `ERROR`。既知の欠落が再現したときも1を返す。`cases[].rejoined` で表示・AudioContext・track・開始ボタンを、`phases` で次の2発話の送信数・有音パケット数とカードの番号・原文・言語・訳を読む。
 
-- `rejoin_state` は参加通知・交代通知・授業状態の不一致、`resume_state` は再開後も授業が配信中にならないことを示す。
+- `rejoin_state` は参加通知・交代通知・授業状態の不一致、`resume_state` は再開後も授業が配信中にならないことを示す。`resume_input` は再開操作後に音声入力の準備を確認できなかったことを示す。
 - `paused_quiet` は手動停止中の送信または字幕の追加を示す。`first_captions` と `following_captions` は各発話後のカード列の不一致を示す。
 - 音声パケットが0なら、再参加時のマイク取得と開始ボタンを調べる。有音パケットがあるなら、認識、翻訳、配信、描画の順に追う。最初の正常対照を作れなかった場合やブラウザー・モデルの起動失敗は `ERROR` になる。反例と区別して、入力、依存、モデル、loopbackの待受けを確認する。
 
-同期時は10通りのうち6通りで成立した。配信中に①マイク休止中の同一ページ再接続、②track終了後の同一ページ再接続、③再読み込み、④別タブへの交代を行うと、次の2発話が欠けた。正常な同一ページの再接続と、手動停止から「再開」を押した全5通りで順序どおり届いた。
+Issue #221 の修正前（`f1188b2`）は、配信中の再読み込み、別タブへの交代、音声処理が休止またはトラックが終了した同じタブの再接続で、次の2発話が欠けた。修正後は全10条件で英中双方に2発話が順番どおり1回ずつ届いた。マイクが正常な同じタブの通信復帰には操作が要らない。手動停止した5条件では「再開」を押すまで送信は0件だった。
 
 `--mutation-check` は `web/` の一時コピーを実際に配信する。再開ボタンを無効にする、3枚目の中国語カードを落とす、手動停止を勝手に再開する、停止中もPCMを送るという4変更を、正常対照・破壊・復元の順に照合する。最後の全探索で各ケースの違反が元に戻ることを `restored_matches` で確認する。
 
@@ -60,11 +60,11 @@ Silero、Haas ONNX int8、Hy-MT2 と Playwright が入った開発環境を使�
 .venv/Scripts/python.exe -X utf8 -B scripts/formal/teacher_page_rejoin.py --real --case reload live running --json .audit/rejoin-live.json
 ```
 
-対照では一時停止して再読み込みし、「再開」を押す。同じページで通信だけが切れた場合の対照は `--real --case socket live running` で実行でき、同期時に3発話すべてが英中双方へ届いた。同期時は「光合成には日光と水と二酸化炭素が必要です」「教科書の42ページを開いてください」の両方に英訳・中訳が表示された。配信中に再読み込みした場合、送信は各0パケットで両方の生徒に1枚目だけが残った。実モデルでは翻訳キャッシュを無効にし、教材ごとの日本語の目印、発話番号、宛先言語、空でない訳、両画面の原文の一致を調べる。訳文の品質、物理マイク、学校LAN、授業50分間の性能は別の評価を要する。
+配信中の再読み込みでは「マイクを再開」、手動停止後の再読み込みでは「再開」を押す。両方のケースで「光合成には日光と水と二酸化炭素が必要です」「教科書の42ページを開いてください」の英訳・中訳が字幕の2枚目、3枚目に表示された。同じページで通信だけを切る対照には `--real --case socket live running` を使う。実モデルでは翻訳キャッシュを無効にし、教材ごとの日本語の目印、発話番号、宛先言語、空でない訳、両画面の原文の一致を調べる。訳文の品質、物理マイク、学校LAN、授業50分間の性能は別の評価を要する。
 
 ## 実装との同期
 
-同期コミットは `b17e6743077f081c54035e60c3d9745a0e312d81`。
+下のコマンドは、検証済みの `web/teacher.js` を追加したコミットを現在の履歴から探す。squash マージ後も同じファイル内容を使って差分を確認できる。
 
 | 対象 | 照合点 |
 |---|---|
@@ -74,7 +74,8 @@ Silero、Haas ONNX int8、Hy-MT2 と Playwright が入った開発環境を使�
 | `config.yaml`、`scripts/formal/teacher_page_rejoin.py`、`teacher_rejoin_media.js` | 出荷構成、操作集合、仮想マイクの再生完了と観測位置 |
 
 ```powershell
-git diff b17e6743077f081c54035e60c3d9745a0e312d81 -- config.yaml web server
+$rejoinBaseline = git log --reverse --format=%H --find-object=64ea0a1aa4780d1a2088e6aac497613ac3aca958 -- web/teacher.js | Select-Object -First 1
+git diff $rejoinBaseline -- config.yaml web server
 ```
 
 再参加の通知やボタン操作が変わったら、入力を送れる時点と有効な操作を製品コードで確かめる。意図した契約変更は操作・期待値・破壊検出に反映する。10通りと破壊検出・復元、実モデルの対照と反例を再照合してから同期コミットを進める。未照合の変更が溜まったら `/maintain-formal-verification-skill` を使う。
