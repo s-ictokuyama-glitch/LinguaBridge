@@ -38,7 +38,7 @@ function element() {
   });
 }
 
-async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => message()) {
+async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => message(), rate = RATE) {
   const elements = new Map();
   const sockets = [];
   const contexts = [];
@@ -46,7 +46,7 @@ async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => me
   const observed = { packets: 0, bytes: 0, nonzero: 0, matching: 0, wanted: 0, sizes: new Set() };
   let Processor;
   vm.runInNewContext(fs.readFileSync(path.join(sourceRoot, "web/audio-worklet.js"), "utf8"), {
-    sampleRate: RATE,
+    sampleRate: rate,
     AudioWorkletProcessor: class {
       constructor() { this.port = { postMessage() {} }; }
     },
@@ -69,7 +69,7 @@ async function page(sourceRoot, writeFrame = () => {}, deliver = (message) => me
   class Context {
     constructor() {
       this.state = "suspended";
-      this.sampleRate = RATE;
+      this.sampleRate = rate;
       this.destination = {};
       this.sources = [];
       this.nodes = [];
